@@ -1,5 +1,5 @@
 /** RM-089 F7: decisão da fábrica baseada somente em registros do núcleo e fatos relidos da forja. */
-import type { ConfiguracaoDaFabricaCi } from './types';
+import type { ConfiguracaoDaFabricaCi, PoliticaDeReciboCi } from './types';
 
 export type ForjaDaFabrica = 'github' | 'gitlab';
 export type CodigoDeProvaDaFabrica = 'ci.fabrica.prova-ausente' | 'ci.fabrica.regra-destino-invalida';
@@ -61,8 +61,13 @@ export interface RegistrosParaDecisaoDaFabrica {
   origem: string;
   destino: string;
   head: string;
+  nivelDoDestino: PoliticaDeReciboCi;
   comandosDoManifesto: string[];
   configuracaoDoDestino: ConfiguracaoDaFabricaCi | null;
+  /** Entrada adversarial explícita: nunca é autoritativa. */
+  configuracaoDoCheckout: ConfiguracaoDaFabricaCi | null;
+  identidadeRelidaDaFabrica: number | null;
+  chaveDeProvaDoArtefato: string | null;
   verifies: VerifyDaFabrica[];
   comparacao: ComparacaoDaFabrica;
   registrosDeCommit: RegistroDeCommitDaFabrica[];
@@ -76,6 +81,7 @@ export interface ProvaDosRegistrosDaFabrica {
   origem: string;
   destino: string;
   head: string;
+  nivel: PoliticaDeReciboCi;
   verify: VerifyDaFabrica;
   check: CheckDaFabrica;
   tag: TagDaConducaoDaFabrica;
@@ -105,12 +111,18 @@ export function conferirRegistrosDaFabrica(entrada: RegistrosParaDecisaoDaFabric
   if (!SHA.test(entrada.head) || !entrada.configuracaoDoDestino) return falha('configuração pública ausente no destino');
   const identidade = entrada.forja === 'github'
     ? entrada.configuracaoDoDestino.github_app_id : entrada.configuracaoDoDestino.gitlab_user_id;
-  if (!Number.isSafeInteger(identidade) || Number(identidade) <= 0) return falha('identidade da fábrica ausente para a forja');
+  if (!Number.isSafeInteger(identidade) || Number(identidade) <= 0 || entrada.identidadeRelidaDaFabrica !== identidade) {
+    return falha('identidade da fábrica ausente ou rotacionada para a forja');
+  }
 
   const ultimoVerify = [...entrada.verifies].sort((a, b) => a.posicao - b.posicao).at(-1);
   if (!ultimoVerify || !ultimoVerify.verde || !SHA.test(ultimoVerify.commit) || !HASH.test(ultimoVerify.chaveDeProva)
       || !ultimoVerify.rodadaId || !mesmos(ultimoVerify.comandos, entrada.comandosDoManifesto)) {
     return falha('último verify não é verde ou não executou o manifesto');
+  }
+  if (!HASH.test(entrada.chaveDeProvaDoArtefato ?? '')
+      || entrada.chaveDeProvaDoArtefato !== ultimoVerify.chaveDeProva) {
+    return falha('chave de prova do artefato ausente ou divergente');
   }
   if (!entrada.comparacao.completa || !entrada.comparacao.commits.every((c) => SHA.test(c.sha))) {
     return falha('lista de commits ou arquivos incompleta');
@@ -136,12 +148,13 @@ export function conferirRegistrosDaFabrica(entrada: RegistrosParaDecisaoDaFabric
   const check = [...entrada.checks].sort((a, b) => a.posicao - b.posicao).reverse().find((c) =>
     c.fase === 'CHECK' && c.origem === 'sessions.watch' && c.despachoRegistrado && c.despachoVerificado
     && c.promptConferido && !!c.sensorResultId && c.favoravel && HASH.test(c.parecerSha256)
-    && c.shaRevisado === entrada.head && c.posicao > posicaoDoUltimoProduto && !construtores.includes(c.sessionId));
-  if (!check) return falha('CHECK independente e ligado ao HEAD ausente');
+    && c.shaRevisado === ultimoVerify.commit && c.posicao > posicaoDoUltimoProduto && !construtores.includes(c.sessionId));
+  if (!check) return falha('CHECK independente e ligado ao verify aceito ausente');
   const tag = [...entrada.tags].sort((a, b) => a.posicao - b.posicao).reverse().find((t) =>
     t.conducaoId === check.conducaoId && t.head === entrada.head && t.posicao >= check.posicao);
   if (!tag) return falha('tag da mesma condução ausente');
   return { ok: true, prova: { forja: entrada.forja, projeto: entrada.projeto, origem: entrada.origem,
-    destino: entrada.destino, head: entrada.head, verify: ultimoVerify, check, tag, construtores,
+    destino: entrada.destino, head: entrada.head, nivel: entrada.nivelDoDestino,
+    verify: ultimoVerify, check, tag, construtores,
     commitsDeProduto: produtos.map((commit) => commit.sha), configuracaoDoDestino: entrada.configuracaoDoDestino } };
 }

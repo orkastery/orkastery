@@ -865,7 +865,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   const forja = lerBlocoForja(dados.forja, erros, avisos);
   const produtores = lerProdutores(ci.produtor, erros);
   const contextos = lerContextos(ci.contexts, erros);
-  const fabricaCi = lerFabricaCi(ci.fabrica, erros);
+  lerFabricaCi(ci.fabrica, erros);
   let politicaDeRecibo: PoliticaDeReciboCi | undefined;
   if (ci.politica_recibo !== undefined && ci.politica_recibo !== null) {
     const valor = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : '';
@@ -1070,7 +1070,6 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),
       ...(politicaDeRecibo ? { politica_recibo: politicaDeRecibo } : {}),
-      ...(fabricaCi ? { fabrica: fabricaCi } : {}),
       ...(contextos ? { contexts: contextos } : {}),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
       external_repositories: repositoriosExternos(ci.external_repositories, erros),
@@ -1161,10 +1160,12 @@ export interface ComandosDoManifesto {
   timeoutMs: number | undefined;
   timeoutMsPorComando: Manifesto['verify']['timeout_ms_por_comando'] | undefined;
   checkMode: ModoDoCheck;
+  politicaRecibo: PoliticaDeReciboCi | undefined;
   ciCommand: string | undefined;
   /** RM-089 F6: documento bruto lido somente da ref de destino protegida; o checkout fonte nunca o fornece. */
   excecaoRecibo: Record<string, ValorYaml> | undefined;
   fabricaCi: ConfiguracaoDaFabricaCi | undefined;
+  fabricaCiInvalida: boolean;
 }
 
 /**
@@ -1185,13 +1186,15 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
   const excecaoRecibo = ci.excecao_recibo !== null && typeof ci.excecao_recibo === 'object' && !Array.isArray(ci.excecao_recibo)
     ? mapa(ci.excecao_recibo) : undefined;
-  const fabricaCi = lerFabricaCi(ci.fabrica, erros);
-  if (erros.length > 0) return null;
+  const errosDaFabrica: string[] = [];
+  const fabricaCi = lerFabricaCi(ci.fabrica, errosDaFabrica);
+  const politica = ci.politica_recibo;
+  const politicaRecibo = politica === 'observar' || politica === 'avisar' || politica === 'exigir' ? politica : undefined;
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
-    checkMode: resolverModo(check?.mode).modo,
-    ciCommand: opcional(ci.command), excecaoRecibo, fabricaCi };
+    checkMode: resolverModo(check?.mode).modo, politicaRecibo,
+    ciCommand: opcional(ci.command), excecaoRecibo, fabricaCi, fabricaCiInvalida: errosDaFabrica.length > 0 };
 }
 
 /** Documento da policy F6 vindo do manifesto da target; a validação fechada mora em excecao-recibo.ts. */
