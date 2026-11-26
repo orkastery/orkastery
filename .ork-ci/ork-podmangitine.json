@@ -1592,32 +1592,6 @@
       ]
     },
     {
-      "id": "C106",
-      "thread": "ork-podmangitine",
-      "fase": "GO",
-      "arquivo": "core/assets/skills-en/phases/check-quality/SKILL.md",
-      "alegacao": "A skill inglesa afirma literalmente que ferramenta indisponível ou falha nunca conta como limpa e que no laço o scan sai 1 por padrão.",
-      "negativa": true,
-      "verificar": [
-        "node -e \"const s=require('node:fs').readFileSync('core/assets/skills-en/phases/check-quality/SKILL.md','utf8');if(!s.includes('is declared in the verdict and never counts as clean')||!s.includes('it makes the scan exit 1 by default'))process.exit(1)\""
-      ],
-      "criadoEm": "2026-11-25T16:59:42.169Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C107",
       "thread": "ork-podmangitine",
       "fase": "GO",
@@ -1982,16 +1956,94 @@
       ]
     },
     {
-      "id": "C126",
+      "id": "C127",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/hitl-gates.test.ts",
+      "alegacao": "A suíte prova que a resposta b do scan atravessa despacho e verify equivalentes, sai de validade após verify verde ou evidência diferente, filtra o próprio pulse e dá consequência própria à alternativa a.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/hitl-gates.test.js core/dist-test/test/pulse.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:52:22.303Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C128",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-ship.test.ts",
+      "alegacao": "A suíte do SHIP recusa outro SHA, resposta sem recibo, recibo forjado e recibo de outro verificador, além de conferir a correção que aponta para o pedido tipado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-ship.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:52:22.371Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C130",
       "thread": "ork-podmangitine",
       "fase": "GO",
       "arquivo": "core/src/ship.ts",
-      "alegacao": "A detecção de candidata já incorporada aceita a saída Git concluída quando o sandbox anexa um aviso ao processo e preserva o merge que trouxe a branch.",
+      "alegacao": "A suíte preserva a detecção da candidata já incorporada e identifica o merge que trouxe a branch.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js core/dist-test/test/locale-f2b-snapshot.test.js"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js"
       ],
-      "criadoEm": "2026-11-25T23:50:06.272Z",
+      "criadoEm": "2026-11-26T01:52:22.514Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C131",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "A suíte confere em português e inglês que a política de cobertura ausente aponta para o pedido tipado, a resposta b e a forma equivalente do CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-retry.test.js"
+      ],
+      "criadoEm": "2026-11-26T01:52:22.607Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -2048,6 +2100,10 @@
     {
       "id": "C125",
       "reason": "local-integration-required"
+    },
+    {
+      "id": "C129",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
@@ -2062,7 +2118,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "53a0f3558054b5cffe6b2e25889c2a7db212a7fd",
-    "sha256": "459c3383de33605b7edf283f01997e1cc6e4ac1c7617c0f414d0627ad2cce19e"
+    "head": "746a6be326ce6b440748876f3de24c101975c0de",
+    "sha256": "6ba05d6e15b6540d651736075dd1905884962a371105faebec41c393c4f0cd75"
   }
 }
