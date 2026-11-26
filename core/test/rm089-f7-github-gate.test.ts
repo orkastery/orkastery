@@ -29,6 +29,14 @@ test('uma fonte estrita própria basta e fonte paralela sem App não a enfraquec
   assert.equal(avaliarGateGithub(e).ok, true, 'uma fonte fixa o App e outra fonte própria fornece strict');
   e.rulesets[0].checks = [];
   assert.equal(avaliarGateGithub(e).ok, false, 'fonte estrita sem o nome não conta');
+  for (const appId of [null, -1]) {
+    const semApp = base(); semApp.protecaoClassica!.checks[0].appId = appId;
+    assert.equal(avaliarGateGithub(semApp).ok, false, 'a fonte decisória precisa fixar o App exato');
+  }
+  const inativo = base(); inativo.protecaoClassica = undefined;
+  inativo.rulesets = [{ ativo: false, inclusoes: ['refs/heads/main'], exclusoes: [], strict: true,
+    checks: [{ nome: nomeDecisorioGithub('main'), appId: 42 }] }];
+  assert.equal(avaliarGateGithub(inativo).ok, false, 'ruleset inativo não governa o destino');
 });
 
 test('regra ampla, padrão, diagnóstico exigido, App divergente e destino desatualizado falham fechado', () => {
@@ -65,6 +73,11 @@ test('troca de base aciona releitura, outro destino ganha outro nome e merge_gro
   assert.notEqual(nomeDecisorioGithub('main'), nomeDecisorioGithub('release'));
   const e = base(); e.baseDoPedido = 'release';
   assert.equal(avaliarGateGithub(e).ok, false);
+  const outro = base(); outro.destino = 'release'; outro.baseDoPedido = 'release';
+  outro.protecaoClassica = { padrao: 'release', strict: true,
+    checks: [{ nome: nomeDecisorioGithub('release'), appId: 42 }] };
+  const decisao = avaliarGateGithub(outro); assert.equal(decisao.ok, true);
+  if (decisao.ok) assert.equal(decisao.nome, nomeDecisorioGithub('release'));
 });
 
 test('fork e pedido atrás do destino seguem prova ausente, sem código público de regra', () => {

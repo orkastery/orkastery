@@ -41,6 +41,8 @@ test('resultado de outro vínculo, vencido, adulterado ou com chave revogada fal
   const revogada = structuredClone(politica); revogada.chaves[0].revogadaEm = '2026-11-26T10:15:00.000Z';
   assert.equal(verificarResultadoForteDaFabrica(r, revogada,
     { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H }, '2026-11-26T10:30:00.000Z').ok, false);
+  assert.equal(verificarResultadoForteDaFabrica(r, politica,
+    { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H }, '2026-11-26T09:59:59.000Z').ok, false);
 });
 
 test('exceção F6 aceita somente operation ci.run e o mesmo vínculo', () => {

@@ -11,7 +11,9 @@ const base = (): RegistrosParaDecisaoDaFabrica => ({
   configuracaoDoCheckout: { github_app_id: 7 }, identidadeRelidaDaFabrica: 42, chaveDeProvaDoArtefato: K,
   verifies: [{ commit: V, verde: true, comandos: ['npm test'], rodadaId: 'rodada', chaveDeProva: K, posicao: 10 }],
   comparacao: { relacao: 'ahead', completa: true, arquivosDesdeVerify: ['.ork-ci/prova.json'],
-    commits: [{ sha: P, pais: [V], arquivos: ['core/src/alvo.ts'] }, { sha: H, pais: [P], arquivos: ['.ork-ci/prova.json'] }] },
+    commits: [{ sha: P, pais: [V], arquivos: ['core/src/alvo.ts'] },
+      { sha: 'e'.repeat(40), pais: [P, V], arquivos: ['core/src/merge.ts'] },
+      { sha: H, pais: [P], arquivos: ['.ork-ci/prova.json'] }] },
   registrosDeCommit: [{ tipo: 'mcp_git_committed', commit: P, sessionId: 'construtor', posicao: 11 }],
   checks: [{ fase: 'CHECK', origem: 'sessions.watch', sessionId: 'revisor', despachoEm: '2026-11-26T10:00:00.000Z',
     despachoRegistrado: true, despachoVerificado: true, promptConferido: true, sensorResultId: 'sensor', favoravel: true,
@@ -34,6 +36,16 @@ test('C127 falha fechado com verde antigo, lista truncada, produto sem registro 
     (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].shaRevisado = H; },
     (e: RegistrosParaDecisaoDaFabrica) => { e.chaveDeProvaDoArtefato = 'e'.repeat(64); },
     (e: RegistrosParaDecisaoDaFabrica) => { e.identidadeRelidaDaFabrica = 7; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.verifies[0].comandos = ['npm outro']; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.comparacao.relacao = 'diverged'; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.comparacao.arquivosDesdeVerify = ['core/src/depois.ts']; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.tags[0].conducaoId = 'outra'; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.tags[0].head = V; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].despachoRegistrado = false; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].despachoVerificado = false; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].promptConferido = false; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].sensorResultId = ''; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].favoravel = false; },
   ];
   for (const mudar of casos) { const e = base(); mudar(e); assert.equal(conferirRegistrosDaFabrica(e).ok, false); }
 });
@@ -111,4 +123,32 @@ test('porta ausente e erro de emissão são falha de prova em exigir', () => {
   const d = processarEventoDaFabrica(evento, { ...comum, avaliarDestino: () => null,
     revalidarAntesDoEfeito: () => true, emitirResultado: () => { throw new Error('assinatura recusada'); } });
   assert.equal(d.codigo, 'ci.fabrica.prova-ausente');
+});
+
+test('assinatura, janela, nível do destino e releitura antes do efeito falham fechado', () => {
+  const comum = { emitidoEm: '2026-11-26T10:00:00.000Z', recebidoEm: '2026-11-26T10:01:00.000Z' };
+  const portas = { reler: base, avaliarDestino: () => null, revalidarAntesDoEfeito: () => true,
+    emitirResultado: () => ({ sha256: K }), persistir: () => undefined, publicar: () => undefined };
+  assert.equal(processarEventoDaFabrica({ id: 'sem-assinatura', assinaturaValida: false, ...comum }, portas).estado,
+    'bloqueado');
+  assert.equal(processarEventoDaFabrica({ id: 'fora-da-janela', assinaturaValida: true,
+    emitidoEm: '2026-11-25T10:00:00.000Z', recebidoEm: comum.recebidoEm }, portas).estado, 'bloqueado');
+  assert.equal(processarEventoDaFabrica({ id: 'mudou-antes-do-efeito', assinaturaValida: true, ...comum },
+    { ...portas, revalidarAntesDoEfeito: () => false }).estado, 'bloqueado');
+  const observarNoCheckout = () => { const e = base(); e.configuracaoDoCheckout = { github_app_id: 42 };
+    e.nivelDoDestino = 'exigir'; return e; };
+  assert.equal(processarEventoDaFabrica({ id: 'nivel', assinaturaValida: false, ...comum },
+    { ...portas, reler: observarNoCheckout }).estado, 'bloqueado');
+});
+
+test('resultado forte recebe somente os fatos relidos, nunca o HEAD informado pelo evento', () => {
+  const recebidos: string[] = [];
+  const d = processarEventoDaFabrica({ id: 'evento', assinaturaValida: true, headInformado: 'f'.repeat(40),
+    emitidoEm: '2026-11-26T10:00:00.000Z', recebidoEm: '2026-11-26T10:01:00.000Z' }, {
+    reler: base, avaliarDestino: () => null, revalidarAntesDoEfeito: () => true,
+    emitirResultado: (prova) => { recebidos.push(prova.head); return { sha256: K }; },
+    persistir: () => undefined, publicar: () => undefined,
+  });
+  assert.equal(d.estado, 'liberado');
+  assert.deepEqual(recebidos, [H]);
 });

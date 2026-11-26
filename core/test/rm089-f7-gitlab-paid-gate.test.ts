@@ -36,6 +36,8 @@ test('aprovação não substitui proteção, atualização, HEAD nem vínculo do
     (e: EntradaGitlabPago) => { e.baseDeMerge = 'e'.repeat(40); }]) {
     const e = base(); mudar(e); assert.equal(avaliarGateGitlabPago(e).ok, false);
   }
+  const status = base(); status.statusExterno = 'passed'; status.divergencia = 1;
+  assert.equal(avaliarGateGitlabPago(status).ok, false);
 });
 
 test('configuração ausente diagnostica em observar e avisar e bloqueia em exigir', () => {

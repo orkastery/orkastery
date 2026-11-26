@@ -26,6 +26,13 @@ test('commit status e external status check positivos não autorizam o gate', ()
   if (!r.ok) assert.equal(r.codigo, 'ci.fabrica.prova-ausente');
 });
 
+test('status positivo não substitui token api nem proteção da branch', () => {
+  const semEscopo = base(); semEscopo.statusDoCommit = 'success'; semEscopo.escopoDoToken = [];
+  assert.equal(avaliarGateGitlabFree(semEscopo).ok, false);
+  const semProtecao = base(); semProtecao.statusExterno = 'passed'; semProtecao.destinoProtegido = false;
+  assert.equal(avaliarGateGitlabFree(semProtecao).ok, false);
+});
+
 test('outro Maintainer efetivo só diagnostica em todos os níveis e Owner fica como limite declarado', () => {
   for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
     const e = base(); e.nivel = nivel; e.membros.push({ id: 9, nivel: 40 }, { id: 10, nivel: 50 });
