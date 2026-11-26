@@ -40,6 +40,17 @@ export const CONSULTA_DOS_ABERTOS_SEGUINTES = `query($path: ID!, $base: String!,
 
 export const CONSULTA_RAIZ_GITLAB = 'query($path: ID!) { project(fullPath: $path) { repository { rootRef } } }';
 
+/** RM-089 F7: caminhos REST usados pela releitura fechada do gate GitLab. */
+export const caminhoDosMembrosEfetivosGitlab = (projeto: string): string =>
+  `projects/${encodeURIComponent(projeto)}/members/all?per_page=100`;
+export const caminhoDoMrDaFabricaGitlab = (projeto: string, iid: number): string =>
+  `projects/${encodeURIComponent(projeto)}/merge_requests/${iid}?include_diverged_commits_count=true`;
+export const caminhoDaBaseDeMergeGitlab = (projeto: string, de: string, ate: string): string => {
+  const parametros = new URLSearchParams();
+  parametros.append('refs[]', de); parametros.append('refs[]', ate);
+  return `projects/${encodeURIComponent(projeto)}/repository/merge_base?${parametros.toString()}`;
+};
+
 export const CONSULTA_ARVORES_GITLAB = `query($path: ID!, $base: String!, $dirRoadmap: String!, $refReservas: String!, $dirReservas: String!,
   $refFabrica: String!, $dirFabrica: String!) {
   project(fullPath: $path) { repository {

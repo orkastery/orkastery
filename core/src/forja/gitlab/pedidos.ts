@@ -137,3 +137,10 @@ export function compararGitlab(e: { repo: string; de: string; ate: string; api?:
   if (!r || r.compare_timeout === true || !Array.isArray(r.commits)) return null;
   return r.commits.length === 0 ? 'ahead' : 'diverged';
 }
+
+/** RM-089 F7: vínculo final do merge GitLab. O destino nunca é inferido do evento. */
+export function pedidoDeMergeDaFabricaGitlab(repo: string, iid: number, head: string):
+  { caminho: string; corpo: { sha: string } } {
+  if (!Number.isSafeInteger(iid) || iid < 1 || !SHA.test(head)) throw new Error('ci.fabrica.prova-ausente');
+  return { caminho: `${projetoNaApi(repo)}/merge_requests/${iid}/merge`, corpo: { sha: head } };
+}
