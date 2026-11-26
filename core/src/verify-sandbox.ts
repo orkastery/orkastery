@@ -11,7 +11,6 @@ import { ResultadoDeComando } from './types';
 import { ExecutorVerify, TIMEOUT_VERIFY_MS } from './verify';
 import { exigirShellDoVerify } from './shell-do-verify';
 import type { ShellDoVerify } from './types';
-import { fs as fsTipado, path as pathTipado, processo } from './node-portavel';
 
 const MAX_OUTPUT = 1024 * 1024;
 
@@ -111,7 +110,7 @@ function estadoSandbox(worktree: string, scratch: string): object {
 }
 
 export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar: ExecutorVerify; fechar: () => void } {
-  if (processo.platform !== 'linux') throw new Error('executor VERIFY sandbox disponível somente em Linux');
+  if (process.platform !== 'linux') throw new Error('executor VERIFY sandbox disponível somente em Linux');
   if (!path.isAbsolute(opcoes.worktree)) throw new Error('worktree deve ser absoluta');
   const worktree = fs.realpathSync(opcoes.worktree);
   if (!fs.statSync(worktree).isDirectory() || worktree === path.parse(worktree).root) throw new Error('worktree inválida');
@@ -120,9 +119,9 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > TIMEOUT_VERIFY_MS) throw new Error('timeout sandbox fora do limite');
   // Binário local aprovado da instalação; a injeção existe só na API interna de teste e nunca vem da claim ou de tool args.
   const binInformado = opcoes.binarioSandbox ?? '/usr/bin/codex';
-  if (!pathTipado.isAbsolute(binInformado)) throw new Error('binário do executor sandbox deve ser absoluto');
-  const bin = fsTipado.realpathSync(binInformado);
-  const binStat = fsTipado.statSync(bin);
+  if (!path.isAbsolute(binInformado)) throw new Error('binário do executor sandbox deve ser absoluto');
+  const bin = fs.realpathSync(binInformado);
+  const binStat = fs.statSync(bin);
   if (!binStat.isFile() || (binStat.mode & 0o111) === 0) throw new Error('binário do executor sandbox não é executável');
   const shell = exigirShellDoVerify(opcoes.shellDoVerify);
   const isolamento = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-verify-config-'));
@@ -150,7 +149,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
     if (fechado) throw new Error('executor sandbox fechado');
     if(erroCleanup || !consumidoresEncerrados)throw Error(erroCleanup || 'cleanup incompleto: consumidor pendente');
     const atual = fs.statSync(worktree);
-    const atualBin = fsTipado.statSync(bin);
+    const atualBin = fs.statSync(bin);
     if (fs.realpathSync(cwd) !== worktree || atual.dev !== original.dev || atual.ino !== original.ino ||
         atualBin.dev !== binStat.dev || atualBin.ino !== binStat.ino) throw new Error('escopo/binário do executor sandbox mudou');
     if(!identidadeIgual(isolamento,isolamentoStat))throw Error('isolamento sandbox mudou');
@@ -174,7 +173,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
       for(const item of criados)if(!identidadeIgual(item.file,item.stat))throw Error('metadado temporário mudou antes do lançamento');
       const env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: home, CODEX_HOME: codexHome,
         TMPDIR: tmp, TMP: tmp, TEMP: tmp, LANG: 'C.UTF-8', CI: '1',
-        XDG_CACHE_HOME: pathTipado.join(home, '.cache'), npm_config_cache: pathTipado.join(home, '.npm') };
+        XDG_CACHE_HOME: path.join(home, '.cache'), npm_config_cache: path.join(home, '.npm') };
       const args = argumentosDoExecutorSandbox(estadoSandbox(worktree, scratch), shell, comando);
       consumidoresEncerrados=false;
       const entrada = { bin, args, cwd: worktree, env, timeoutMs, maxOutput: MAX_OUTPUT };
@@ -214,7 +213,7 @@ export function criarExecutorSandbox(opcoes: OpcoesExecutorSandbox): { executar:
         }
         try {
           if(!identidadeIgual(isolamento,isolamentoStat) || !identidadeIgual(scratch,scratchStat))throw Error('scratch mudou');
-          fsTipado.rmSync(scratch,{recursive:true,force:false});
+          fs.rmSync(scratch,{recursive:true,force:false});
         } catch {erros.push('scratch');}
         if(erros.length)erroCleanup='cleanup incompleto: objetos substituídos ou não vazios preservados: '+erros.join(', ')+'; isolamento preservado: '+isolamento;
       }

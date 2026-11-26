@@ -1,6 +1,7 @@
 /** O Bash do verify vem de caminhos absolutos controlados, nunca de PATH ou variável do projeto. */
 import { ShellDoVerify } from './types';
-import { fs, processo, spawnSync } from './node-portavel';
+import * as fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
 export const CAMINHOS_DO_SHELL_DO_VERIFY = ['/bin/bash', '/usr/bin/bash'] as const;
 
@@ -24,7 +25,7 @@ export function versaoDoBashValida(versao: string): boolean {
 }
 
 function medirVersao(caminho: string): string | null {
-  const env = { ...processo.env };
+  const env = { ...process.env };
   delete env.BASH_ENV; delete env.ENV;
   const r = spawnSync(caminho, ['--noprofile', '--norc', '-c', 'printf %s "$BASH_VERSION"'], {
     encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'pipe'], env,

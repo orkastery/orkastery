@@ -6,9 +6,18 @@
  * removido quando a identidade do processo não existe mais ou pertence a
  * outra encarnação do PID.
  */
-import {
-  codigoDoErro, type EstatisticaDeArquivo, fs, interpretarJson, path, performance, processo, randomUUID, spawnSync,
-} from './node-portavel';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
+
+function codigoDoErro(erro: unknown): string | undefined {
+  if (typeof erro !== 'object' || erro === null || !('code' in erro)) return undefined;
+  const codigo = (erro as { code?: unknown }).code;
+  return typeof codigo === 'string' ? codigo : undefined;
+}
+const interpretarJson = (texto: string): unknown => JSON.parse(texto) as unknown;
 
 const CONTRATO = 'ork.trava-portatil/v1';
 const MAX_BYTES = 4096;
@@ -52,7 +61,7 @@ export class ErroDaTravaPortatil extends Error {
   }
 }
 
-function uidAtual(): number | null { return processo.getuid?.() ?? null; }
+function uidAtual(): number | null { return process.getuid?.() ?? null; }
 
 function dormir(ms: number): void {
   if (ms <= 0) return;
@@ -86,7 +95,7 @@ function validarCandidato(valor: unknown): Candidato {
   return v as Candidato;
 }
 
-function lerCandidato(arquivo: string): { valor: Candidato; stat: EstatisticaDeArquivo } {
+function lerCandidato(arquivo: string): { valor: Candidato; stat: fs.Stats } {
   let releiturasInconsistentes = 0;
   for (;;) {
     let fd: number | undefined;
@@ -158,7 +167,7 @@ function identidadePorPs(pid: number): string | null | undefined {
   if (existe === false) return null;
   const r = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'lstart='], {
     encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...processo.env, LC_ALL: 'C', LANG: 'C', TZ: 'UTC0' },
+    env: { ...process.env, LC_ALL: 'C', LANG: 'C', TZ: 'UTC0' },
   });
   if (r.error || r.status !== 0) return processoExiste(pid) === false ? null : undefined;
   const inicio = r.status === 0 ? r.stdout.trim().replace(/\s+/g, ' ') : '';
@@ -168,7 +177,7 @@ function identidadePorPs(pid: number): string | null | undefined {
 
 /** `false` prova ESRCH; falta de permissão prova que o PID existe. */
 function processoExiste(pid: number): boolean | undefined {
-  try { processo.kill(pid, 0); return true; }
+  try { process.kill(pid, 0); return true; }
   catch (e) {
     const codigo = codigoDoErro(e);
     if (codigo === 'ESRCH') return false;
@@ -180,14 +189,14 @@ function processoExiste(pid: number): boolean | undefined {
 /** Identidade da encarnação do PID; `null` prova ausência, `undefined` não prova nada. */
 export function identidadeDoProcesso(pid: number): string | null | undefined {
   if (!Number.isSafeInteger(pid) || pid <= 0) return null;
-  if (processo.platform === 'linux') return identidadeLinux(pid);
-  if (processo.platform === 'darwin') return identidadePorPs(pid);
+  if (process.platform === 'linux') return identidadeLinux(pid);
+  if (process.platform === 'darwin') return identidadePorPs(pid);
   return undefined;
 }
 
-function listar(dir: string): Array<{ arquivo: string; valor: Candidato; stat: EstatisticaDeArquivo }> {
+function listar(dir: string): Array<{ arquivo: string; valor: Candidato; stat: fs.Stats }> {
   const nomes = fs.readdirSync(dir).filter((nome) => /^[a-f0-9-]{36}\.json$/.test(nome)).sort();
-  const itens: Array<{ arquivo: string; valor: Candidato; stat: EstatisticaDeArquivo }> = [];
+  const itens: Array<{ arquivo: string; valor: Candidato; stat: fs.Stats }> = [];
   for (const nome of nomes) {
     const arquivo = path.join(dir, nome);
     try { itens.push({ arquivo, ...lerCandidato(arquivo) }); }
@@ -196,7 +205,7 @@ function listar(dir: string): Array<{ arquivo: string; valor: Candidato; stat: E
   return itens;
 }
 
-function removerSeMorto(arquivo: string, esperado: Candidato, statEsperado: EstatisticaDeArquivo,
+function removerSeMorto(arquivo: string, esperado: Candidato, statEsperado: fs.Stats,
   consultar: (pid: number) => string | null | undefined): boolean {
   const identidade = consultar(esperado.pid);
   if (identidade === undefined || identidade === esperado.identidade) return false;
@@ -213,7 +222,7 @@ function removerSeMorto(arquivo: string, esperado: Candidato, statEsperado: Esta
 }
 
 function limparMortos(dir: string, proprioToken: string,
-  consultar: (pid: number) => string | null | undefined): Array<{ arquivo: string; valor: Candidato; stat: EstatisticaDeArquivo }> {
+  consultar: (pid: number) => string | null | undefined): Array<{ arquivo: string; valor: Candidato; stat: fs.Stats }> {
   for (const item of listar(dir)) {
     if (item.valor.token !== proprioToken) removerSeMorto(item.arquivo, item.valor, item.stat, consultar);
   }
@@ -235,14 +244,14 @@ export function adquirirTravaPortatil(alvo: string, operacao: string,
     throw new ErroDaTravaPortatil('trava.portatil.insegura', 'alvo absoluto e operação válida são obrigatórios');
   }
   const consultar = opcoes.identidadeDoProcesso ?? identidadeDoProcesso;
-  const identidade = consultar(processo.pid);
+  const identidade = consultar(process.pid);
   if (!identidade) throw new ErroDaTravaPortatil('trava.portatil.indisponivel', 'identidade do processo dono não pôde ser provada');
   const dir = `${alvo}.ork-lock`;
   garantirDiretorio(dir);
   const token = randomUUID();
   const arquivo = path.join(dir, `${token}.json`);
   let candidato: Candidato = {
-    contrato: CONTRATO, token, pid: processo.pid, uid: uidAtual(), identidade,
+    contrato: CONTRATO, token, pid: process.pid, uid: uidAtual(), identidade,
     ticket: 0, operacao: operacao.trim(), criadoEm: new Date().toISOString(),
   };
   // O nome final só aparece depois de conteúdo, fsync e fechamento. Leitores
