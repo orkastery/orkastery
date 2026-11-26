@@ -258,20 +258,23 @@ test('referências públicas fixam níveis, estados e a fronteira de confiança 
   assert.match(guiaPt, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
   assert.match(guiaPt, /runner não consulta nem confere.*ledger/s);
   assert.match(guiaPt, /reexecuta no HEAD.*claims.*comandos.*Não usa ancestralidade nem diff posterior/s);
-  assert.match(guiaPt, /job_workflow_ref.*job_workflow_sha.*ci_config_ref_uri.*ci_config_sha/s);
+  assert.match(guiaPt, /Decisão da fábrica.*lista completa de commits e arquivos.*ork\.ci-recibo-forte-payload\/v2/s);
+  assert.doesNotMatch(guiaPt, /job_workflow_ref.*job_workflow_sha.*ci_config_ref_uri.*ci_config_sha/s);
   assert.doesNotMatch(guiaPt, /ork\.excecao-transporte-resultado\/v1/);
 
   const guiaEn = ler('docs/guias/politica-de-recibo-da-empresa.md');
   assert.match(guiaEn, /bundle and the receipt's `sha256`.*PR\/MR itself.*forge them/s);
   assert.match(guiaEn, /runner does not query.*ledger.*compare the projection/s);
   assert.match(guiaEn, /reruns.*claims and commands on the HEAD.*does\s+not use ancestry or a later diff/s);
-  assert.match(guiaEn, /job_workflow_ref.*job_workflow_sha.*ci_config_ref_uri.*ci_config_sha/s);
+  assert.match(guiaEn, /Factory decision.*complete commit and file lists.*ork\.ci-recibo-forte-payload\/v2/s);
+  assert.doesNotMatch(guiaEn, /job_workflow_ref.*job_workflow_sha.*ci_config_ref_uri.*ci_config_sha/s);
   assert.doesNotMatch(guiaEn, /ork\.excecao-transporte-resultado\/v1/);
 
   const forja = ler('docs/referencia/contratos/forja.md');
   assert.match(forja, /bundle e o `sha256`.*próprio PR\/MR.*podem ser forjados/s);
   assert.match(forja, /não consulta nem.*ledger.*somente reexecuta.*claims.*comandos.*HEAD.*ancestralidade.*diff/s);
-  assert.match(forja, /job_workflow_ref.*job_workflow_sha.*ci_config_ref_uri.*ci_config_sha/s);
+  assert.match(forja, /Decisão da fábrica.*comparação completa.*ork\.ci-recibo-forte-payload\/v2/s);
+  assert.doesNotMatch(forja, /job_workflow_ref.*job_workflow_sha.*ci_config_ref_uri.*ci_config_sha/s);
   assert.doesNotMatch(forja, /ork\.excecao-transporte-resultado\/v1/);
 });
 
