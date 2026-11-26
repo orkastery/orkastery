@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-07T04:47:21-03:00
+atualizado_em: 2026-11-26T09:50:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -49,6 +49,8 @@ sdlc:
   - Qualquer um retira uma claim, com motivo em texto livre e sem registro de quem retirou (`claims.ts`).
   - Não existe ferramenta MCP para retirar claim.
   - A exigência de dispensa vista na outra rede não existe no núcleo: vem do processo dela. O núcleo precisa de uma regra tipada para não repetir o problema.
+  - Em 26/11/2026, um `Veredito:` citado dentro de bloco de código fez o gate contar mais de um veredito e devolver `artifact.missing`, embora o parecer tivesse um único veredito canônico.
+  - Em 26/11/2026, retirar uma claim sem substituta abriu um pedido ao dono com alternativas genéricas, sem dizer qual claim, o motivo ou as opções reais; ações feitas pela condução no terminal também foram atribuídas a `dono:terminal-local`, e não a quem agiu.
 - **Objetivo/OKR:** uma claim criada no CHECK passa com a correção; a retirada tipada registra autor e motivo, enquanto a retirada em texto livre continua aceita e o recibo a marca como não tipada.
 - **Hipótese:** se a orientação e o lint exigirem claim que passa com a correção, e a retirada com substituta verificada for tipada, então o caso comum se resolve na revisão sem pedir uma decisão ao dono.
 - **Métrica principal / linha de base / meta / janela / fonte:** retiradas de claim que precisaram do dono. Linha de base: a medir. Meta: só retiradas sem substituta. Janela: por release. Fonte: `claims.jsonl` e ledger.
@@ -76,6 +78,17 @@ sdlc:
   - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
+
+### Acréscimo de 26/11/2026, não entregue
+
+- **Incluído:**
+  - o pedido de retirada sem substituta identifica a claim, explica o motivo e oferece as alternativas reais: registrar substituta, retirar como obsoleta ou manter;
+  - toda retirada registra a identidade efetiva que agiu; a autoria das outras ações da condução segue o contrato da [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md), e o canal de terminal não transforma a autoria em dono;
+  - os gates do CHECK leem somente o veredito canônico de nível superior e ignoram exemplos, citações e blocos de código; o fim de fase sem esse veredito preserva `artifact.missing`, consumido pela [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md).
+- **Critérios de aceite:**
+  - o pedido nomeia a claim, o motivo e as três alternativas reais, preservando-a até a decisão;
+  - um exemplo com `Veredito:` dentro de bloco de código não conta como segundo veredito nem altera o gate;
+  - uma retirada feita pela condução no terminal registra a condução como autora, sem atribuí-la ao dono.
 
 ## F2 — A claim roda no CI como a sessão escreveu
 
@@ -126,13 +139,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-07 | Julio |
-| Documentação | Em revisão | — | 2026-11-07 | Julio |
-| Código | Mesclado | commit `96a7b5c` | 2026-11-07 | Julio |
-| Testes | Em execução | — | 2026-11-07 | Julio |
-| Deploy | Não implantado | — | 2026-11-07 | Julio |
-| Exposição | Flag desligada | — | 2026-11-07 | Julio |
-| Habilitação | Pendente | — | 2026-11-07 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `96a7b5c` | 2026-11-26 | Julio |
+| Testes | Em execução | — | 2026-11-26 | Julio |
+| Deploy | Não implantado | — | 2026-11-26 | Julio |
+| Exposição | Flag desligada | — | 2026-11-26 | Julio |
+| Habilitação | Pendente | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -149,3 +162,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-06 | GO-FIX 2 substituiu o comando bruto do recibo por impressão versionada e redigiu textos livres do fluxo | falha determinística de `verify-timeout` e auditoria dos campos novos da RM-079 | sessão Codex (#Auto) |
 | 2026-11-06 | GO-FIX 3 fechou a redação de comandos, das três saídas CLI e da resposta MCP, com mutantes por regra | bloqueadores A1 a A5 do segundo CHECK | sessão Codex (#Auto) |
 | 2026-11-07 | GO-FIX 4 separou a identidade original do texto público e delimitou a narrativa às superfícies entregues | A6 e A4 do terceiro CHECK; A7–A12 seguem como dívida da `main` | sessão Codex (#Auto) |
+| 2026-11-26 | Escopo ampliado para dar contexto e alternativas reais ao pedido sem substituta, registrar a identidade efetiva nas retiradas e ignorar `Veredito:` de exemplo no gate | Achados da condução da versão 0.6.11 sobre retirada de claim, autoria do terminal e gate do CHECK | sessão GO `ork-achados0611` (#Fast) |
