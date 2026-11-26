@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-26T07:45:03.021Z",
+  "publicadoEm": "2026-11-26T07:46:33.837Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -32,23 +32,19 @@
       "id": "ork-podmangitine",
       "nome": "podman git inerte 302 299",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-podmangitine-full",
-      "atualizadaEm": "2026-11-26T06:53:05.468Z",
-      "entregue": null,
+      "atualizadaEm": "2026-11-26T07:46:33.448Z",
+      "entregue": "884b090",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-26T07:44:41.510Z",
-        "motivo": "sessão ecf696de encerrada (done)"
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm089f7recib",
