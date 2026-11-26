@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -18,13 +19,13 @@ const SHIP = 'test/rm089-f7-ship-fabrica.test.js';
 const A = (alvo, de, para) => ({ alvo: `src/${alvo}.js`, de, para });
 const M = (id, rotulo, alteracoes, focais) => ({ id, rotulo, alteracoes, focais });
 const matriz = [
-  M('MF1', 'Aceitar App diferente no GitHub', [A('ci-fabrica-github', 'c.appId === app', 'true')], [GH]),
-  M('MF2', 'Aceitar app_id nulo', [A('ci-fabrica-github', 'c.appId === app', 'true')], [GH]),
-  M('MF3', 'Aceitar app_id igual a -1', [A('ci-fabrica-github', 'c.appId === app', 'true')], [GH]),
+  M('MF1', 'Aceitar App diferente no GitHub', [A('ci-fabrica-github', 'c.appId === app', '(c.appId === app || c.appId === 7)')], [GH]),
+  M('MF2', 'Aceitar app_id nulo', [A('ci-fabrica-github', 'c.appId === app', '(c.appId === app || c.appId === null)')], [GH]),
+  M('MF3', 'Aceitar app_id igual a -1', [A('ci-fabrica-github', 'c.appId === app', '(c.appId === app || c.appId === -1)')], [GH]),
   M('MF4', 'Promover commit status GitLab a autoridade', [A('ci-fabrica-gitlab', 'e.divergencia !== 0', "(e.divergencia !== 0 && e.statusDoCommit !== 'success')")], [GLF]),
   M('MF5', 'Promover external status check a autoridade', [A('ci-fabrica-gitlab', 'e.divergencia !== 0', "(e.divergencia !== 0 && e.statusExterno !== 'passed')")], [GLP]),
   M('MF6', 'Usar campos do evento sem releitura', [A('ci-fabrica-servico', 'registros = portas.reler();', 'registros = { ...portas.reler(), head: evento.headInformado ?? portas.reler().head };')], [SERVICO]),
-  M('MF7', 'Assinar a partir do check-run do CI', [A('ci-fabrica-servico', 'const resultado = portas.emitirResultado(conferido.prova);', 'const resultado = portas.emitirResultado({ ...conferido.prova, head: evento.headInformado ?? conferido.prova.head });')], [SERVICO]),
+  M('MF7', 'Assinar a partir do check-run do CI', [A('ci-fabrica-servico', 'const resultado = portas.emitirResultado(conferido.prova);', 'const resultado = portas.emitirResultado({ ...conferido.prova, head: conferido.prova.check.shaRevisado });')], [SERVICO]),
   M('MF8', 'Ler nível do checkout do PR', [A('ci-fabrica-servico', 'nivel = registros.nivelDoDestino;', "nivel = registros.configuracaoDoCheckout ? 'observar' : registros.nivelDoDestino;")], [SERVICO]),
   M('MF9', 'Aceitar fork', [A('ci-fabrica-resultado', '|| esperado.fork === true ||', '|| false ||')], [RESULTADO]),
   M('MF10', 'Aceitar resultado de outro HEAD', [
@@ -76,7 +77,11 @@ const matriz = [
     A('ci-fabrica-github', "(entrada.relacaoComDestino !== 'ahead' && entrada.relacaoComDestino !== 'identical')", 'false'),
     A('ci-fabrica-gitlab', 'e.divergencia !== 0', 'false'),
   ], [GH, GLF]),
-  M('MF53', 'Aceitar commit de produto sem registro da thread', [A('ci-fabrica-registros', 'if (semRegistro)', 'if (false)')], [SERVICO]),
+  M('MF53', 'Aceitar commit de produto sem registro da thread', [
+    A('ci-fabrica-registros', 'if (semRegistro)', 'if (false)'),
+    A('ci-fabrica-registros', 'const dosProdutos = produtos.flatMap((commit) => registros.get(commit.sha));',
+      'const dosProdutos = produtos.flatMap((commit) => registros.get(commit.sha) ?? []).filter(Boolean);'),
+  ], [SERVICO]),
   M('MF54', 'Aceitar verify verde anterior a um vermelho', [A('ci-fabrica-registros', '.at(-1);', '.find((v) => v.verde);')], [SERVICO]),
   M('MF55', 'Aceitar verify ancestral seguido por mudança de produto', [A('ci-fabrica-registros', '!soBundle(entrada.comparacao.arquivosDesdeVerify)', 'false')], [SERVICO]),
   M('MF56', 'Aceitar verify em commit fora da cadeia do HEAD do PR', [A('ci-fabrica-registros', "entrada.comparacao.relacao !== 'ahead' && entrada.comparacao.relacao !== 'identical'", 'false')], [SERVICO]),
@@ -102,7 +107,16 @@ function ligarArvore(origem, destino) {
 function executarFocal(raiz, arquivo) {
   const env = { ...process.env, NODE_PATH: path.join(RAIZ, 'node_modules') };
   delete env.NODE_TEST_CONTEXT;
-  return spawnSync(process.execPath, ['--test', path.join(raiz, arquivo)], { cwd: raiz, env, encoding: 'utf8' });
+  const temporario = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-mutacao-relatorio-'));
+  const relatorio = path.join(temporario, 'tap.txt');
+  try {
+    const r = spawnSync(process.execPath, ['--test', '--experimental-test-isolation=none', '--test-reporter=tap',
+      `--test-reporter-destination=${relatorio}`, path.join(raiz, arquivo)], { cwd: raiz, env, encoding: 'utf8' });
+    const saida = fs.readFileSync(relatorio, 'utf8');
+    return { ...r, stdout: `${r.stdout}${saida}` };
+  } finally {
+    fs.rmSync(temporario, { recursive: true, force: true });
+  }
 }
 
 for (const arquivo of [...new Set(matriz.flatMap((m) => m.focais))]) {
@@ -133,6 +147,11 @@ for (const mutante of matriz) {
         const r = executarFocal(temporario, focal);
         if (r.signal || r.status === null) assert.fail(`mutante.invalido: ${mutante.id} ${r.signal ?? 'sem status'}`);
         assert.notEqual(r.status, 0, `mutante.sobreviveu: ${mutante.id} em ${focal}\n${r.stdout}`);
+        if (mutante.id === 'MF53') {
+          const saida = `${r.stdout}\n${r.stderr}`;
+          assert.doesNotMatch(saida, /TypeError/, 'MF53 precisa morrer pela asserção do contrato');
+          assert.match(saida, /AssertionError|ERR_ASSERTION/, 'MF53 precisa morrer pela asserção do contrato');
+        }
       }
     } finally {
       fs.rmSync(temporario, { recursive: true, force: true });
