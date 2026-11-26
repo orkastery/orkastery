@@ -72,6 +72,11 @@ export interface OpcoesShip {
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
   /**
+   * Resultado confiável da fábrica, relido pela superfície que chama o SHIP. Destino, HEAD e sinal da CI são
+   * preenchidos pelo próprio `ship`, para a porta não poder autorizar outro commit. Não é opção de CLI nem argumento MCP.
+   */
+  fabrica?: Omit<EntradaDoShipComFabrica, 'destino' | 'head' | 'ci'>;
+  /**
    * Pares `-c chave=valor` que o transporte fixado do MCP leva so ao `ls-remote` e ao `push` da base (o ssh com a
    * chave fixada, o helper da forja, a CA). Interno e confiavel, como o `executorVerify`: a CLI nunca o recebe.
    * So a lista que `configDeRede` emite passa, chave e valor; qualquer outra forma recusa antes do primeiro git.
@@ -802,11 +807,44 @@ export function ship(
   // verde ou status de outro commit não libera a entrega.
   const ci = consultarCi(carregado, shaDe, remoto, opcoes.executorCi);
   r.ci = ci;
-  if (!ci.ok) {
+  const entradaDaFabrica: EntradaDoShipComFabrica | null = opcoes.fabrica
+    ? { ...opcoes.fabrica, destino: para, head: shaDe, ci }
+    : null;
+  const fabricaEmExigir = entradaDaFabrica?.configurada === true && entradaDaFabrica.nivel === 'exigir';
+  const decisaoDaFabrica = entradaDaFabrica ? decidirShipComFabrica(entradaDaFabrica)
+    : ({ ok: true, acao: 'fluxo-publicado' } as const);
+  if (!fabricaEmExigir && !ci.ok) {
     return bloquear(
       'ci.failed',
       textoDoCatalogo((m) => m.ship.ciReprovou(remontar(ci.detail), shaDe, ci.context)),
       textoDoCatalogo((m) => m.ship.ciReprovouCorrecao(ci.context)),
+    );
+  }
+  if (!decisaoDaFabrica.ok) {
+    const codigo = decisaoDaFabrica.codigo;
+    if (codigo === 'ci.failed') {
+      return bloquear(
+        'ci.failed',
+        textoDoCatalogo((m) => m.ship.ciReprovou(remontar(ci.detail), shaDe, ci.context)),
+        textoDoCatalogo((m) => m.ship.ciReprovouCorrecao(ci.context)),
+      );
+    }
+    const codigoDoShip = codigo.startsWith('ship.fabrica.') ? codigo as ResultadoShip['codigo'] : undefined;
+    return bloquear(
+      'ci.failed',
+      textoDoCatalogo((m) => m.ship.fabricaRecusou(codigo, shaDe)),
+      textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, codigo)),
+      codigoDoShip,
+    );
+  }
+  // No GitLab a fábrica faz o merge. O SHIP só registra depois que a base observada contém o HEAD aprovado.
+  if (decisaoDaFabrica.acao === 'registrar-gitlab'
+      && !exec('git', ['merge-base', '--is-ancestor', shaDe, shaPara], raiz).ok) {
+    return bloquear(
+      'ci.failed',
+      textoDoCatalogo((m) => m.ship.fabricaRecusou('ship.fabrica.merge-pendente', shaDe)),
+      textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, 'ship.fabrica.merge-pendente')),
+      'ship.fabrica.merge-pendente',
     );
   }
 
@@ -1007,11 +1045,16 @@ export function ship(
           r.passos = passos;
           const erro = detalheDoPush(push.stderr || push.stdout);
           if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+            const codigo = codigoDoPushRecusadoNoShip(fabricaEmExigir);
             return bloquear(
               'runtime.unavailable',
-              textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
-              textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
-              'entrega.base-protegida'
+              fabricaEmExigir
+                ? textoDoCatalogo((m) => m.ship.fabricaRecusou(codigo, shaDe))
+                : textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+              fabricaEmExigir
+                ? textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, codigo))
+                : textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+              codigo,
             );
           }
           return bloquear(
@@ -1051,11 +1094,16 @@ export function ship(
         const erro = detalheDoPush(push.stderr || push.stdout);
         // A protecao da base recusou: a entrega e por PR/MR e o registro dele. O motivo do gate nao muda, so a orientacao.
         if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+          const codigo = codigoDoPushRecusadoNoShip(fabricaEmExigir);
           return bloquear(
             'runtime.unavailable',
-            textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
-            textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
-            'entrega.base-protegida'
+            fabricaEmExigir
+              ? textoDoCatalogo((m) => m.ship.fabricaRecusou(codigo, shaDe))
+              : textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+            fabricaEmExigir
+              ? textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, codigo))
+              : textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+            codigo,
           );
         }
         return bloquear(
