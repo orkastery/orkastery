@@ -13,10 +13,10 @@ const politica: PoliticaDoResultadoForte = { emissor: 'fabrica', chaves: [{ id: 
   materialPublicoPem: chaves.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
   validaDesde: '2026-01-01T00:00:00.000Z', validaAte: '2027-01-01T00:00:00.000Z' }] };
 const prova = (): ProvaDosRegistrosDaFabrica => ({ forja: 'github', projeto: 'grupo/projeto', origem: 'feature',
-  destino: 'main', head: H, verify: { commit: V, verde: true, comandos: ['npm test'], rodadaId: 'r1',
+  destino: 'main', head: H, nivel: 'exigir', verify: { commit: V, verde: true, comandos: ['npm test'], rodadaId: 'r1',
     chaveDeProva: K, posicao: 1 }, check: { fase: 'CHECK', origem: 'sessions.watch', sessionId: 'revisor',
     despachoEm: '2026-11-26T00:00:00.000Z', despachoRegistrado: true, despachoVerificado: true,
-    promptConferido: true, sensorResultId: 's', favoravel: true, parecerSha256: K, shaRevisado: H,
+    promptConferido: true, sensorResultId: 's', favoravel: true, parecerSha256: K, shaRevisado: V,
     conducaoId: 'c1', posicao: 2 }, tag: { conducaoId: 'c1', head: H, posicao: 3 }, construtores: ['autor'],
   commitsDeProduto: [V], configuracaoDoDestino: { github_app_id: 42 } });
 
@@ -24,7 +24,7 @@ test('C120 assina e verifica payload v2 separado com HEAD, verify, CHECK e tag',
   const r = emitirResultadoForteDaFabrica(prova(), '2026-11-26T10:00:00.000Z', '2026-11-26T11:00:00.000Z', porta);
   assert.equal(r.payload.head, H);
   assert.equal(r.payload.verify.commit, V);
-  assert.equal(r.payload.check.shaRevisado, H);
+  assert.equal(r.payload.check.shaRevisado, V);
   assert.equal(verificarResultadoForteDaFabrica(r, politica,
     { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H }, '2026-11-26T10:30:00.000Z').ok, true);
 });
@@ -50,4 +50,24 @@ test('exceção F6 aceita somente operation ci.run e o mesmo vínculo', () => {
     '2026-11-26T11:00:00.000Z', porta, boa));
   assert.throws(() => emitirResultadoForteDaFabrica(p, '2026-11-26T10:00:00.000Z',
     '2026-11-26T11:00:00.000Z', porta, { ...boa, projeto: 'outro' }));
+  for (const ruim of [{ ...boa, origem: 'outra' }, { ...boa, destino: 'release' },
+    { ...boa, head: 'd'.repeat(40) }, { ...boa, operation: 'outra' as 'ci.run' }]) {
+    assert.throws(() => emitirResultadoForteDaFabrica(p, '2026-11-26T10:00:00.000Z',
+      '2026-11-26T11:00:00.000Z', porta, ruim));
+  }
+});
+
+test('toda falha do resultado usa somente o código público ratificado', () => {
+  const r = emitirResultadoForteDaFabrica(prova(), '2026-11-26T10:00:00.000Z',
+    '2026-11-26T11:00:00.000Z', porta);
+  const esperado = { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H };
+  const outroHead = verificarResultadoForteDaFabrica(r, politica, { ...esperado, head: 'd'.repeat(40) },
+    '2026-11-26T10:30:00.000Z');
+  assert.deepEqual(outroHead, { ok: false, codigo: 'ci.fabrica.prova-ausente' });
+  const assinatura = structuredClone(r); assinatura.assinatura = Buffer.from('outra').toString('base64');
+  assert.deepEqual(verificarResultadoForteDaFabrica(assinatura, politica, esperado, '2026-11-26T10:30:00.000Z'),
+    { ok: false, codigo: 'ci.fabrica.prova-ausente' });
+  const chave = structuredClone(politica); chave.chaves[0].materialPublicoPem = null;
+  assert.deepEqual(verificarResultadoForteDaFabrica(r, chave, esperado, '2026-11-26T10:30:00.000Z'),
+    { ok: false, codigo: 'ci.fabrica.prova-ausente' });
 });

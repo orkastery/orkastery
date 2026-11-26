@@ -60,8 +60,7 @@ export interface PortaDeAssinaturaDoResultadoForte {
   assinar(preImagem: string): string;
 }
 
-export type CodigoDoResultadoForte = 'ci.fabrica.prova-ausente' | 'ci.fabrica.resultado-invalido'
-  | 'ci.fabrica.assinatura-invalida' | 'ci.fabrica.chave-invalida';
+export type CodigoDoResultadoForte = 'ci.fabrica.prova-ausente';
 export type VerificacaoDoResultadoForte = { ok: true; resultado: ResultadoForteDaFabrica } |
   { ok: false; codigo: CodigoDoResultadoForte };
 
@@ -84,7 +83,7 @@ function excecaoValida(excecao: ExcecaoF6DaFabrica | undefined, prova: ProvaDosR
 export function emitirResultadoForteDaFabrica(prova: ProvaDosRegistrosDaFabrica, emitidoEm: string, validoAte: string,
   porta: PortaDeAssinaturaDoResultadoForte, excecao?: ExcecaoF6DaFabrica): ResultadoForteDaFabrica {
   if (!SHA.test(prova.head) || !SHA.test(prova.verify.commit) || !HASH.test(prova.verify.chaveDeProva)
-      || !HASH.test(prova.check.parecerSha256) || prova.check.shaRevisado !== prova.head
+      || !HASH.test(prova.check.parecerSha256) || prova.check.shaRevisado !== prova.verify.commit
       || !iso(emitidoEm) || !iso(validoAte) || Date.parse(validoAte) <= Date.parse(emitidoEm)
       || !excecaoValida(excecao, prova) || porta.contrato !== CONTRATO_PORTA_RESULTADO_FORTE
       || !porta.exclusiva || !porta.emissor || !porta.chaveId) throw new Error('ci.fabrica.prova-ausente');
@@ -95,7 +94,7 @@ export function emitirResultadoForteDaFabrica(prova: ProvaDosRegistrosDaFabrica,
       shaRevisado: prova.check.shaRevisado }, tag: { conducaoId: prova.tag.conducaoId }, emitidoEm, validoAte,
     ...(excecao ? { excecao } : {}) };
   const assinatura = porta.assinar(preImagemDoResultadoForte(payload));
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(assinatura)) throw new Error('ci.fabrica.assinatura-invalida');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(assinatura)) throw new Error('ci.fabrica.prova-ausente');
   const corpo = { contrato: CONTRATO_ASSINATURA_RESULTADO_FORTE, payload, emissor: porta.emissor,
     chaveId: porta.chaveId, algoritmo: 'Ed25519' as const, assinatura };
   return { ...corpo, sha256: sha256(JSON.stringify(corpo)) };
@@ -116,20 +115,20 @@ export function verificarResultadoForteDaFabrica(resultado: ResultadoForteDaFabr
       || resultado.algoritmo !== 'Ed25519' || resultado.emissor !== politica.emissor
       || resultado.sha256 !== sha256(JSON.stringify(corpo)) || p.projeto !== esperado.projeto
       || p.origem !== esperado.origem || p.destino !== esperado.destino || p.head !== esperado.head
-      || p.commitAvaliado !== esperado.head || p.check.shaRevisado !== esperado.head
+      || p.commitAvaliado !== esperado.head || p.check.shaRevisado !== p.verify.commit
       || !SHA.test(p.verify.commit) || !HASH.test(p.verify.chaveDeProva) || !HASH.test(p.check.parecerSha256)
       || !iso(agora) || !iso(p.emitidoEm) || !iso(p.validoAte) || Date.parse(agora) < Date.parse(p.emitidoEm)
       || Date.parse(agora) >= Date.parse(p.validoAte)
       || (p.excecao && (p.excecao.operation !== 'ci.run' || p.excecao.projeto !== p.projeto
         || p.excecao.origem !== p.origem || p.excecao.destino !== p.destino || p.excecao.head !== p.head))) {
-    return { ok: false, codigo: 'ci.fabrica.resultado-invalido' };
+    return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
   }
   const chave = politica.chaves.find((item) => item.id === resultado.chaveId);
-  if (!chaveValida(chave, agora)) return { ok: false, codigo: 'ci.fabrica.chave-invalida' };
+  if (!chaveValida(chave, agora)) return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
   try {
     const publica = createPublicKey(chave!.materialPublicoPem!);
     const ok = publica.asymmetricKeyType === 'ed25519' && verify(null,
       Buffer.from(preImagemDoResultadoForte(p), 'utf8'), publica, Buffer.from(resultado.assinatura, 'base64'));
-    return ok ? { ok: true, resultado } : { ok: false, codigo: 'ci.fabrica.assinatura-invalida' };
-  } catch { return { ok: false, codigo: 'ci.fabrica.assinatura-invalida' }; }
+    return ok ? { ok: true, resultado } : { ok: false, codigo: 'ci.fabrica.prova-ausente' };
+  } catch { return { ok: false, codigo: 'ci.fabrica.prova-ausente' }; }
 }
