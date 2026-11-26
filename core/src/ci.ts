@@ -816,7 +816,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch),
         action: mensagemDoRecibo('invalido', branch) } : null;
     const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest
-      && destino === protegida && recibo !== 'presente' && !excecaoAplicada;
+      && destino === protegida && recibo !== 'presente';
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
     const medicaoOk = replay.ok;
     return {
