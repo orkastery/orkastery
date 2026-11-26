@@ -24,10 +24,14 @@
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarDesde } from './horario';
 import { adquirirTravaPortatil, donosDaTravaPortatil, identidadeDoProcesso, TravaPortatil } from './trava-portatil';
-import {
-  buffer, createHash, fs, interpretarJson, path, type PlataformaNode, processo, randomUUID, spawnSync, Worker,
-  type WorkerTipado,
-} from './node-portavel';
+import { createHash, randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { Worker } from 'node:worker_threads';
+
+const interpretarJson = (texto: string): unknown => JSON.parse(texto) as unknown;
+const processo = process;
 
 export const CONTRATO_FILA_PESADA = 'ork.fila-pesada/v1' as const;
 /** A marca da posse que o dono da vez passa aos processos filhos. */
@@ -61,7 +65,7 @@ export interface DependenciasDaFilaPesada {
   agora?: () => number;
   pausar?: (ms: number) => void;
   /** Injeção hermética do transporte; produção sempre usa `process.platform`. */
-  plataforma?: PlataformaNode;
+  plataforma?: NodeJS.Platform;
 }
 
 /** Quem segura uma vaga agora, como ele mesmo gravou ao pegá-la. */
@@ -135,7 +139,7 @@ export function kernelDisponivel(): boolean {
   return processo.platform === 'linux' && fs.existsSync(FLOCK);
 }
 
-export function travaPortatilDisponivel(plataforma: PlataformaNode = processo.platform): boolean {
+export function travaPortatilDisponivel(plataforma: NodeJS.Platform = processo.platform): boolean {
   return plataforma === 'darwin';
 }
 
@@ -254,11 +258,11 @@ function identidadeDaMaquina(): IdentidadeDaMaquina {
 /** `id`: o identificador desta posse, gravado na vaga e na marca que os filhos herdam. */
 interface Posse {
   fdArtefato: number; fdVaga: number; slot: number; id: string;
-  batida: WorkerTipado | null; arquivoDaBatida: string | null;
+  batida: Worker | null; arquivoDaBatida: string | null;
 }
 
 function gravarDono(fd: number, dono: OcupanteDaFila, posse: string): void {
-  const bytes = buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono, posse }) + '\n', 'utf8');
+  const bytes = Buffer.from(JSON.stringify({ contrato: CONTRATO_FILA_PESADA, ...dono, posse }) + '\n', 'utf8');
   fs.ftruncateSync(fd, 0);
   fs.writeSync(fd, bytes, 0, bytes.length, 0);
 }
@@ -268,7 +272,7 @@ function arquivoDaBatida(dir: string, slot: number, posse: string): string {
 }
 
 /** Worker nativo: a batida continua enquanto o verify sincrono bloqueia a thread JS, sem processo shell perdido. */
-function iniciarBatida(dir: string, slot: number, posse: string): { worker: WorkerTipado; arquivo: string } | null {
+function iniciarBatida(dir: string, slot: number, posse: string): { worker: Worker; arquivo: string } | null {
   const arquivo = arquivoDaBatida(dir, slot, posse);
   try {
     const worker = new Worker(`

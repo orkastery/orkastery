@@ -6,7 +6,9 @@
  */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import * as adapter from './adapters/claude-bg';
 import * as codexAdapter from './adapters/codex';
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
@@ -42,26 +44,23 @@ import { msg, nomeDoCheck } from './locale';
 import { comTravaPortatil } from './trava-portatil';
 import { resolverShellDoVerify } from './shell-do-verify';
 import type { ShellDoVerify } from './types';
-import {
-  type EstatisticaDeArquivo, fs as fsTipado, os as osTipado, path as pathTipado, processo, spawnSync as spawnSyncTipado,
-} from './node-portavel';
 
 const real = (dir: string): string => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
 
-export function sondarTravaDoNucleo(plataforma = processo.platform,
-  existe: (arquivo: string) => boolean = (arquivo) => fsTipado.existsSync(arquivo)): void {
-  const dir = fsTipado.mkdtempSync(pathTipado.join(osTipado.tmpdir(), 'ork-doctor-trava-'));
+export function sondarTravaDoNucleo(plataforma = process.platform,
+  existe: (arquivo: string) => boolean = (arquivo) => fs.existsSync(arquivo)): void {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-doctor-trava-'));
   try {
-    const arquivo = pathTipado.join(dir, 'sonda');
+    const arquivo = path.join(dir, 'sonda');
     if (plataforma === 'linux') {
       if (!existe('/usr/bin/flock')) throw new Error('/usr/bin/flock ausente');
-      const fd = fsTipado.openSync(arquivo,
-        fsTipado.constants.O_RDWR | fsTipado.constants.O_CREAT | fsTipado.constants.O_NOFOLLOW, 0o600);
+      const fd = fs.openSync(arquivo,
+        fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
       try {
-        const r = spawnSyncTipado('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
+        const r = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
           { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2000 });
         if (r.error || r.status !== 0) throw new Error(r.error?.message ?? `flock saiu ${r.status}`);
-      } finally { fsTipado.closeSync(fd); }
+      } finally { fs.closeSync(fd); }
       return;
     }
     if (plataforma === 'darwin') {
@@ -70,7 +69,7 @@ export function sondarTravaDoNucleo(plataforma = processo.platform,
     }
     throw new Error(`plataforma sem mecanismo de trava: ${plataforma}`);
   }
-  finally { fsTipado.rmSync(dir, { recursive: true, force: true }); }
+  finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 export function checarTravaPortatil(sondar: () => void = sondarTravaDoNucleo): Check {
@@ -79,7 +78,7 @@ export function checarTravaPortatil(sondar: () => void = sondarTravaDoNucleo): C
     return { nome: 'trava portátil', nivel: 'ok', detalhe: msg().doctor.travaPortatilOk };
   } catch (e) {
     return { nome: 'trava portátil', nivel: 'fail', detalhe: msg().doctor.travaPortatilFalhou((e as Error).message),
-      correcao: msg().doctor.travaPortatilCorrecao(processo.platform) };
+      correcao: msg().doctor.travaPortatilCorrecao(process.platform) };
   }
 }
 
@@ -132,13 +131,13 @@ export function checarSeparacaoDaConducao(raiz: string, inventario: InventarioDe
 export function manifestoForaDoRepositorio(dirInicial: string, caminhoDoManifesto: string): Check | null {
   const topo = exec('git', ['rev-parse', '--show-toplevel'], dirInicial);
   if (!topo.ok) return null;
-  const real = (p: string) => { try { return fsTipado.realpathSync(p); } catch { return pathTipado.resolve(p); } };
-  const dirDoManifesto = real(pathTipado.dirname(caminhoDoManifesto));
-  const dentro = (raiz: string) => { const r = pathTipado.relative(real(raiz), dirDoManifesto);
-    return r === '' || (!r.startsWith('..') && !pathTipado.isAbsolute(r)); };
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const dirDoManifesto = real(path.dirname(caminhoDoManifesto));
+  const dentro = (raiz: string) => { const r = path.relative(real(raiz), dirDoManifesto);
+    return r === '' || (!r.startsWith('..') && !path.isAbsolute(r)); };
   if (dentro(topo.stdout.trim())) return null;
   const comum = exec('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], dirInicial);
-  if (comum.ok && pathTipado.basename(comum.stdout.trim()) === '.git' && dentro(pathTipado.dirname(comum.stdout.trim()))) return null;
+  if (comum.ok && path.basename(comum.stdout.trim()) === '.git' && dentro(path.dirname(comum.stdout.trim()))) return null;
   return {
     nome: 'manifesto do repositorio',
     nivel: 'warn',
@@ -277,16 +276,16 @@ export const TETO_DO_DONO_DO_GIT = 200_000;
  * tres exemplos e o `chown` exato; o doctor nunca roda nada. Fora de repositorio git, `null`.
  */
 export function checarDonoDoGit(dirInicial: string,
-  opcoes: { lstat?: (p: string) => EstatisticaDeArquivo; teto?: number } = {}): Check | null {
+  opcoes: { lstat?: (p: string) => fs.Stats; teto?: number } = {}): Check | null {
   const nome = 'dono do .git';
   const comum = exec('git', ['rev-parse', '--git-common-dir'], dirInicial);
   if (!comum.ok || !comum.stdout.trim()) return null;
-  const dirComum = pathTipado.resolve(dirInicial, comum.stdout.trim());
-  const lstat = opcoes.lstat ?? ((p: string) => fsTipado.lstatSync(p));
-  let raiz: EstatisticaDeArquivo;
+  const dirComum = path.resolve(dirInicial, comum.stdout.trim());
+  const lstat = opcoes.lstat ?? ((p: string) => fs.lstatSync(p));
+  let raiz: fs.Stats;
   try { raiz = lstat(dirComum); } catch { return null; }
   const teto = opcoes.teto ?? TETO_DO_DONO_DO_GIT;
-  const relativo = (f: string) => pathTipado.relative(pathTipado.dirname(dirComum), f);
+  const relativo = (f: string) => path.relative(path.dirname(dirComum), f);
   // A correcao sai pronta para copiar: caminho com caractere fora do conjunto seguro vai entre aspas simples.
   const noShell = (s: string) => /^[A-Za-z0-9._/-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`;
   const estranhos: string[] = [], uids = new Set<number>();
@@ -296,11 +295,11 @@ export function checarDonoDoGit(dirInicial: string,
     const atual = pilha.pop() as string;
     let nomes: string[];
     // Pasta que o dono nao consegue listar ja aparece pelo dono dela, na entrada de cima.
-    try { nomes = fsTipado.readdirSync(atual); } catch { continue; }
+    try { nomes = fs.readdirSync(atual); } catch { continue; }
     for (const n of nomes) {
       if (++vistos > teto) { parcial = true; break; }
-      const f = pathTipado.join(atual, n);
-      let st: EstatisticaDeArquivo;
+      const f = path.join(atual, n);
+      let st: fs.Stats;
       try { st = lstat(f); } catch { continue; }
       if (st.uid !== raiz.uid) {
         total++;
