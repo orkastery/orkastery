@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-008]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-11-26T09:50:38-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -44,13 +44,15 @@ sdlc:
 ## Problema e resultado
 
 - **Problema:** o estado do perfil (esgotado até, último uso, última falha) é por projeto, mas a conta é a mesma nas três fábricas desta VPS.
+- **Evidência de 26/11/2026:** no registro compartilhado de contas, uma conta continuou marcada como sem autenticação depois de o login ter sido concluído.
 - **Hipótese:** Se o estado viver num registro por usuário (`~/.orkastery/`), então nenhuma fábrica despacha numa conta que outra já viu esgotada, porque todas leem o mesmo registro.
 - **Métrica:** zero despacho numa conta que outro projeto do mesmo usuário já viu esgotada, dentro do prazo dela.
 
 ## Escopo e validação
 
 - **Incluído:** registro compartilhado por usuário (`~/.orkastery/private/contas.json`, contrato `ork.contas-compartilhadas/v1`), gravado quando um projeto marca a conta e lido por todos antes de escolher o perfil.
-- **Regras:** o registro só escurece; uso bem-sucedido ou login reconferido limpa a marca; entrada de conta cujo diretório sumiu sai na gravação seguinte; testes e `ork eval` usam uma pasta própria.
+- **Regras:** o registro só escurece; uso bem-sucedido ou login reconferido limpa a marca, inclusive o estado sem autenticação depois de um login confirmado; entrada de conta cujo diretório sumiu sai na gravação seguinte; testes e `ork eval` usam uma pasta própria.
+- **Critério de aceite do achado de 26/11/2026:** depois do login confirmado pelo próprio runtime, todas as leituras do registro compartilhado deixam de classificar a conta como sem autenticação; falha ou login inconclusivo preserva a marca e o motivo.
 - **Fora:** compartilhar entre usuários ou entre máquinas (isso é a [RM-047](RM-047-fabrica-em-varias-maquinas.md)).
 
 ## Plano e decisões
@@ -70,13 +72,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Parcial | — | 2026-09-27 | Julio |
-| Habilitação | Em andamento | — | 2026-09-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-11-26 | Julio |
+| Testes | Aprovados | — | 2026-11-26 | Julio |
+| Deploy | Produção | — | 2026-11-26 | Julio |
+| Exposição | Parcial | — | 2026-11-26 | Julio |
+| Habilitação | Em andamento | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -92,3 +94,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | em produção na VPS de referência | merge `e324025` (PR #32), `ork` de produção reconstruído; npm pendente | Julio |
 | 2026-10-03 | prova real na maquina-b, só leitura: 0 despacho em conta marcada por outro projeto, 0 marca, um projeto real com perfis | [recibo](evidencias/RM-040/maquina-b-2026-10-03.json), thread `ork-rm040piloto`; o ciclo segue Piloto até a decisão do dono | condutor #Auto |
 | 2026-10-03 | `ork accounts esgotamentos`, a medida da métrica | thread `ork-b7relatoriod`, teste `rm040-esgotamentos` com duas fábricas na mesma conta | condutor #Auto |
+| 2026-11-26 | Escopo ampliado para limpar a marca sem autenticação depois do login confirmado | Achado da condução da versão 0.6.11: a conta permaneceu marcada depois do login | sessão GO `ork-achados0611` (#Fast) |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-23T11:02:31-03:00
+atualizado_em: 2026-11-26T09:50:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -46,6 +46,8 @@ sdlc:
 
 - **Público e problema/oportunidade:** o dono de uma fábrica #Auto. Hoje, uma máquina pode ficar dias sem batida e horas com uma fase morta, e as superfícies dizem "Nada agora" e "sigo na fase GO".
 - **Evidências e fonte:** o incidente do maquina-b, de 03/10 a 12/10/2026 (tabela abaixo).
+  - Em 26/11/2026, lanes manuais do Codex terminaram a fase, mas deixaram árvores `codex-linux-sandbox` órfãs e testes parados; não havia encerramento da árvore nem diagnóstico correspondente no `doctor`.
+  - Em 26/11/2026, o `roadmap status` recomendou o SHIP da F7 da RM-089 enquanto o GO ainda precisava ser executado.
 - **Objetivo/OKR:** tempo de máquina parada sem aviso igual a zero; tempo de fábrica parada por falha de infraestrutura abaixo de 30 minutos.
 - **Hipótese:** se a batida for instalada e vigiada pelo próprio ork, se a falha de despacho virar retry automático com o prompt gravado e se as superfícies só disserem "sigo" quando há sessão viva, então nenhuma parada passa despercebida, porque cada camada que hoje falha em silêncio passa a ter dono, prazo e canal.
 - **Métrica principal / linha de base / meta / janela / fonte:** minutos entre a parada (última sessão viva ou última batida) e o aviso ao dono. Linha de base: 13.300 min (03/10 08:52 a 12/10 06:00, sem batida) e 318 min (K7 com o despacho morto). Meta: ≤ 30 min. Janela: 14 dias. Fonte: `ork ledger stats` e o `hitl.log` da varredura.
@@ -65,7 +67,7 @@ sdlc:
 
 ## Escopo e validação
 
-- **Incluído:** as frentes F1 a F7 abaixo, com fatias por camada.
+- **Incluído:** as frentes F1 a F8 abaixo, com fatias por camada.
 - **Fora de escopo:** planejar arcos autônomos de muitas threads, que é a [RM-058](RM-058-modo-noctum.md) (#Noctum). A RM-063 é a condição dela: o #Noctum planeja o arco, e a RM-063 garante que a máquina segue viva dentro dele. Também ficam fora a decisão de merge, tag e publicação, que segue com o dono ou com a autorização durável que ele der.
 
 ### Frentes no núcleo (`ork`)
@@ -73,12 +75,13 @@ sdlc:
 | Frente | O que muda | Prova |
 | --- | --- | --- |
 | F1 Batida instalada e vigiada | `ork fabrica batida instalar\|status\|remover`: instala o cron (ou o timer do systemd) da varredura de forma idempotente, com o transporte do dono, e grava `batida_instalada` no ledger da máquina. O `ork doctor` reprova (não só avisa) quando há thread aberta e nenhuma batida, com ou sem `pulse-host.json` | teste com crontab falso: sem a linha, `doctor` sai ≠ 0 e o `roadmap status` mostra a parada |
-| F2 Superfícies honestas | O `ork roadmap status` e o `ork fabrica` só dizem "sigo X na fase Y" quando há sessão viva verificada no runtime. Sem ela, a linha vira "X parada desde HH:MM: motivo" e entra em "O que precisa de você" quando o próximo passo é do dono. O fecho consome a mesma fila do `ork pulse`, para as duas superfícies nunca divergirem | teste: sessão fantasma em GO não produz "sigo" |
+| F2 Superfícies honestas | O `ork roadmap status` e o `ork fabrica` só dizem "sigo X na fase Y" quando há sessão viva verificada no runtime. Sem ela, a linha vira "X parada desde HH:MM: motivo" e entra em "O que precisa de você" quando o próximo passo é do dono. O fecho consome a mesma fila do `ork pulse`, para as duas superfícies nunca divergirem. Uma recomendação de SHIP só aparece depois de o resultado e os artefatos oficiais concluírem a fase anterior | teste: sessão fantasma em GO não produz "sigo"; GO ainda pendente não produz recomendação de SHIP |
 | F3 Retry que sempre tem o prompt | O `ork phase run` grava o prompt e o sha256 antes de chamar o adaptador; a falha de despacho (`runtime.unavailable`) fica registrada com eles, e o `ork retry run` redespacha sem pedir o texto de novo | teste: adaptador falso que falha no despacho; `retry run` redespacha com o mesmo sha256 |
 | F4 Escada de recuperação do runtime | `runtime.unavailable` tenta, em ordem: reerguer o daemon do runtime, o fallback do bloco (`--fallback`, I-33), outro perfil (RM-056). Só depois de 3 tentativas sobe ao dono, com alternativas e recomendação (RM-057) | teste por degrau, com runtimes falsos |
 | F5 Varredura que age | Na batida, com autorização durável gravada: limpar fantasmas, registrar entrega de PR já mesclado (`ship registrar-pr`) e fechar pelo MASTER por omissão. Sem autorização, cada um vira um item da fila, com o comando pronto | teste: merge de branch `ork/*` na main sem `ship_done` aparece na batida seguinte |
 | F6 Ociosidade é alerta | Máquina com vaga livre (abaixo de `concurrency.max_parallel_threads`, 5 pela decisão P1.a) e fila de trabalho do roadmap reservada para ela gera o alerta "máquina ociosa" ao dono, com as próximas threads sugeridas | teste: 0 sessões vivas e reserva aberta geram o alerta |
 | F7 Condutor autônomo dentro de autorização durável | `ork conducao autorizar --ate <data> --pode merge,registrar,master,despachar` grava a autorização do dono (como a X1.a); `ork conducao batida` é o passo determinístico que a varredura chama para avançar as threads dentro dela: merge do PR verde e limpo, registro, MASTER por omissão e o despacho com o prompt gravado. A fase que precisa de LLM é despachada como sessão de background, nunca rodada por cron LLM. O merge da main na branch da thread devolve os itens dela a "## Não publicado" do CHANGELOG | teste: autorização expirada recusa com motivo tipado; `gh`, remoto e runtime falsos |
+| F8 Encerramento do sandbox da sessão | Ao fechar a fase, o núcleo encerra ou lista de forma tipada as árvores `codex-linux-sandbox` vinculadas à sessão; o `doctor` mostra as árvores remanescentes sem confundi-las com sessões vivas | teste: a fase fecha com uma árvore filha simulada; o encerramento a remove ou o `doctor` informa a sobra com a sessão de origem |
 
 **Fusão aprovada em 23/11/2026:** a F7 continua entregue como estado atual, mas sua próxima evolução não mantém contrato próprio. A autorização durável migra para a [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md), com escopo, validade, canal e prova comuns aos demais consumidores.
 
@@ -120,13 +123,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
-| Documentação | Em revisão | — | 2026-11-23 | Julio |
-| Código | Mesclado | commit `adc973d` · PR #144 | 2026-11-23 | Julio |
-| Testes | Em execução | — | 2026-11-23 | Julio |
-| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-11-23 | Julio |
-| Exposição | Parcial | — | 2026-11-23 | Julio |
-| Habilitação | Em andamento | — | 2026-11-23 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `adc973d` · PR #144 | 2026-11-26 | Julio |
+| Testes | Em execução | — | 2026-11-26 | Julio |
+| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-11-26 | Julio |
+| Exposição | Parcial | — | 2026-11-26 | Julio |
+| Habilitação | Em andamento | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -134,7 +137,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor do maquina-b (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do maquina-b (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** migrar a autorização durável entregue na F7 para a RM-092. O dono responde à pergunta curta; a fábrica registra a autorização e executa a ativação operacional, sem transferir comando de terminal. Os mods M1 a M5 seguem a decisão registrada sobre quem conduz; sem novo prazo declarado.
+- **Próxima ação, responsável e prazo:** migrar a autorização durável entregue na F7 para a RM-092 e planejar a F8. O dono responde à pergunta curta; a fábrica registra a autorização e executa a ativação operacional, sem transferir comando de terminal. Os mods M1 a M5 seguem a decisão registrada sobre quem conduz; sem novo prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -148,3 +151,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do maquina-b (#Auto) |
 | 2026-10-27 | Fatias 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque os mods M1 a M5 seguem | Tag `v0.6.0`, com os merges `babe9d48` (#154) e `45ecc51a` (#163) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-11-23 | Próxima evolução da autorização durável fundida na RM-092 | Contrato único de escopo, validade, canal e prova aprovado no realinhamento | Julio |
+| 2026-11-26 | F2 passa a recusar recomendação de SHIP antes do fim oficial do GO; F8 registra o encerramento e o diagnóstico das árvores do sandbox | Achados da condução da versão 0.6.11 sobre `roadmap status` e processos `codex-linux-sandbox` órfãos | sessão GO `ork-achados0611` (#Fast) |

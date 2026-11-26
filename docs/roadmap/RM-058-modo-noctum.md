@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-002, FEAT-026, FEAT-031, FEAT-032]
 owner: Julio
-atualizado_em: 2026-11-23T11:02:31-03:00
+atualizado_em: 2026-11-26T09:50:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -38,7 +38,7 @@ sdlc:
 
 # RM-058 — Modo #Noctum: arcos autônomos de muitas threads e máquinas
 
-> **Em uma frase:** proposta de arcos de 6 a 12 horas em que o Orkastery conduz muitas threads, em uma ou mais máquinas autorizadas, com prova de qualidade e decisões do dono reunidas para a manhã.
+> **Em uma frase:** proposta de arcos para uma ausência longa do dono, em que o Orkastery conduz muitas threads em máquinas autorizadas, com prova de qualidade e decisões reunidas para o retorno dele.
 
 <!-- ork-docs:relance:inicio -->
 
@@ -48,7 +48,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Em desenvolvimento, com as quatro decisões de produto tomadas e as seis fatias implementadas nas threads `ork-rm058n1`, `ork-rm058n2`, `ork-rm058n3`, `ork-rm058n4`, `ork-rm058n5` e `ork-rm058n6`.** Esta página planeja o #Noctum. O transporte que liga o modo veio na [N6](#n6-fechamento-relatório-e-o-transporte-que-liga-o-modo): `#Noctum` só vale com um envelope vigente, que o dono autoriza por ingresso autenticado; nenhum arco foi autorizado, e o modo segue sem habilitação.
+**Em desenvolvimento e não anunciado, com as quatro decisões de produto tomadas e as seis fatias implementadas nas threads `ork-rm058n1`, `ork-rm058n2`, `ork-rm058n3`, `ork-rm058n4`, `ork-rm058n5` e `ork-rm058n6`.** Esta página planeja o #Noctum. O transporte que liga o modo veio na [N6](#n6-fechamento-relatório-e-o-transporte-que-liga-o-modo): `#Noctum` só vale com um envelope vigente, que o dono autoriza por ingresso autenticado; nenhum arco foi autorizado, e o modo segue sem habilitação.
 
 - A [integração e os pilotos](#integração-e-pilotos) têm dois blocos de preparação. O bloco A liga vigia, condutor, entrega, aceite e portão numa máquina. O bloco B liga o passo da máquina e a vez da integração no envelope `v3`, faz fila, fechamento, retrato, relatório e guarda lerem a rede, completa a retomada entre máquinas e mede F10 e F11 no aceite combinado. O cenário `duas-maquinas` é simulado: nenhum piloto em duas máquinas rodou.
 - Fora da [N1](#n1-envelope-e-estado-do-arco), da [N2](#n2-fila-local-e-capacidade), da [N3](#n3-coordenação-entre-máquinas), da [N4](#n4-supervisão-e-recuperação), da [N5](#n5-qualidade-e-entrega) e da [N6](#n6-fechamento-relatório-e-o-transporte-que-liga-o-modo), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
@@ -59,7 +59,7 @@ Features relacionadas: [modos de condução](../produto/FEAT-002-modos-de-conduc
 
 ## Problema e resultado
 
-- **Público e problema:** product builder com roadmap priorizado e trabalho suficiente para avançar enquanto fica ausente por 6 a 12 horas. Hoje precisa vigiar a condução, recuperar sessões e coordenar contas, revisões e merges.
+- **Público e problema:** product builder com roadmap priorizado e trabalho suficiente para avançar durante uma ausência longa. Hoje precisa vigiar a condução, recuperar sessões e coordenar contas, revisões e merges.
 - **Evidências e fonte:** pedido do dono para a RM-058 e registro da condutora sobre a condução manual na noite de 02 para 03/10/2026. As ocorrências relatadas estão em [Resiliência](#resiliência-ao-longo-de-horas), com suas limitações de evidência.
 - **Objetivo:** conduzir um arco inteiro, da seleção de itens ao relatório final, sem solicitar intervenção humana durante a janela autorizada, mantendo os bloqueios de cada ação e a prova de cada entrega.
 - **Hipótese:** se o núcleo persistir autorização, fila, limites, supervisão e retomada, o arco poderá continuar com trabalho independente quando uma thread falhar ou depender do dono, sem precisar de vigilância manual.
@@ -447,13 +447,13 @@ A `ork-rm057respost`, da RM-057, trouxe a [autorização pela resposta curta](#a
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
-| Documentação | Em revisão | — | 2026-11-23 | Julio |
-| Código | Mesclado | commit `5a1f27c` | 2026-11-23 | Julio |
-| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) · n3: core/test/noctum-envelope-v3.test.ts (EV1 a EV8), noctum-transporte.test.ts (T1 a T16), noctum-coordenacao.test.ts (K1 a K28), noctum-integracao.test.ts (I1 a I25), noctum-maquinas.test.ts (M1 a M23) e o ensaio noctum-ensaio.test.ts (R1 a R9) · n4: core/test/noctum-supervisao.test.ts (S1 a S15), noctum-reconciliacao.test.ts (R1 a R32), noctum-vigia.test.ts (G1 a G23), noctum-fila.test.ts (F18 a F20) e noctum-execucao.test.ts (X16 a X18) · n5: core/test/noctum-changelog.test.ts (QC1 a QC6), noctum-provas.test.ts (QP0 a QP14), noctum-integracao-entrega.test.ts (QI1 a QI13), noctum-entrega.test.ts (QE1 a QE36), noctum-mutante.test.ts (QM1 a QM4), ship-publicar.test.ts (QS1 a QS3) e os 70 mutantes de core/test/mutantes/noctum-entrega.json · n6: core/test/noctum-encerrado.test.ts (EC1 a EC10), noctum-medicao.test.ts (ME1 a ME15), noctum-fechamento.test.ts (FE1 a FE15), noctum-relatorio.test.ts (RL1 a RL19), noctum-modo.test.ts (MO1 a MO12), mcp-noctum.test.ts (MN1 a MN8), noctum-gateways.test.ts (GW1 a GW5) e noctum-ensaio-piloto.test.ts (EP1 a EP7) · integracao: core/test/noctum-guarda.test.ts (GS1 a GS18 e GT1 a GT6), noctum-baseline-do-arco.test.ts (BL1 a BL6), noctum-ligacao.test.ts (LG1 a LG25), noctum-conduzir.test.ts (CJ1 a CJ9), noctum-ci-contextos.test.ts (PC1 a PC6), noctum-aceite.test.ts (AC1 a AC21), release-noctum.test.ts (RG1 a RG15) e noctum-ensaio-piloto.test.ts (EP8 a EP11) · bloco-b: core/test/noctum-maquina-cli.test.ts (MQ1 a MQ7), noctum-ligacao-maquinas.test.ts (LM1 a LM9), noctum-retomada-rede.test.ts (RR1 a RR10), noctum-integracao-entrega.test.ts (QI14 a QI20), noctum-rede.test.ts (NR1 a NR8), noctum-fila.test.ts (F21 a F24), noctum-fechamento.test.ts (FE16 a FE20), noctum-maquinas.test.ts (M24 a M27), noctum-relatorio.test.ts (RL20 a RL23), noctum-modo.test.ts (MO13 a MO15), noctum-guarda.test.ts (GR1 a GR5), noctum-aceite.test.ts (AC26 a AC35), release-noctum.test.ts (RG19 a RG21), noctum-ensaio-piloto.test.ts (EP13 e EP14) e core/test/mutantes/noctum-rede.json (MR1 a MR10) · resposta-curta: core/test/noctum-pergunta.test.ts (NP1 a NP26), noctum-resposta-curta.test.ts (RC1 a RC28), noctum-terminal.test.ts (TM1 a TM31), claude-hook-resposta.test.ts (HK1 a HK10), noctum-pergunta-cli.test.ts (PQ1 a PQ6), noctum-gateways.test.ts (GW6 a GW13) e noctum-ensaio-piloto.test.ts (EP12) | 2026-11-23 | Julio |
-| Deploy | Não implantado | — | 2026-11-23 | Julio |
-| Exposição | Flag desligada | — | 2026-11-23 | Julio |
-| Habilitação | Pendente | — | 2026-11-23 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `5a1f27c` | 2026-11-26 | Julio |
+| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E12) e core/test/noctum-arco.test.ts (A1 a A26) · n2: core/test/noctum-fila.test.ts (F1 a F17), noctum-capacidade.test.ts (C1 a C10), fila-pesada.test.ts (P1 a P11), fila-pesada-verify.test.ts (V1 a V12) e noctum-execucao.test.ts (X1 a X15) · n3: core/test/noctum-envelope-v3.test.ts (EV1 a EV8), noctum-transporte.test.ts (T1 a T16), noctum-coordenacao.test.ts (K1 a K28), noctum-integracao.test.ts (I1 a I25), noctum-maquinas.test.ts (M1 a M23) e o ensaio noctum-ensaio.test.ts (R1 a R9) · n4: core/test/noctum-supervisao.test.ts (S1 a S15), noctum-reconciliacao.test.ts (R1 a R32), noctum-vigia.test.ts (G1 a G23), noctum-fila.test.ts (F18 a F20) e noctum-execucao.test.ts (X16 a X18) · n5: core/test/noctum-changelog.test.ts (QC1 a QC6), noctum-provas.test.ts (QP0 a QP14), noctum-integracao-entrega.test.ts (QI1 a QI13), noctum-entrega.test.ts (QE1 a QE36), noctum-mutante.test.ts (QM1 a QM4), ship-publicar.test.ts (QS1 a QS3) e os 70 mutantes de core/test/mutantes/noctum-entrega.json · n6: core/test/noctum-encerrado.test.ts (EC1 a EC10), noctum-medicao.test.ts (ME1 a ME15), noctum-fechamento.test.ts (FE1 a FE15), noctum-relatorio.test.ts (RL1 a RL19), noctum-modo.test.ts (MO1 a MO12), mcp-noctum.test.ts (MN1 a MN8), noctum-gateways.test.ts (GW1 a GW5) e noctum-ensaio-piloto.test.ts (EP1 a EP7) · integracao: core/test/noctum-guarda.test.ts (GS1 a GS18 e GT1 a GT6), noctum-baseline-do-arco.test.ts (BL1 a BL6), noctum-ligacao.test.ts (LG1 a LG25), noctum-conduzir.test.ts (CJ1 a CJ9), noctum-ci-contextos.test.ts (PC1 a PC6), noctum-aceite.test.ts (AC1 a AC21), release-noctum.test.ts (RG1 a RG15) e noctum-ensaio-piloto.test.ts (EP8 a EP11) · bloco-b: core/test/noctum-maquina-cli.test.ts (MQ1 a MQ7), noctum-ligacao-maquinas.test.ts (LM1 a LM9), noctum-retomada-rede.test.ts (RR1 a RR10), noctum-integracao-entrega.test.ts (QI14 a QI20), noctum-rede.test.ts (NR1 a NR8), noctum-fila.test.ts (F21 a F24), noctum-fechamento.test.ts (FE16 a FE20), noctum-maquinas.test.ts (M24 a M27), noctum-relatorio.test.ts (RL20 a RL23), noctum-modo.test.ts (MO13 a MO15), noctum-guarda.test.ts (GR1 a GR5), noctum-aceite.test.ts (AC26 a AC35), release-noctum.test.ts (RG19 a RG21), noctum-ensaio-piloto.test.ts (EP13 e EP14) e core/test/mutantes/noctum-rede.json (MR1 a MR10) · resposta-curta: core/test/noctum-pergunta.test.ts (NP1 a NP26), noctum-resposta-curta.test.ts (RC1 a RC28), noctum-terminal.test.ts (TM1 a TM31), claude-hook-resposta.test.ts (HK1 a HK10), noctum-pergunta-cli.test.ts (PQ1 a PQ6), noctum-gateways.test.ts (GW6 a GW13) e noctum-ensaio-piloto.test.ts (EP12) | 2026-11-26 | Julio |
+| Deploy | Não implantado | — | 2026-11-26 | Julio |
+| Exposição | Flag desligada | — | 2026-11-26 | Julio |
+| Habilitação | Pendente | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -489,3 +489,4 @@ A `ork-rm057respost`, da RM-057, trouxe a [autorização pela resposta curta](#a
 | 2026-10-21 | A autorização pela resposta curta corrigida pelo CHECK independente (GO-FIX 1): o terminal só grava o prompt que o dono digitou, logo depois da pergunta mostrada, só para dizer "a", com a cadeia de processos nascida do hook; o reply do Telegram só vale para a mensagem em que a pergunta foi entregue; uma mensagem responde a uma pergunta só; os limites do terminal e do diálogo nativo ditos como são; nenhum piloto rodou | Thread `ork-rm057respost`, testes NP18 a NP23, RC15 a RC25, TM18 a TM27, HK8 e GW10 a GW11, e os mutantes da correção mortos | Fábrica Orkastery em #Auto; Julio ratifica os formatos depois dos pilotos |
 | 2026-10-21 | A autorização pela resposta curta corrigida pela segunda rodada do CHECK (GO-FIX 2): a palavra solta em reply a uma mensagem que não é a pergunta é recusada com o porquê, e o ingresso do terminal fica desligado até o Claude Code mandar a origem humana do evento; o dono responde pelo Telegram ou pela janela de confirmação do host. Nenhum arco foi autorizado pela resposta curta, e o #Noctum segue esperando os pilotos | CHECK da ork-rm057respost, rodada 2 (achados R1 a R5), decisões D22 e D23 no ledger da thread | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-11-23 | Envelope passa a consumir a autorização única da RM-092; pilotos ficam depois da frente B | Realinhamento aprovado; #Noctum continua em desenvolvimento, não anunciado | Julio |
+| 2026-11-26 | A frase e a descrição do público passam a tratar o arco como ausência longa, sem duração numérica | Achado editorial da condução da versão 0.6.11; o #Noctum permanece em desenvolvimento e não anunciado | sessão GO `ork-achados0611` (#Fast) |

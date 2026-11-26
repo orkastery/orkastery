@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-23T11:02:31-03:00
+atualizado_em: 2026-11-26T09:50:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -52,6 +52,7 @@ O código está mesclado e em produção, mas a exposição continua com flag de
   - O `parado-no-condutor` já devolve parte desses casos ao condutor, mas o ledger continua registrando `human.pending`.
   - No Codex, uma sessão terminou o turno com `task_complete` no rollout, CHECK aprovado e commit feito. O watcher perdeu o estado com `SESSION_STATE_SPLIT` e registrou `runtime.unavailable`, com `turnId` nulo e fonte "observação incompleta ou inválida".
   - A política de retry tratou esse resultado como falha do runtime, entrou no primeiro degrau da escada de recuperação e redespachou a mesma fase. A nova sessão continuou alterando a branch depois que a condução já tinha aberto o PR.
+  - Em 26/11/2026, um PLAN que já havia gravado o artefato e concluído no ledger foi classificado como `runtime.unavailable`; o retry redespachou o pedido já superado e excedeu o limite de sessões simultâneas do Codex.
   - Em outro caso, a sessão registrou um pedido que só a condução podia cumprir e o resultado saiu como `conducao.acao-necessaria`. Esse resultado é correto e permanece.
 - **Objetivo/OKR:** nenhuma espera humana falsa no ledger; o dono só é chamado quando a sessão perguntou algo de fato.
 - **Hipótese:** se o fim de fase for classificado pelo resultado (Stop correlacionado, sem pergunta pendente, prova do núcleo), então as threads `#Auto` deixam de girar em GO e de parar à toa, porque a condução passa a receber `fase_concluida` ou "GO sem mudança" no lugar de `human.pending`.
@@ -66,6 +67,7 @@ O código está mesclado e em produção, mas a exposição continua com flag de
   - no Codex, `task_complete` no rollout fixado da sessão despachada fecha a fase pelo resultado mesmo quando o watcher perdeu o estado; sem `task_complete`, a indisponibilidade continua tipada;
   - pedido à condução registrado pela sessão prevalece sobre o fechamento genérico;
   - a política de retry não redespacha uma fase que o `task_complete` classificou como `fase_concluida`; quando o mesmo terminal carrega falha estruturada de runtime, a política tipada de recuperação permanece;
+  - o resultado no ledger e o artefato canônico concluído prevalecem sobre uma leitura incompleta do runtime; retry nunca repete pedido que uma fase posterior já superou e sempre respeita o limite de sessões do runtime;
   - `human.pending` só quando a mensagem final pergunta algo ao humano.
 - **Fora de escopo:** mudar a janela do Claude Code para marcar a sessão como encerrada; alterar o contrato de recibo da [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) ou a política de claims da [RM-079](RM-079-claims-que-a-correcao-passa.md).
 - **Entregáveis e critérios de aceite:**
@@ -73,6 +75,7 @@ O código está mesclado e em produção, mas a exposição continua com flag de
   - um caso de teste por combinação de estado nativo (`blocked`, `working`, `done`) com e sem pergunta real;
   - Codex com `task_complete` e estado dividido fecha; sem `task_complete`, o pedido à condução permanece tipado;
   - retry com `task_complete` concluído é recusado e deixa a razão no ledger; `task_complete` com erro estruturado conserva a política da falha;
+  - PLAN com artefato gravado e resultado concluído não vira `runtime.unavailable`; a mesma tentativa, depois de uma fase posterior, é recusada como superada antes de reservar sessão;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** a bancada da condução compara rodadas equivalentes com e sem a fatia e publica apenas a razão; qualquer pergunta real perdida ou redespacho depois de `task_complete` concluído interrompe a expansão.
 
@@ -101,13 +104,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-23 | Julio |
-| Documentação | Em revisão | — | 2026-11-23 | Julio |
-| Código | Mesclado | commit `7fd2b66` | 2026-11-23 | Julio |
-| Testes | Em execução | — | 2026-11-23 | Julio |
-| Deploy | Produção | — | 2026-11-23 | Julio |
-| Exposição | Flag desligada | — | 2026-11-23 | Julio |
-| Habilitação | Pendente | — | 2026-11-23 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
+| Documentação | Em revisão | — | 2026-11-26 | Julio |
+| Código | Mesclado | commit `7fd2b66` | 2026-11-26 | Julio |
+| Testes | Em execução | — | 2026-11-26 | Julio |
+| Deploy | Produção | — | 2026-11-26 | Julio |
+| Exposição | Flag desligada | — | 2026-11-26 | Julio |
+| Habilitação | Pendente | — | 2026-11-26 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -123,3 +126,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-02 | Codex incluído no escopo e implementação iniciada | `task_complete` foi perdido sob `SESSION_STATE_SPLIT` e a escada redespachou a fase concluída | Condução `#Auto`, decisão registrada na thread |
 | 2026-11-03 | Em produção na 0.6.5 | Merge `7fd2b66` (PR #257) e tag `v0.6.5` publicada no npm | Julio |
 | 2026-11-23 | Ligação priorizada com medição antes e depois; estado de exposição permanece verdadeiro | Realinhamento aprovado; flag ainda desligada | Julio |
+| 2026-11-26 | Resultado do ledger e artefato concluído passam a prevalecer sobre indisponibilidade aparente; retry de pedido superado e reserva acima do limite entram nos critérios | Achado da condução da versão 0.6.11: PLAN concluído foi redespachado como `runtime.unavailable` | sessão GO `ork-achados0611` (#Fast) |
