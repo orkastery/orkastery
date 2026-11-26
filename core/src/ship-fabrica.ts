@@ -1,7 +1,7 @@
 import type { ResultadoCi } from './ci';
 import { nomeDecisorioGithub } from './ci-fabrica-github';
 import type { EntradaDoShipComFabrica } from './ship';
-import { comandosDoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
+import { configuracaoDaFabricaNoTextoDoManifesto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { chamadorDaApi, ChamadorDaApi } from './forja/api';
 import { dirDoCacheDaForja } from './forja/cache';
 import type { ForjaResolvida } from './forja/contrato';
@@ -85,17 +85,27 @@ function consultarGithub(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaD
 }
 
 function consultarGitlab(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaDaFabricaNoShip,
-  nivel: 'observar' | 'avisar' | 'exigir', agoraMs: () => number, esperar: (ms: number) => void): ResultadoDaFabricaNoShip {
+  nivel: 'observar' | 'avisar' | 'exigir', contaDaFabrica: number,
+  agoraMs: () => number, esperar: (ms: number) => void): ResultadoDaFabricaNoShip {
   const fim = agoraMs() + Math.max(0, c.prazoMs);
   for (;;) {
     const lidos = pedidosDaBranchGitlab({ repositorio: forja.repo, base: c.destino, branch: c.origem,
       prazoMs: Math.max(1, fim - agoraMs()), api });
     if (lidos.erro) return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
     const exato = lidos.prs.find((p) => p.head === c.head);
-    if (exato?.estado === 'mesclado') {
+    if (exato?.estado === 'mesclado' && exato.mescladoPorId === contaDaFabrica) {
       const base = entradaBase(c, nivel, 'gitlab');
       return { ok: true, entrada: { ...base, resultado: { valido: true, destino: c.destino, head: c.head },
-        gitlab: { estado: 'mesclado', shaMesclado: exato.head } } };
+        gitlab: { estado: 'mesclado', shaMesclado: exato.head, mergeSha: exato.mergeSha ?? exato.head,
+          numero: exato.numero, mescladoPorId: contaDaFabrica } } };
+    }
+    const divergente = lidos.prs.find((p) => p.estado === 'mesclado' && p.head !== c.head
+      && p.mescladoPorId === contaDaFabrica);
+    if (divergente) {
+      const base = entradaBase(c, nivel, 'gitlab');
+      return { ok: true, entrada: { ...base, resultado: { valido: true, destino: c.destino, head: c.head },
+        gitlab: { estado: 'mesclado', shaMesclado: divergente.head, mergeSha: divergente.mergeSha ?? divergente.head,
+          numero: divergente.numero, mescladoPorId: contaDaFabrica } } };
     }
     const agora = agoraMs();
     if (agora >= fim) {
@@ -119,7 +129,7 @@ export function criarPortaDaFabricaNoShip(carregado: ManifestoCarregado,
     if (bruto === null) {
       return { ok: true, entrada: { ...entradaBase(c, 'observar', 'github'), configurada: false } };
     }
-    const manifesto = comandosDoTextoDoManifesto(bruto);
+    const manifesto = configuracaoDaFabricaNoTextoDoManifesto(bruto);
     if (!manifesto) return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
     const nivel = manifesto.politicaRecibo ?? 'observar';
     const config = manifesto.fabricaCi;
@@ -139,6 +149,6 @@ export function criarPortaDaFabricaNoShip(carregado: ManifestoCarregado,
         : consultarGithub(api, forja, c, nivel, config.github_app_id);
     }
     return config.gitlab_user_id === undefined ? { ok: false, codigo: 'ci.fabrica.prova-ausente' }
-      : consultarGitlab(api, forja, c, nivel, agoraMs, esperar);
+      : consultarGitlab(api, forja, c, nivel, config.gitlab_user_id, agoraMs, esperar);
   };
 }

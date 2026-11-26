@@ -1168,6 +1168,33 @@ export interface ComandosDoManifesto {
   fabricaCiInvalida: boolean;
 }
 
+export interface ConfiguracaoDaFabricaNoDestino {
+  politicaRecibo: PoliticaDeReciboCi | undefined;
+  fabricaCi: ConfiguracaoDaFabricaCi | undefined;
+  fabricaCiInvalida: boolean;
+}
+
+function configuracaoDaFabricaNoBlocoCi(ci: Record<string, ValorYaml>): ConfiguracaoDaFabricaNoDestino {
+  const errosDaFabrica: string[] = [];
+  const fabricaCi = lerFabricaCi(ci.fabrica, errosDaFabrica);
+  const politica = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : ci.politica_recibo;
+  const politicaRecibo = politica === 'observar' || politica === 'avisar' || politica === 'exigir' ? politica : undefined;
+  return { politicaRecibo, fabricaCi, fabricaCiInvalida: errosDaFabrica.length > 0 };
+}
+
+/**
+ * O opt-in da fábrica lido da branch de destino. Outros blocos inválidos do manifesto não mudam o fluxo do ship;
+ * somente YAML ilegível impede identificar com segurança o bloco `ci`.
+ */
+export function configuracaoDaFabricaNoTextoDoManifesto(bruto: string): ConfiguracaoDaFabricaNoDestino | null {
+  try {
+    const dados = mapa(lerYaml(bruto));
+    return configuracaoDaFabricaNoBlocoCi(mapa(dados.ci));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * RM-059 (A15 da revisao da ork-rm059pista): os comandos de verify e o do CI de um `orkastery.yaml` lido como texto (o
  * do HEAD de uma branch, pelo `git show`), com as mesmas regras do `carregarManifesto`. `null` quando o texto nao abre.
@@ -1186,15 +1213,13 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
   const excecaoRecibo = ci.excecao_recibo !== null && typeof ci.excecao_recibo === 'object' && !Array.isArray(ci.excecao_recibo)
     ? mapa(ci.excecao_recibo) : undefined;
-  const errosDaFabrica: string[] = [];
-  const fabricaCi = lerFabricaCi(ci.fabrica, errosDaFabrica);
-  const politica = ci.politica_recibo;
-  const politicaRecibo = politica === 'observar' || politica === 'avisar' || politica === 'exigir' ? politica : undefined;
+  const fabrica = configuracaoDaFabricaNoBlocoCi(ci);
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
-    checkMode: resolverModo(check?.mode).modo, politicaRecibo,
-    ciCommand: opcional(ci.command), excecaoRecibo, fabricaCi, fabricaCiInvalida: errosDaFabrica.length > 0 };
+    checkMode: resolverModo(check?.mode).modo, politicaRecibo: fabrica.politicaRecibo,
+    ciCommand: opcional(ci.command), excecaoRecibo, fabricaCi: fabrica.fabricaCi,
+    fabricaCiInvalida: fabrica.fabricaCiInvalida };
 }
 
 /** Documento da policy F6 vindo do manifesto da target; a validação fechada mora em excecao-recibo.ts. */

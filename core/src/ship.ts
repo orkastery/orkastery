@@ -172,7 +172,8 @@ export interface EntradaDoShipComFabrica {
   head: string;
   resultado: { valido: boolean; destino: string; head: string; githubAppId?: number } | null;
   github?: { appIdEsperado: number; checkVerde: boolean; pushAceito?: boolean };
-  gitlab?: { estado: 'pendente' | 'mesclado'; shaMesclado?: string };
+  gitlab?: { estado: 'pendente' | 'mesclado'; shaMesclado?: string; mergeSha?: string;
+    numero?: number; mescladoPorId?: number };
   ci: Pick<ResultadoCi, 'state'>;
 }
 
@@ -813,7 +814,7 @@ export function ship(
   const ci = consultarCi(carregado, shaDe, remoto, opcoes.executorCi);
   r.ci = ci;
   const lidaDaFabrica = opcoes.portaDaFabrica?.({ remoto, origem: de, destino: para, head: shaDe, ci,
-    prazoMs: opcoes.prazoFabricaMs ?? 120_000 });
+    prazoMs: r.dryRun ? 0 : opcoes.prazoFabricaMs ?? 120_000 });
   if (lidaDaFabrica && !lidaDaFabrica.ok) {
     return bloquear(
       'ci.failed',
@@ -850,17 +851,6 @@ export function ship(
       codigoDoShip,
     );
   }
-  // No GitLab a fábrica faz o merge. O SHIP só registra depois que a base observada contém o HEAD aprovado.
-  if (decisaoDaFabrica.acao === 'registrar-gitlab'
-      && !exec('git', ['merge-base', '--is-ancestor', shaDe, shaPara], raiz).ok) {
-    return bloquear(
-      'ci.failed',
-      textoDoCatalogo((m) => m.ship.fabricaRecusou('ship.fabrica.merge-pendente', shaDe)),
-      textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, 'ship.fabrica.merge-pendente')),
-      'ship.fabrica.merge-pendente',
-    );
-  }
-
   // Security scan (spec 11.2): com `verify.security_scan` e sem o scan no bundle do CI, categoria do laco sem varredura
   // no SHA da candidata pede autorizacao humana, antes de qualquer push.
   const naoVarridas = unscannedCategories(carregado, shaDe);
@@ -880,6 +870,42 @@ export function ship(
     if (r.dryRun) autorizariaSemScan = textoDoCatalogo((m) => m.ship.passoAutorizariaSemScan(quem, naoVarridas.join(', '), shaDe));
     else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe,
       ...(pelaFlag ? { origem: 'flag' } : { pedidoId: respondida!.pedidoId, origem: 'resposta-b' }) });
+  }
+
+  // No GitLab em exigir, a fábrica já fez o merge. A leitura do MR, do SHA e do autor é a prova da entrega externa;
+  // criar outro merge local devolveria a autoridade ao SHIP e dependeria de uma main local potencialmente atrasada.
+  if (decisaoDaFabrica.acao === 'registrar-gitlab') {
+    const prova = entradaDaFabrica?.gitlab;
+    const mergeSha = prova?.mergeSha ?? prova?.shaMesclado ?? shaDe;
+    const descricao = `GitLab MR ${prova?.numero ?? '(não informado)'} mesclado pela fábrica no SHA ${shaDe.slice(0, 8)}`;
+    r.mergeSha = mergeSha;
+    r.pontaDaBase = mergeSha;
+    r.jaIncorporado = true;
+    r.remoto = remoto;
+    r.shaRemoto = null;
+    r.pushVerificado = false;
+    r.passos = [descricao];
+    if (r.dryRun) return { ...r, ok: true, bloqueado: false };
+    registrarGateLiberado(dir, threadId, {
+      gate: 'ship', modo: thread.modo, autorizadoPor: autorizacao.por,
+      evidencia: `${descricao}; autor GitLab ${prova?.mescladoPorId ?? '(não informado)'}`,
+      tipoDeAutorizacao: autorizacao.tipo,
+    });
+    registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
+      de, para, shaDe, shaParaAntes: shaPara, mergeSha, pontaDaBase: mergeSha, jaIncorporado: true,
+      remoto, shaRemoto: null, pushVerificado: false,
+      fonteDaProva: `GitLab API merge request ${prova?.numero ?? '(não informado)'}`,
+      autorizadoPor: autorizacao.por, tipoDeAutorizacao: autorizacao.tipo,
+      politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA, modo: thread.modo, tag: tagDoModo(thread.modo),
+      evidencia: { verificadoNoCommit: verificacao.commit,
+        claimsVerificadas: verificacao.claims.filter((c) => c.verificado).map((c) => c.claim.id),
+        comandos: verificacao.comandos.map(comandoNoLedger), ci, passos: r.passos },
+    });
+    if (!urlFixada) publicarEmSegundoPlano(raiz);
+    const atualizada = lerThread(raiz, threadId);
+    if (!atualizada.fases?.length || atualizada.fases.includes('SHIP')) atualizada.faseAtual = 'SHIP';
+    gravarThread(raiz, atualizada);
+    return { ...r, ok: true, bloqueado: false };
   }
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.

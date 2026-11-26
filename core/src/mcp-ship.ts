@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
-import {exigirManifesto} from './manifest';
+import {exigirManifesto,ManifestoCarregado} from './manifest';
 import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
@@ -258,10 +258,16 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
     return ship(c,t.id,opcoesDoShipMcpComPreflight({de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
-      portaDaFabrica:criarPortaDaFabricaNoShip(c),prazoFabricaMs:Math.max(0,deadline-Date.now()-RESERVA),
+      ...opcoesDaFabricaDoShipMcp(c,deadline),
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
       revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa));
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}
+}
+/** Composição única da porta da fábrica usada pelo worker MCP. */
+export function opcoesDaFabricaDoShipMcp(c:ManifestoCarregado,deadline:number) {
+  return {
+    portaDaFabrica:criarPortaDaFabricaNoShip(c),prazoFabricaMs:Math.max(0,deadline-Date.now()-RESERVA),
+  };
 }
 export type RespostaShipMcp={ok:boolean;resultado?:ResultadoShip;erro?:string;cleanupConfirmado?:boolean};
 /** Perfil não pode ser fabricado por argumentos JSON. Retorno interrompido exige reconciliação. */

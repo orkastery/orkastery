@@ -10,6 +10,11 @@ import { deFora } from '../texto';
 
 const SHA = /^[0-9a-f]{40}$/, BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
 
+export type PrDaForjaGitlab = PrDaForja & {
+  mescladoPorId: number | null;
+  mergeSha: string | null;
+};
+
 /** O projeto na API: o caminho completo codificado (`projects/grupo%2Fsub%2Fprojeto`). */
 export const projetoNaApi = (repo: string): string => `projects/${encodeURIComponent(repo)}`;
 
@@ -29,7 +34,7 @@ function instante(v: unknown): string | null {
  * base ou de branch que nao e nome de branch. Formato errado lanca: a leitura inteira vira "nao lida". Os checks ficam
  * vazios: a lista nao traz o job do head.
  */
-export function prDoMr(bruto: unknown, base: string): PrDaForja | null {
+export function prDoMr(bruto: unknown, base: string): PrDaForjaGitlab | null {
   if (!bruto || typeof bruto !== 'object') throw new Error('MR fora do formato');
   const m = bruto as Record<string, unknown>;
   const estado = ESTADOS_DO_MR[String(m.state)];
@@ -44,8 +49,14 @@ export function prDoMr(bruto: unknown, base: string): PrDaForja | null {
   const url = typeof m.web_url === 'string' && /^https?:\/\/\S+$/.test(m.web_url) ? m.web_url.slice(0, 300) : null;
   const conflito = estado !== 'aberto' ? undefined : m.has_conflicts === true ? true
     : m.has_conflicts === false && !EM_CALCULO.has(String(m.detailed_merge_status)) ? false : null;
+  const autor = m.merge_user && typeof m.merge_user === 'object' && !Array.isArray(m.merge_user) ? m.merge_user
+    : m.merged_by && typeof m.merged_by === 'object' && !Array.isArray(m.merged_by) ? m.merged_by : null;
+  const autorId = autor && Number.isSafeInteger((autor as Record<string, unknown>).id)
+    ? Number((autor as Record<string, unknown>).id) : null;
+  const mergeSha = sha(m.merge_commit_sha) ?? sha(m.squash_commit_sha) ?? (estado === 'mesclado' ? m.sha : null);
   return { numero: m.iid, branch: m.source_branch, head: m.sha, estado, rascunho, url, criadoEm: instante(m.created_at),
-    mescladoEm: instante(m.merged_at), checks: [], ...(conflito !== undefined ? { conflito } : {}) };
+    mescladoEm: instante(m.merged_at), checks: [], mescladoPorId: autorId, mergeSha,
+    ...(conflito !== undefined ? { conflito } : {}) };
 }
 
 /** O caminho da lista de MRs de uma branch na API, como a leitura o pede. */
@@ -56,7 +67,7 @@ export function caminhoDosMrsDaBranch(repo: string, branch: string): string {
 
 /** Os MRs de uma branch na base, do mais novo para o mais velho; `erro` com o codigo `forja.*` quando a leitura falha. */
 export function pedidosDaBranchGitlab(e: { repositorio: string; base: string; branch: string; prazoMs: number; api?: ChamadorDaApi }):
-  { prs: PrDaForja[]; erro: string | null } {
+  { prs: PrDaForjaGitlab[]; erro: string | null } {
   if (!e.api) return { prs: [], erro: 'forja.sem-capacidade: pedidosDaBranch sem a API do GitLab' };
   const r = e.api({ metodo: 'GET', caminho: caminhoDosMrsDaBranch(e.repositorio, e.branch), prazoMs: e.prazoMs });
   if (!r.ok) return { prs: [], erro: deFora(`${r.erro.codigo}: ${r.erro.detalhe}`) };
@@ -64,7 +75,7 @@ export function pedidosDaBranchGitlab(e: { repositorio: string; base: string; br
   if (r.valor.cabecalhos['x-next-page']) return { prs: [], erro: deFora(`forja.incompleto: ${e.branch} > 100`) };
   if (!Array.isArray(r.valor.corpo)) return { prs: [], erro: 'forja.resposta-invalida: a resposta nao e uma lista' };
   try {
-    const prs = r.valor.corpo.map((x) => prDoMr(x, e.base)).filter((p): p is PrDaForja => !!p && p.branch === e.branch);
+    const prs = r.valor.corpo.map((x) => prDoMr(x, e.base)).filter((p): p is PrDaForjaGitlab => !!p && p.branch === e.branch);
     return { prs: prs.sort((a, b) => b.numero - a.numero), erro: null };
   } catch (err) {
     return { prs: [], erro: deFora(`forja.resposta-invalida: ${(err as Error).message}`) };

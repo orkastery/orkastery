@@ -2347,13 +2347,20 @@ function comandoShip(args: Args): number {
       allowUnscanned: typeof semScan === 'string' ? semScan.trim() : undefined,
       semPush: args.opcoes['sem-push'] === true,
       preflightEmpresa: preflight,
-      portaDaFabrica: criarPortaDaFabricaNoShip(carregado),
+      ...opcoesDaFabricaDoShipCli(carregado),
       // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
       ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(
         filaPesadaDoCli(args, 'verify', `ork ship ${id} --para ${para} --esperar 30`)),
     })));
   console.log(textoDoShip(r));
   return r.ok ? 0 : 1;
+}
+
+/** Composição única da porta da fábrica usada pelo comando `ork ship`. */
+export function opcoesDaFabricaDoShipCli(carregado:ManifestoCarregado) {
+  return {
+    portaDaFabrica: criarPortaDaFabricaNoShip(carregado),
+  };
 }
 
 /**
