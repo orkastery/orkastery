@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const CORE = path.resolve(__dirname, '../..');
 const SCRIPT = path.join(CORE, 'scripts', 'retrato-do-classic.cjs');
@@ -37,6 +38,10 @@ test('CL2: o Classic chama o Docker igual a base: as mesmas ferramentas, opcoes 
   assert.deepEqual(scan, DA_BASE.scan);
   const ferramentas = [...new Set(scan.filter((c) => c[1] === 'run').map((c) => /ork-security-scan-([a-z-]+)-<N>/.exec(c.join(' '))?.[1]))];
   assert.deepEqual(ferramentas, ['gitleaks', 'semgrep', 'trivy-vuln', 'npm-audit', 'trivy-config', 'zizmor', 'actionlint', 'eslint', 'trivy-license']);
+  const defaults = path.join(CORE, 'assets', 'security-scan', 'defaults');
+  const digest = (nome: string): string => createHash('sha256').update(fs.readFileSync(path.join(defaults, nome))).digest('hex');
+  assert.equal(digest('gitleaks.toml'), '3c770c989c6e0bbb2f6e38603725be17a0f37d862f55a90f601970d2628c3b36');
+  assert.equal(digest('eslint.config.mjs'), '1a0698d610f68bfbce3810f6a3db0b79333b50c6f64b82ab1afa37d927874707');
 });
 
 test('CL3: mutante de prova: com a ordem dos comandos do manifesto invertida numa copia compilada, o retrato acusa', () => {

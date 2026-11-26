@@ -53,7 +53,7 @@ test('default configs exist and the catalog matches the decisions', () => {
   assert.match(fs.readFileSync(path.join(defaults, 'gitleaks.toml'), 'utf8'), /useDefault = true/);
   const eslintConfig = fs.readFileSync(path.join(defaults, 'eslint.config.mjs'), 'utf8');
   assert.match(eslintConfig, /recommendedTypeChecked/);
-  assert.match(eslintConfig, /['"]\*\*\/test\/\*\*['"]/, 'o scan não analisa a árvore de testes');
+  assert.doesNotMatch(eslintConfig, /['"]\*\*\/test\/\*\*['"]/, 'a config padrão não reduz o alcance do Classic');
   assert.equal(fs.existsSync(path.resolve(defaults, '../../../test/tsconfig.json')), false,
     'o scan não depende de um projeto TypeScript próprio para os testes');
   const by = Object.fromEntries(loadTools().map(t => [t.name, t]));
