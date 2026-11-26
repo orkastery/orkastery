@@ -127,6 +127,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-094](RM-094-caixa-de-intencoes.md) | Caixa de intenções | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-095](RM-095-resultado-de-producao-vira-proposta.md) | Resultado de produção vira proposta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-096](RM-096-nucleo-portatil-no-macos.md) | Núcleo portátil no macOS | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-25 |
+| [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) | Resolução de tipos no worktree do security scan | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-25 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
