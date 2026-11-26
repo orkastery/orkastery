@@ -12,13 +12,9 @@ No `orkastery.yaml`, escolha um nível:
 ci:
   context: ork-verify
   politica_recibo: exigir
-  transporte_excecao:
-    contrato: ork.excecao-transporte-runner/v1
-    origem: https://fabrica.exemplo.invalid/ci
-    audiencia: urn:orkastery:fabrica:ci
-    cliente:
-      versao: versao-publicada
-      sha256: digest-da-target-com-64-caracteres-hexadecimais
+  fabrica:
+    github_app_id: 123
+    gitlab_user_id: 456
 ```
 
 | Nível | Resultado do check | Diagnóstico |
@@ -83,11 +79,17 @@ A porta gerida usa três contratos separados:
 
 A ordem é pedido, recibo, validação, append durável e exposição do par. Falha de append não expõe a exceção. Depois do append, a mesma chave de idempotência devolve o par sem reenviar nem criar evento. Antes do append, a porta idempotente precisa devolver o mesmo recibo. O recibo assinado prova a resposta `delivered` do emissor para o pedido exato; não prova leitura humana.
 
-O transporte protegido `ork.excecao-transporte-runner/v1` entrega ao validador a `proof` F6 integral e a `capability` limitada ao par. A configuração vem da target protegida: o GitHub confere `main` antes do job com OIDC, e o GitLab busca o manifesto da target pela API. O tarball publicado inclui a árvore de dependências de produção, é conferido pelo digest e não executa scripts de instalação. O ID token não existe nos passos que obtêm ou instalam o cliente; sem opt-in no GitLab, ele é removido antes da instalação e o replay anterior continua sendo executado.
+## Decisão da fábrica
 
-A audiência é exatamente `urn:orkastery:fabrica:ci`. No GitHub, a fábrica exige `iss`, `aud`, `repository`, `run_id`, `job_workflow_ref` e `job_workflow_sha` compatíveis com o workflow allowlisted. No GitLab, exige `iss`, `aud`, `project_path`, `pipeline_id`, `job_id`, `user_id`, `sha`, `ci_config_ref_uri` e `ci_config_sha` compatíveis com a configuração allowlisted. A fábrica usa esses claims e o pedido apenas como localizadores e reobtém projeto, origem, destino, HEAD, proteção, execução e produtor antes de entregar a capacidade. Nada é aceito do bundle, de argumento, de ambiente controlável pelo PR/MR ou do checkout do builder. Token, prova e capacidade brutos permanecem no validador; somente o resultado sanitizado interno é integrado ao `ork ci run --branch`.
+A F7 fornece o motor e as portas da decisão. Ela não provisiona nem opera o serviço da fábrica. O bloco `ci.fabrica` é lido somente do manifesto da branch de destino. `github_app_id` identifica o GitHub App esperado e `gitlab_user_id` identifica a conta esperada no GitLab. Segredos não pertencem ao manifesto.
 
-Ausência determinística usa `ci.recibo.ausente`; indisponibilidade usa `ci.excecao.transporte-indisponivel`; prazo excedido usa `ci.excecao.transporte-prazo-excedido`; wrapper apresentado e inválido usa `ci.excecao.transporte-invalido`. `observar` diagnostica, `avisar` também anota e `exigir` falha fechado quando o recibo do runner está ausente. Um recibo do runner já presente encerra o caminho antes da consulta. A exceção dispensa somente essa ausência: projeção inválida ou falha real de preparo, claim ou comando continua reprovando.
+A decisão relê os registros do núcleo e os fatos da forja. Ela exige o verify verde mais recente com os comandos do manifesto, a lista completa de commits e arquivos, cada commit de produto registrado pela thread, CHECK independente posterior ao último commit de produto e ligado ao HEAD exato, e a tag da mesma condução. Commit de produto é um commit que não é merge e muda ao menos um arquivo fora de `.ork-ci`. Mudança de produto depois do verify exige novo verify. O resultado forte usa `ork.ci-recibo-forte-payload/v2` e `ork.ci-recibo-forte-assinatura/v2`, separados do recibo F5. A assinatura Ed25519 liga projeto, origem, destino, HEAD, verify, CHECK, condução, validade e, quando existe, a exceção F6 exata.
+
+No GitHub, `exigir` publica no HEAD o nome `ork-fabrica/utf8-<destino-em-hex>` e requer uma regra própria da branch, atualização estrita e o App exato. `observar` e `avisar` usam `ork-fabrica-diagnostico/utf8-<destino-em-hex>` e nunca tornam o diagnóstico decisório. O sufixo é a codificação hexadecimal dos bytes UTF-8 do nome completo da branch. O App precisa ler conteúdo, pull requests e regras da branch, e criar check-runs. Fork e `merge_group` não são aceitos em `exigir` nesta etapa.
+
+No GitLab, a conta da fábrica precisa de token com escopo `api`, acesso restrito aos projetos declarados e função Maintainer. A branch de destino precisa estar protegida, sem push de Maintainer e sem force push. O MR precisa estar atualizado com o destino e o merge usa a API com o campo `sha` igual ao HEAD relido. O diagnóstico fica no registro publicado pela fábrica e não transforma commit status ou external status check em autoridade positiva. Na edição Free, outro Maintainer efetivo produz o aviso não bloqueante `ci.fabrica.maintainer-adicional`. Owner, administrador e bypass permanecem fora da garantia. Nas edições pagas, a fábrica também exige reset de aprovações após push, regra não editável no MR, bloqueio de aprovação pelo autor e aprovações válidas. Merge train não é aceito em `exigir` nesta etapa.
+
+Os códigos da fábrica são `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`, `ci.fabrica.prazo-excedido`, `ci.fabrica.regra-destino-invalida`, `ci.fabrica.maintainer-adicional`, `ci.fabrica.nome-colidente`, `ci.fabrica.publicacao-recusada`, `ci.fabrica.resultado-invalido`, `ci.fabrica.assinatura-invalida` e `ci.fabrica.chave-invalida`. No contrato do SHIP, sinal negativo da CI continua vetando e sinal positivo não autoriza sozinho. As recusas próprias são `ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente` e `ship.fabrica.sha-divergente`.
 
 ## Limite de confiança do nível básico
 
@@ -95,20 +97,16 @@ O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados 
 um conjunto não vazio de claims e ancora os comandos e o preparo no `verify` do manifesto da branch de destino, cuja
 proteção administrativa por `CODEOWNERS` e regra obrigatória está fora do controle isolado do PR. Isso prova que a receita
 aceita não esvaziou as claims nem trocou ou omitiu os comandos e o preparo protegidos. No caminho normal, sem exceção,
-o runner não consulta nem confere a projeção contra o ledger do Orkastery; quando uma exceção é apresentada pelo transporte
-protegido, ele lê somente o par exato de notificação e envelope. Nenhum dos caminhos prova que as claims são completas ou
+o runner não consulta nem confere a projeção contra o ledger do Orkastery. Quando uma exceção F6 é apresentada, ele lê
+somente o par exato de notificação e envelope. Nenhum dos caminhos prova que as claims são completas ou
 autênticas, nem prova a autoria do bundle,
 do código ou do workflow. Também não confia na baseline da projeção: reexecuta no HEAD o preparo, as claims e os comandos
 ancorados, reprova qualquer falha atual e emite o recibo do HEAD que acabou de executar.
 Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 
-O campo `assinatura` usa `ork.ci-recibo-forte-assinatura/v1`. A pré-imagem canônica ancora o `sha256` do recibo básico
-ao HEAD, à thread, à tag de condução, ao veredito, à rodada, ao CHECK e ao principal nativo. A fábrica verifica emissor,
-chave, validade, revogação e material público; chave privada não integra o produto. No GitHub o produtor é
-`check_run.app.id`; no GitLab é o `user_id` do job, sempre distinto do construtor. Alteração de campo, HEAD, evidência,
-emissor ou chave invalida a assinatura. A assinatura da notificação F6 continua provando somente a resposta ao pedido
-exato e não substitui o recibo forte F7.
+O resultado forte da fábrica é um artefato v2 separado. Ele não acrescenta o campo `assinatura` ao recibo F5 e não
+transforma o job do CI em autoridade positiva. Alteração de escopo, HEAD, evidência, emissor ou chave invalida o resultado.
 
 ## Tornar o check obrigatório
 

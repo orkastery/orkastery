@@ -104,7 +104,7 @@ prova F5. O guia
 
 O runner valida a projeção, reexecuta preparo, claims e comandos pelo julgamento compartilhado com o verify e emite
 `ork.ci-recibo-runner/v1` no resultado `ork.ci-run/v1`. A saída leva `contrato`, `head`, `thread`, `claimsSha256`,
-`rodadaSha256`, `check`, `resultado`, `sha256` e a assinatura F7 opcional. `presente` exige
+`rodadaSha256`, `check`, `resultado` e `sha256`. `presente` exige
 `resultado.recibo.head === resultado.commit === HEAD`, ao menos uma claim, comandos idênticos aos comandos de `verify`
 e preparo idêntico ao `verify.preparo` do manifesto da branch de destino e rodada integral verde. Preparo ausente,
 acrescentado ou trocado pelo PR invalida a receita. A ref ou o manifesto de destino ilegível falha fechado. Branch externa e fork não ganham
@@ -120,17 +120,12 @@ As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-li
 mudança. A âncora exige claims não vazias, comandos e preparo do `verify` do manifesto da branch de destino, protegido
 administrativamente por `CODEOWNERS` e pela regra obrigatória. Ela prova que a receita aceita não esvaziou as claims nem
 trocou ou omitiu esses comandos ou o preparo. Sem exceção auditável, o runner não consulta nem confere a projeção contra
-o ledger; com uma exceção entregue pelo transporte protegido, lê somente o recibo e o envelope exatos. A
+o ledger. Com uma exceção F6, lê somente o recibo e o envelope exatos. A
 baseline projetada não é uma fonte confiável e não participa do julgamento do CI: qualquer falha atual de preparo,
 claim ou comando reprova nos três níveis, sem exceção de dívida preexistente. O nível básico somente reexecuta preparo,
 claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
 Isso não prova completude ou autenticidade das claims, autoria do bundle, integridade do código/workflow nem autoria criptográfica.
-`assinatura`, quando presente, usa `ork.ci-recibo-forte-assinatura/v1`. O payload canônico ancora o `sha256` do recibo
-ao HEAD, à thread, à tag de condução, ao veredito, à rodada, ao CHECK e ao principal nativo. A política pública fecha
-emissor, chave Ed25519, validade, revogação e material público. O produto não carrega chave privada. No GitHub,
-`check_run.app.id` identifica o produtor; no GitLab, vale o `user_id` do job. O produtor precisa ser nativo, existir e
-ser distinto do construtor. A assinatura da notificação abaixo continua provando somente a resposta ao pedido exato e
-não cria nem substitui o recibo forte.
+O resultado forte da fábrica é um artefato v2 separado e não acrescenta assinatura ao recibo F5.
 
 ## Exceção auditável do recibo
 
@@ -168,37 +163,39 @@ O runner revalida schema, policy, assinatura, hashes, idempotência, horário, d
 `ork.ci-exception/v1` em `ork.ci-run/v1`, na anotação e no relatório. Ele não notifica, não escreve ledger ou forja e
 não recebe capacidade de escrita. A exceção dispensa apenas a ausência do recibo F5; falha de preparo, claim, comando
 ou replay continua decidindo `ok: false`. O recibo assinado prova entrega pelo emissor e não prova leitura humana.
-### Transporte autenticado da fábrica
+## Decisão da fábrica
 
-`ork.excecao-transporte-runner/v1` contém exatamente `contrato`, `proof` e `capability`. `proof` preserva integralmente
-policy, pedido, recibo e evento F6; a capacidade permanece irmã e limitada ao mesmo projeto, source, target, HEAD,
-operação, evento, recibo e validade. O wrapper evolui em `/v1` próprio sem mudar os contratos F6 internos.
+A F7 fornece contratos executáveis para o motor e para as portas da decisão. Ela não provisiona nem opera o serviço. O
+manifesto da branch de destino pode declarar `ci.fabrica.github_app_id` e `ci.fabrica.gitlab_user_id`. A leitura da
+branch fonte não decide essas identidades e o manifesto não recebe segredo.
 
-A configuração pública `ci.transporte_excecao` é lida da target protegida e fixa origem HTTPS, audiência
-`urn:orkastery:fabrica:ci`, versão e SHA-256 do cliente. No GitHub, o `workflow_call` confere que a target é `main`
-antes de qualquer job com `id-token: write`; no GitLab, a receita busca o manifesto pela API na target do MR. O
-tarball publicado inclui a árvore de dependências de produção, é conferido pelo digest e é aberto sem scripts de
-instalação no caminho autenticado. O ID token não existe nos passos que obtêm ou instalam o cliente: sem opt-in, o
-GitLab o remove antes da instalação; com opt-in, as duas forjas usam o tarball já preparado. Sem opt-in, o replay
-anterior continua sendo executado.
+A prova dos registros exige o verify verde mais recente com os comandos do manifesto, comparação completa, commits de
+produto registrados pela thread, CHECK independente posterior à última mudança de produto e ligado ao HEAD revisado, e
+tag da mesma condução. Commit de produto não é merge e muda ao menos um arquivo fora de `.ork-ci`. Só arquivos do bundle
+podem mudar depois do verify. O resultado usa `ork.ci-recibo-forte-payload/v2`,
+`ork.ci-recibo-forte-assinatura/v2` e a porta exclusiva `ork.ci-recibo-forte-signing-port/v2`. A assinatura Ed25519
+fecha o escopo, a validade, o verify, o CHECK e a condução. Emissor, chave pública, rotação e revogação são conferidos.
 
-A fábrica aceita o token do GitHub somente com `iss`, `aud`, `repository`, `run_id`, `job_workflow_ref` e
-`job_workflow_sha` compatíveis com o workflow allowlisted; no GitLab, usa `iss`, `aud`, `project_path`, `pipeline_id`,
-`job_id`, `user_id`, `sha`, `ci_config_ref_uri` e `ci_config_sha` compatíveis com a configuração allowlisted. Esses
-claims e o pedido são localizadores: a fábrica ainda reobtém os fatos canônicos na API da forja. O launcher não
-recebe prova ou capacidade por argumento, checkout, bundle ou ambiente controlável pelo PR/MR. Token, resposta bruta,
-prova e capacidade permanecem no validador; somente o resultado sanitizado interno é integrado ao `ork ci run --branch`.
+No GitHub, o nome decisório é `ork-fabrica/utf8-<destino-em-hex>` e o diagnóstico usa
+`ork-fabrica-diagnostico/utf8-<destino-em-hex>`. O sufixo codifica em hexadecimal os bytes UTF-8 do nome completo da
+branch. Em `exigir`, uma regra própria da branch precisa exigir o nome decisório com o App configurado e atualização
+estrita. O App precisa ler conteúdo, pull requests e regras da branch, e criar check-runs. Fork e `merge_group` não são
+aceitos nesta etapa.
 
-A fábrica valida a identidade nativa e reobtém na forja projeto, origem, destino, HEAD, proteção, execução, workflow ou
-configuração, produtor e operação antes de entregar a exceção. Fork, target não protegida, produtor ausente ou igual ao
-construtor, audiência divergente e contexto divergente encerram antes da porta sensível. A operação de transporte é
-separada de `assinar-recibo-forte` e não entrega capacidade de assinatura.
+No GitLab, a conta configurada usa token `api`, acesso restrito aos projetos declarados e função Maintainer. A branch
+de destino fica protegida sem push de Maintainer nem force push. A comparação precisa ser completa, o MR precisa estar
+atualizado com o destino e a API de merge recebe `sha` igual ao HEAD relido. Commit status e external status check são
+diagnóstico, nunca autoridade positiva. Na edição Free, outro Maintainer efetivo gera o aviso não bloqueante
+`ci.fabrica.maintainer-adicional`; Owner, administrador e bypass ficam fora da garantia. Nas edições pagas, a regra
+também exige reset de aprovações após push, proíbe edição no MR e aprovação pelo autor, e confere aprovações válidas.
+Merge train não é aceito nesta etapa.
 
-Ausência determinística usa `ci.recibo.ausente`; serviço indisponível usa
-`ci.excecao.transporte-indisponivel`; prazo excedido usa `ci.excecao.transporte-prazo-excedido`; wrapper apresentado e
-inválido usa `ci.excecao.transporte-invalido`. `observar` diagnostica, `avisar` também anota e `exigir` reprova fechado
-quando o recibo do runner está ausente. Um recibo do runner já presente evita a consulta. A exceção F6 dispensa somente
-essa ausência: projeção inválida ou falha real de preparo, claim, comando ou replay continua decidindo `ok: false`.
+Os códigos públicos são `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`,
+`ci.fabrica.prazo-excedido`, `ci.fabrica.regra-destino-invalida`, `ci.fabrica.maintainer-adicional`,
+`ci.fabrica.nome-colidente`, `ci.fabrica.publicacao-recusada`, `ci.fabrica.resultado-invalido`,
+`ci.fabrica.assinatura-invalida` e `ci.fabrica.chave-invalida`. O contrato do SHIP também distingue
+`ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente` e `ship.fabrica.sha-divergente`. Sinal negativo da CI veta;
+sinal positivo não autoriza sozinho.
 
 ## Preflight coletivo e credencial do CI
 

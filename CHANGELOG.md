@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
-- **Recibo forte e transporte autenticado — F7 (RM-089):** os contratos da fábrica ligam a assinatura do hash canônico do recibo à thread, condução, rodada, CHECK independente e HEAD reobtidos. GitHub e GitLab leem a configuração da target protegida, executam o transporte no `ork ci run --branch` real e mantêm token, prova e capacidade fora do resultado. O pacote publicado passa a embutir a árvore de dependências de produção; as receitas conferem o digest, não executam scripts de instalação e retiram o ID token antes do caminho sem opt-in. Ausência, indisponibilidade e prazo excedido permanecem causas públicas distintas; a exceção F6 não cria nem substitui o recibo forte.
+- **Decisão da fábrica, F7 (RM-089):** entram o motor e as portas que conferem verify, commits registrados, CHECK independente e HEAD exato antes de emitir o resultado forte v2. GitHub recebe nomes por destino e App fixado; GitLab recebe as regras Free e pagas, merge ligado ao SHA e aviso para Maintainer adicional. O SHIP distingue push recusado, merge pendente e SHA divergente. A F5 volta ao comportamento publicado, sem transporte ao runner e sem empacotamento da árvore de produção.
 
 ## [0.6.11] - 2026-11-26
 

@@ -12,13 +12,9 @@ Choose a level in `orkastery.yaml`:
 ci:
   context: ork-verify
   politica_recibo: exigir
-  transporte_excecao:
-    contrato: ork.excecao-transporte-runner/v1
-    origem: https://factory.example.invalid/ci
-    audiencia: urn:orkastery:fabrica:ci
-    cliente:
-      versao: published-version
-      sha256: target-digest-with-64-lowercase-hex-characters
+  fabrica:
+    github_app_id: 123
+    gitlab_user_id: 456
 ```
 
 | Level | Check result | Diagnostic |
@@ -84,11 +80,17 @@ The managed port uses three separate contracts:
 
 The order is request, receipt, validation, durable append, then exposure of the pair. An append failure does not expose the exception. After append, the same idempotency key returns the pair without sending again or creating an event. Before append, the idempotent port must return the same receipt. The signed receipt proves the issuer's `delivered` response for that exact request; it does not prove that a person read it.
 
-Protected transport `ork.excecao-transporte-runner/v1` gives the validator the complete F6 `proof` and the pair-limited `capability`. Configuration comes from the protected target: GitHub checks `main` before the OIDC-enabled job, and GitLab fetches the target manifest through the API. The published tarball includes the production dependency tree, is checked by digest, and runs no installation scripts. The ID token is absent from steps that obtain or install the client; without GitLab opt-in, it is removed before installation and the previous replay still runs.
+## Factory decision
 
-The audience is exactly `urn:orkastery:fabrica:ci`. On GitHub, the factory requires `iss`, `aud`, `repository`, `run_id`, `job_workflow_ref`, and `job_workflow_sha` to match the allowlisted workflow. On GitLab, it requires `iss`, `aud`, `project_path`, `pipeline_id`, `job_id`, `user_id`, `sha`, `ci_config_ref_uri`, and `ci_config_sha` to match the allowlisted configuration. The factory treats these claims and the request only as locators and re-fetches project, source, target, HEAD, protection, execution, and producer before issuing a capability. Nothing is accepted from the bundle, arguments, PR/MR-controlled environment, or builder checkout. Raw token, proof, and capability remain inside the validator; only the internal sanitized result is integrated into `ork ci run --branch`.
+F7 provides the decision engine and ports. It does not provision or operate the factory service. The `ci.fabrica` block is read only from the target branch manifest. `github_app_id` identifies the expected GitHub App and `gitlab_user_id` identifies the expected GitLab account. Secrets do not belong in the manifest.
 
-Deterministic absence uses `ci.recibo.ausente`; unavailability uses `ci.excecao.transporte-indisponivel`; deadline expiration uses `ci.excecao.transporte-prazo-excedido`; a presented invalid wrapper uses `ci.excecao.transporte-invalido`. `observar` diagnoses, `avisar` also annotates, and `exigir` fails closed while the runner receipt is absent. An already-present runner receipt short-circuits before transport lookup. The exception waives only that absence: an invalid projection or a real preparation, claim, or command failure still fails.
+The decision re-reads core records and forge facts. It requires the latest green verify with the manifest commands, complete commit and file lists, a thread record for every product commit, an independent CHECK after the latest product commit and bound to the exact HEAD, and the tag from the same conduction. A product commit is a non-merge commit that changes at least one file outside `.ork-ci`. Product changes after verify require another verify. The strong result uses `ork.ci-recibo-forte-payload/v2` and `ork.ci-recibo-forte-assinatura/v2`, separate from the F5 receipt. The Ed25519 signature binds project, source, target, HEAD, verify, CHECK, conduction, validity, and the exact F6 exception when one exists.
+
+On GitHub, `exigir` publishes `ork-fabrica/utf8-<target-in-hex>` on the HEAD and requires a rule dedicated to the branch, strict updating, and the exact App. `observar` and `avisar` use `ork-fabrica-diagnostico/utf8-<target-in-hex>` and never make the diagnostic decisive. The suffix is the hexadecimal encoding of the full branch name's UTF-8 bytes. The App needs read access to contents, pull requests, and branch rules, plus permission to create check-runs. Forks and `merge_group` are not accepted under `exigir` at this stage.
+
+On GitLab, the factory account needs a token with `api` scope, access restricted to declared projects, and the Maintainer role. The target branch must be protected, with no Maintainer push and no force push. The MR must be up to date with the target, and merge uses the API with the `sha` field equal to the re-read HEAD. The diagnostic stays in the factory's published decision record and does not turn a commit status or external status check into positive authority. On Free, another effective Maintainer produces the non-blocking `ci.fabrica.maintainer-adicional` warning. Owner, administrator, and bypass remain outside the guarantee. On paid editions, the factory also requires approval reset after push, a rule that cannot be edited in the MR, author approval prevention, and valid approvals. Merge trains are not accepted under `exigir` at this stage.
+
+Factory codes are `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`, `ci.fabrica.prazo-excedido`, `ci.fabrica.regra-destino-invalida`, `ci.fabrica.maintainer-adicional`, `ci.fabrica.nome-colidente`, `ci.fabrica.publicacao-recusada`, `ci.fabrica.resultado-invalido`, `ci.fabrica.assinatura-invalida`, and `ci.fabrica.chave-invalida`. In the SHIP contract, a negative CI signal still vetoes and a positive signal does not authorize by itself. Factory-specific refusals are `ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente`, and `ship.fabrica.sha-divergente`.
 
 ## Basic-level trust boundary
 
@@ -96,19 +98,15 @@ The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever con
 runner requires a non-empty claim set and anchors commands and preparation to the target branch manifest's `verify`, whose
 administrative protection through `CODEOWNERS` and a required rule is outside the PR author's control alone. This proves
 the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. On the normal,
-non-exception path, the runner does not query the Orkastery ledger or compare the projection against it; when protected
-transport presents an exception, it reads only the exact notification receipt and envelope pair. Neither path proves claim completeness or
+non-exception path, the runner does not query the Orkastery ledger or compare the projection against it. When an F6
+exception is presented, it reads only the exact notification receipt and envelope pair. Neither path proves claim completeness or
 authenticity, or authorship of the bundle, code, or workflow. It also does not trust the projected baseline. At this
 basic level, it reruns protected preparation and the anchored claims and commands on the HEAD, fails every current
 failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
 to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
-The `assinatura` field uses `ork.ci-recibo-forte-assinatura/v1`. Its canonical preimage anchors the basic receipt's
-`sha256` to the HEAD, thread, conduction tag, verdict, round, CHECK, and native principal. The factory checks issuer,
-key, validity, revocation, and public material; no private key is part of the product. The producer is
-`check_run.app.id` on GitHub and the job's `user_id` on GitLab, always distinct from the builder. Changing a field,
-HEAD, evidence, issuer, or key invalidates the signature. The F6 notification signature still proves only the response
-to its exact request and never replaces the F7 strong receipt.
+The factory strong result is a separate v2 artifact. It does not add an `assinatura` field to the F5 receipt and does
+not turn the CI job into positive authority. Changing scope, HEAD, evidence, issuer, or key invalidates the result.
 
 ## Make the check mandatory
 
