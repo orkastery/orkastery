@@ -1772,6 +1772,240 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C116",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/retry.test.ts",
+      "alegacao": "A suíte prova que a correção de security.scan-unscanned aponta para o pedido tipado ao dono e mantém --allow-unscanned apenas como forma equivalente do CLI, sem forçar a fase da fixture.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:47.778Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C117",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2b-casos.ts",
+      "alegacao": "Os casos públicos executam o verify na fase real da thread e preservam o retrato pt-BR atualizado da correção pelo pedido tipado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:47.862Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C118",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/pulse.ts",
+      "alegacao": "A fila do pulse deixa de apresentar security.scan-unscanned depois da resposta b ao pedido atual ou depois de um verify mais recente sem o motivo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/hitl-gates.test.js core/dist-test/test/pulse.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:47.926Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C119",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/locale-ship.ts",
+      "alegacao": "Os textos de correção do SHIP apontam para ork gate request e resposta b do dono, mantendo --allow-unscanned como forma equivalente do CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-ship.test.js core/dist-test/test/security-scan-ship.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:47.999Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C120",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "A política bilíngue de security.scan-unscanned orienta o pedido tipado e a resposta b do dono, deixando a flag como equivalente do CLI.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-retry.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:48.165Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C121",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-ship-transporte.ts",
+      "alegacao": "Um conjunto inválido de verificadores públicos é descartado pelo transporte do worker, que permanece disponível sem receber autoridade de recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/mcp-install-transporte.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:48.299Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C123",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "O pedido security.scan-unscanned nasce irreversível com o ato que libera, dá consequência própria à resposta b e só existe para o motivo do último verify.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/hitl-gates.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:48.574Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C124",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-ship.test.ts",
+      "alegacao": "A suíte do SHIP recusa resposta b antiga depois de a, resposta b antiga com pedido mais recente aberto e conjunto de categorias divergente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/security-scan-ship.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:18:48.770Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C126",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "A detecção de candidata já incorporada aceita a saída Git concluída quando o sandbox anexa um aviso ao processo e preserva o merge que trouxe a branch.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-25T23:50:06.272Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -1806,6 +2040,14 @@
     {
       "id": "C113",
       "reason": "local-integration-required"
+    },
+    {
+      "id": "C122",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C125",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
@@ -1820,7 +2062,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "86a5b25bb0761c868c1c64c9d1d038e98d41d751",
-    "sha256": "38008d4ade2bf2a7caecd0110742234dbceccd8899d9fe0c5d0ba9df91091bc7"
+    "head": "53a0f3558054b5cffe6b2e25889c2a7db212a7fd",
+    "sha256": "459c3383de33605b7edf283f01997e1cc6e4ac1c7617c0f414d0627ad2cce19e"
   }
 }
