@@ -3073,42 +3073,16 @@
       ]
     },
     {
-      "id": "C180",
-      "thread": "ork-macosportave",
-      "fase": "GO",
-      "arquivo": "core/src/verify.ts",
-      "alegacao": "Os consumidores do runtime usam as APIs do Node diretamente e preservam as travas portáteis, o shell controlado e as guardas do verify sem a fachada removida.",
-      "negativa": false,
-      "verificar": [
-        "test ! -e core/src/node-portavel.ts && npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/hitl-lock.test.js core/dist-test/test/fila-pesada-recusa.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/shell-do-verify.test.js core/dist-test/test/verify-timeout.test.js"
-      ],
-      "criadoEm": "2026-11-26T01:33:02.115Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C181",
+      "id": "C184",
       "thread": "ork-macosportave",
       "fase": "GO",
       "arquivo": "core/src/conducao.ts",
       "alegacao": "A condução no Linux mantém a exclusão pelo flock e falha fechada quando o mecanismo não está disponível.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js core/dist-test/test/conducao-handoff.test.js core/dist-test/test/rm037-esperas.test.js core/dist-test/test/rm037-limite-de-sessoes.test.js"
+        "npm --prefix core run build:test && node --test core/dist-test/test/conducao-lease.test.js core/dist-test/test/conducao-handoff.test.js core/dist-test/test/rm037-esperas.test.js core/dist-test/test/rm037-limite-de-sessoes.test.js core/dist-test/test/doctor-portabilidade.test.js"
       ],
-      "criadoEm": "2026-11-26T01:33:02.250Z",
+      "criadoEm": "2026-11-26T03:02:25.985Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -3125,16 +3099,94 @@
       ]
     },
     {
-      "id": "C182",
+      "id": "C185",
       "thread": "ork-macosportave",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md",
-      "alegacao": "O roadmap registra a resolução de tipos do worktree do security scan como proposta própria, com origem, escopo, proteções e estado não iniciado.",
+      "alegacao": "A RM-097 registra a resolução de tipos do security scan como proposta em Discovery, com código não iniciado e sem ignore novo de fonte ou teste.",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar --pr"
+        "grep -F -- '> **Em uma frase:** o lint type-aware resolve os tipos reais do projeto no worktree destacado, sem mudar o Classic nem exigir fachadas tipadas à mão no produto.' docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md && grep -F -- '| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |' docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md && grep -F -- '- **Métricas de proteção:** nenhum ignore novo de fonte ou teste;' docs/roadmap/RM-097-resolucao-de-tipos-no-security-scan.md"
       ],
-      "criadoEm": "2026-11-26T01:34:32.429Z",
+      "criadoEm": "2026-11-26T03:02:26.077Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C186",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "A fachada node-portavel não existe e os testes preservam as travas portáteis, o shell controlado e as guardas do verify.",
+      "negativa": true,
+      "verificar": [
+        "test ! -e core/src/node-portavel.ts && npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/hitl-lock.test.js core/dist-test/test/fila-pesada-recusa.test.js core/dist-test/test/doctor-portabilidade.test.js core/dist-test/test/shell-do-verify.test.js core/dist-test/test/verify-timeout.test.js"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.147Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C187",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/src/creation-operation-store.ts",
+      "alegacao": "listCreationOperations atribui a saída validada do schema diretamente ao tipo CreationOperation.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && grep -F -- 'const parsed: CreationOperation = creationOperationSchema.parse' core/src/creation-operation-store.ts"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.216Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C188",
+      "thread": "ork-macosportave",
+      "fase": "GO",
+      "arquivo": "core/test/shell-do-verify.test.ts",
+      "alegacao": "O teste do shell troca a função de processo depois da carga do módulo e prova que a medição usa a implementação disponível na chamada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/shell-do-verify.test.js"
+      ],
+      "criadoEm": "2026-11-26T03:02:26.287Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -3153,12 +3205,12 @@
   ],
   "deferredClaims": [
     {
-      "id": "C165",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
       "id": "C178",
       "reason": "local-integration-required"
+    },
+    {
+      "id": "C183",
+      "reason": "artifact-not-in-checkout"
     }
   ],
   "commands": [
@@ -3173,7 +3225,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "59371c0ce0b9ce0007e91334374308882f9a8242",
-    "sha256": "7d17a7be8be0f6362694fea1b8ec7201fab3d4d370800a275da40e060f764bad"
+    "head": "a9bf1584df49936fa5c632a0ccad6aba111fd4f4",
+    "sha256": "23503fa3c432619b769c098ea923b7c57800b202cb48850957c5ec98c5b63625"
   }
 }
