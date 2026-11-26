@@ -53,6 +53,7 @@ test('MR atrás do destino, corrida do destino, lista truncada, fork e conta amp
     (e: EntradaGitlabFree) => { e.divergencia = 1; },
     (e: EntradaGitlabFree) => { e.destinoAntesDoEfeito = 'd'.repeat(40); },
     (e: EntradaGitlabFree) => { e.membrosCompletos = false; },
+    (e: EntradaGitlabFree) => { e.comparacaoCompleta = false; },
     (e: EntradaGitlabFree) => { e.projetoOrigem = 2; },
     (e: EntradaGitlabFree) => { e.contaRestritaAosProjetos = false; },
     (e: EntradaGitlabFree) => { e.compareTimeout = true; },

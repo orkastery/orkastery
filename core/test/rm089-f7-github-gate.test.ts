@@ -73,6 +73,8 @@ test('troca de base aciona releitura, outro destino ganha outro nome e merge_gro
   assert.notEqual(nomeDecisorioGithub('main'), nomeDecisorioGithub('release'));
   const e = base(); e.baseDoPedido = 'release';
   assert.equal(avaliarGateGithub(e).ok, false);
+  const fila = base(); fila.evento = 'merge_group';
+  assert.equal(avaliarGateGithub(fila).ok, false);
   const outro = base(); outro.destino = 'release'; outro.baseDoPedido = 'release';
   outro.protecaoClassica = { padrao: 'release', strict: true,
     checks: [{ nome: nomeDecisorioGithub('release'), appId: 42 }] };
