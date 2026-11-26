@@ -51,9 +51,12 @@ sdlc:
 ## Escopo e validação
 
 - **Incluído:** registro compartilhado por usuário (`~/.orkastery/private/contas.json`, contrato `ork.contas-compartilhadas/v1`), gravado quando um projeto marca a conta e lido por todos antes de escolher o perfil.
-- **Regras:** o registro só escurece; uso bem-sucedido ou login reconferido limpa a marca, inclusive o estado sem autenticação depois de um login confirmado; entrada de conta cujo diretório sumiu sai na gravação seguinte; testes e `ork eval` usam uma pasta própria.
-- **Critério de aceite do achado de 26/11/2026:** depois do login confirmado pelo próprio runtime, todas as leituras do registro compartilhado deixam de classificar a conta como sem autenticação; falha ou login inconclusivo preserva a marca e o motivo.
+- **Regras:** o registro só escurece; uso bem-sucedido ou login reconferido limpa a marca; entrada de conta cujo diretório sumiu sai na gravação seguinte; testes e `ork eval` usam uma pasta própria.
 - **Fora:** compartilhar entre usuários ou entre máquinas (isso é a [RM-047](RM-047-fabrica-em-varias-maquinas.md)).
+
+### Acréscimo de 26/11/2026, não entregue
+
+- **Critério de aceite:** depois do login confirmado pelo próprio runtime, todas as leituras do registro compartilhado deixam de classificar a conta como sem autenticação; falha ou login inconclusivo preserva a marca e o motivo.
 
 ## Plano e decisões
 

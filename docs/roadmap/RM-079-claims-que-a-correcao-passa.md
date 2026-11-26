@@ -67,22 +67,28 @@ sdlc:
   - motivos e textos do `fix` vindo do parecer passam pela redação geral antes de recibo, ledger ou saída da CLI;
   - as três respostas de `claims retirar` na CLI mostram o mesmo motivo seguro, e a resposta MCP omite a lista `verificar` e devolve sua impressão;
   - retirada sem substituta abre pedido tipado ao dono (por exemplo `claims.retirada-sem-substituta`);
-  - o pedido de retirada sem substituta identifica a claim, explica o motivo e oferece somente as alternativas reais: registrar substituta, retirar como obsoleta ou manter;
-  - toda retirada e ação da condução registra a identidade efetiva que agiu; o canal de terminal não transforma a autoria em dono;
-  - `ork fix open` e os gates do CHECK leem somente o veredito canônico de nível superior e ignoram exemplos, citações e blocos de código; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
+  - `ork fix open` lê o veredito e os achados estruturados de `docs/check.md`; `ork fix status` mostra arquivo, linha, estado, commit de fechamento e o que falta.
 - **Entregáveis e critérios de aceite:**
   - claim criada no CHECK passa com uma implementação correta, sem retirada pelo dono;
   - troca de regra com substituta verde não para a thread;
   - retirada sem substituta vira pedido ao dono;
-  - o pedido nomeia a claim, o motivo e as três alternativas reais, preservando-a até a decisão;
-  - um exemplo com `Veredito:` dentro de bloco de código não conta como segundo veredito nem altera o gate;
-  - uma ação feita pela condução no terminal registra a condução como autora, sem atribuí-la ao dono;
   - alteração do comando da substituta depois do verify é recusada pela impressão, sem copiar o comando para o recibo;
   - `verify_run`, recibos e execuções do verify redigem credenciais em textos de comando sem mudar execução, comparação ou reaproveitamento;
   - a retirada MCP não devolve o texto dos comandos da claim;
   - parecer negativo com achado sem claim abre uma rodada de correção e exige um novo CHECK verde para fechar;
   - um mutante por regra morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nos próximos CHECKs `#Auto`.
+
+### Acréscimo de 26/11/2026, não entregue
+
+- **Incluído:**
+  - o pedido de retirada sem substituta identifica a claim, explica o motivo e oferece as alternativas reais: registrar substituta, retirar como obsoleta ou manter;
+  - toda retirada registra a identidade efetiva que agiu; a autoria das outras ações da condução segue o contrato da [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md), e o canal de terminal não transforma a autoria em dono;
+  - os gates do CHECK leem somente o veredito canônico de nível superior e ignoram exemplos, citações e blocos de código; o fim de fase sem esse veredito preserva `artifact.missing`, consumido pela [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md).
+- **Critérios de aceite:**
+  - o pedido nomeia a claim, o motivo e as três alternativas reais, preservando-a até a decisão;
+  - um exemplo com `Veredito:` dentro de bloco de código não conta como segundo veredito nem altera o gate;
+  - uma retirada feita pela condução no terminal registra a condução como autora, sem atribuí-la ao dono.
 
 ## F2 — A claim roda no CI como a sessão escreveu
 
@@ -156,4 +162,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-06 | GO-FIX 2 substituiu o comando bruto do recibo por impressão versionada e redigiu textos livres do fluxo | falha determinística de `verify-timeout` e auditoria dos campos novos da RM-079 | sessão Codex (#Auto) |
 | 2026-11-06 | GO-FIX 3 fechou a redação de comandos, das três saídas CLI e da resposta MCP, com mutantes por regra | bloqueadores A1 a A5 do segundo CHECK | sessão Codex (#Auto) |
 | 2026-11-07 | GO-FIX 4 separou a identidade original do texto público e delimitou a narrativa às superfícies entregues | A6 e A4 do terceiro CHECK; A7–A12 seguem como dívida da `main` | sessão Codex (#Auto) |
-| 2026-11-26 | Pedido sem substituta ganha contexto e alternativas reais; autoria passa a ser a identidade efetiva; parser do parecer ignora `Veredito:` em exemplo | Achados da condução da versão 0.6.11 sobre retirada de claim, autoria do terminal e gate do CHECK | sessão GO `ork-achados0611` (#Fast) |
+| 2026-11-26 | Escopo ampliado para dar contexto e alternativas reais ao pedido sem substituta, registrar a identidade efetiva nas retiradas e ignorar `Veredito:` de exemplo no gate | Achados da condução da versão 0.6.11 sobre retirada de claim, autoria do terminal e gate do CHECK | sessão GO `ork-achados0611` (#Fast) |
