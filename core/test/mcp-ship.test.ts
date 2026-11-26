@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {ajustarManifesto,projetoTemporario,dirTemporario,commitar} from './apoio';
-import {novaThread,dirThread} from '../src/thread';
+import {novaThread,dirThread,gravarThread} from '../src/thread';
 import {adicionarClaim} from '../src/claims';
 import {lerLedger,registrar} from '../src/ledger';
 import {adquirirRegiao,lerLease,liberar,caminhoLease} from '../src/leases';
@@ -45,7 +45,8 @@ test('SHIP MCP: API integral verifica em sandbox, mergeia e prova push no bare f
 const CHAVE_MCP_SCAN='chave-simulada-mcp-ship-scan-000';
 const OUTRA_CHAVE_MCP_SCAN='outra-chave-simulada-mcp-ship-scan';
 async function cenarioMcpScan(cenario: 'controle' | 'b-antiga-depois-a' | 'b-antiga-com-pedido-novo-aberto' |
-  'categorias-a-menos' | 'outro-sha' | 'sem-recibo' | 'recibo-forjado' | 'verificador-de-outra-chave') {
+  'categorias-a-menos' | 'outro-sha' | 'sem-recibo' | 'recibo-forjado' | 'verificador-de-outra-chave' |
+  'b-vencida-por-achado' | 'b-vencida-por-verde' | 'b-vencida-por-evidencia' | 'pedido-aberto-contexto-anterior') {
   const home=dirTemporario('mcp-ship-scan-home'),antes=process.env.HOME,xdg=process.env.XDG_CONFIG_HOME;
   const chaves=['ORK_HITL_INGRESS_KEY','ORK_HITL_TELEGRAM_USERS','ORK_HITL_TELEGRAM_CHATS'] as const;
   const valores=chaves.map(chave=>process.env[chave]);
@@ -67,7 +68,13 @@ async function cenarioMcpScan(cenario: 'controle' | 'b-antiga-depois-a' | 'b-ant
           counts:{new:{...zeros},existing:{...zeros},dismissed:{...zeros}}}))});
     gravar(cenario==='categorias-a-menos'?['dependency','iac','sast']:['sast']);
     assert.deepEqual(verificar(p.carregado,t.id).motivos,['security.scan-unscanned']);
-    const quando=new Date().toISOString(),pedido=abrirPedidoGate(p.dir,t.id,'security.scan-unscanned',quando);
+    const quando=new Date().toISOString();let pedido=abrirPedidoGate(p.dir,t.id,'security.scan-unscanned',quando);
+    if(cenario==='pedido-aberto-contexto-anterior'){
+      const anterior=pedido;gravarThread(p.dir,{...t,faseAtual:'CHECK'});
+      registrar(dirThread(p.dir,t.id),t.id,'phase_dispatch',{fase:'CHECK',sessionId:'sessao-check-atual',runtime:'claude-bg'});
+      assert.deepEqual(verificar(p.carregado,t.id).motivos,['security.scan-unscanned']);
+      pedido=abrirPedidoGate(p.dir,t.id,'security.scan-unscanned',quando);assert.notEqual(pedido.id,anterior.id);
+    }
     const base={resposta:'b',origem:'telegram' as const,por:'telegram:42',mensagem:'telegram:-7:mcp-scan-b',recebidoEm:quando};
     if(cenario==='sem-recibo'||cenario==='recibo-forjado'){
       registrar(dirThread(p.dir,t.id),t.id,'human_gate',{pedidoId:pedido.id,fase:pedido.fase,origem:'telegram',source:'human',
@@ -91,9 +98,20 @@ async function cenarioMcpScan(cenario: 'controle' | 'b-antiga-depois-a' | 'b-ant
         responderGate(p.dir,t.id,p2.id,{...a,prova:assinaturaDaResposta(t.id,p2.id,a,process.env.ORK_HITL_INGRESS_KEY!)},em);
       }
     }
+    if(cenario==='b-vencida-por-achado'||cenario==='b-vencida-por-verde')registrar(dirThread(p.dir,t.id),t.id,'verify_run',{
+      motivos:cenario==='b-vencida-por-achado'?['verify.regression']:[],
+      veredito:cenario==='b-vencida-por-achado'?'reprovado':'verdade sustentada'});
+    if(cenario==='b-vencida-por-evidencia'){
+      registrar(dirThread(p.dir,t.id),t.id,'verify_run',{motivos:['security.scan-unscanned'],veredito:'reprovado'});
+      registrar(dirThread(p.dir,t.id),t.id,'gate_blocked',{gate:'verify',motivo:'security.scan-unscanned',
+        detalhe:'security_scan sem cobertura: comando `scan`; categorias: sast, secret',evidencia:`reexecucao no HEAD ${sha}`,fase:t.faseAtual});
+      registrar(dirThread(p.dir,t.id),t.id,'verify_run',{motivos:['security.scan-unscanned'],veredito:'reprovado'});
+      registrar(dirThread(p.dir,t.id),t.id,'gate_blocked',{gate:'verify',motivo:'security.scan-unscanned',
+        detalhe:'security_scan sem cobertura: comando `scan`; categorias: sast',evidencia:`reexecucao no HEAD ${sha}`,fase:t.faseAtual});
+    }
     const destino=exec('git',['rev-parse','main'],p.dir).stdout.trim();
     const r=await shipMcp(criarPerfilShipMcp(p.dir,'bare-local'),{threadId:t.id,expectedSource:sha,expectedDestination:destino});
-    if(cenario==='controle'){
+    if(cenario==='controle'||cenario==='pedido-aberto-contexto-anterior'){
       assert.equal(r.ok,true,r.erro??r.resultado?.detalhe);assert.equal(r.resultado?.pushVerificado,true);
       const autorizado=lerLedger(dirThread(p.dir,t.id)).find(e=>e.tipo==='ship_unscanned_authorized')!;
       assert.equal(autorizado.por,'telegram:42');assert.equal(autorizado.pedidoId,pedido.id);assert.equal(autorizado.origem,'resposta-b');
@@ -112,8 +130,12 @@ async function cenarioMcpScan(cenario: 'controle' | 'b-antiga-depois-a' | 'b-ant
 test('SHIP MCP: resposta b autenticada autoriza a candidata sem argumento adicional', { skip: semCodexSandbox() },
   async () => cenarioMcpScan('controle'));
 
+test('SHIP MCP: pedido aberto de contexto anterior dá lugar à resposta b do contexto atual', { skip: semCodexSandbox() },
+  async () => cenarioMcpScan('pedido-aberto-contexto-anterior'));
+
 for(const cenario of ['b-antiga-depois-a','b-antiga-com-pedido-novo-aberto','categorias-a-menos','outro-sha',
-  'sem-recibo','recibo-forjado','verificador-de-outra-chave'] as const){
+  'sem-recibo','recibo-forjado','verificador-de-outra-chave','b-vencida-por-achado','b-vencida-por-verde',
+  'b-vencida-por-evidencia'] as const){
   test(`SHIP MCP recusa resposta b que não corresponde ao pedido atual: ${cenario}`, { skip: semCodexSandbox() },
     async()=>cenarioMcpScan(cenario));
 }

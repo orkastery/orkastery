@@ -4,7 +4,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { abrirPedidoGate, assinaturaDaResposta, responderGate, RespostaHumana, registrarPedidoHitl,
-  MOTIVOS_DE_ESCALACAO_HUMANA, PARECERES_QUE_PEDEM_REVISAO } from '../src/hitl-gates';
+  MOTIVOS_DE_ESCALACAO_HUMANA, PARECERES_QUE_PEDEM_REVISAO, prepararPedidoGate } from '../src/hitl-gates';
 import { ehV2, escolhasDoPedido, motivoDoPedido, prazoDoPedido, recomendacaoDoPedido,
   textoDoPedido } from '../src/hitl-contract';
 import { aprovarGateHumano, aprovacoesHumanas } from '../src/gates';
@@ -113,6 +113,52 @@ test('security.scan-unscanned invalida b quando SHA ou categorias mudam', () => 
       evidencia: `reexecucao no HEAD ${'d'.repeat(40)}` });
     const novo = abrirPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando);
     assert.notEqual(novo.id, pedido.id);
+  } finally { restaurar(); p.limpar(); }
+});
+
+test('security.scan-unscanned invalida b quando a evidencia muda e volta', () => {
+  const p = projetoTemporario('hitl-scan-evidencia-volta'), restaurar = ambiente();
+  try {
+    const { thread: t } = novaThread(p.carregado, { nome: 'scan evidência que volta', modo: 'auto' });
+    const dir = dirThread(p.dir, t.id), sha = 'e'.repeat(40);
+    const registrarSemCobertura = (categorias: string) => {
+      registrar(dir, t.id, 'verify_run', { motivos: ['security.scan-unscanned'], veredito: 'reprovado' });
+      registrar(dir, t.id, 'gate_blocked', { gate: 'verify', motivo: 'security.scan-unscanned',
+        detalhe: `security_scan sem cobertura: comando \`scan\`; categorias: ${categorias}`,
+        evidencia: `reexecucao no HEAD ${sha}` });
+    };
+    registrarSemCobertura('sast');
+    const pedido = abrirPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando);
+    responderGate(p.dir, t.id, pedido.id, resposta(t.id, pedido.id, { resposta: 'b' }), quando);
+    registrarSemCobertura('sast, secret');
+    assert.ok('novo' in prepararPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando),
+      'evidência diferente exige pergunta nova');
+    registrarSemCobertura('sast');
+    assert.ok('novo' in prepararPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando),
+      'a evidência original não restaura a resposta vencida');
+  } finally { restaurar(); p.limpar(); }
+});
+
+test('security.scan-unscanned substitui pedido aberto de contexto anterior', () => {
+  const p = projetoTemporario('hitl-scan-pedido-aberto'), restaurar = ambiente();
+  try {
+    const { thread: t } = novaThread(p.carregado, { nome: 'scan pedido aberto', modo: 'auto' });
+    const dir = dirThread(p.dir, t.id), sha = 'f'.repeat(40);
+    const registrarSemCobertura = () => {
+      registrar(dir, t.id, 'verify_run', { motivos: ['security.scan-unscanned'], veredito: 'reprovado' });
+      registrar(dir, t.id, 'gate_blocked', { gate: 'verify', motivo: 'security.scan-unscanned',
+        detalhe: 'security_scan sem cobertura: comando `scan`; categorias: sast', evidencia: `reexecucao no HEAD ${sha}` });
+    };
+    registrarSemCobertura();
+    const anterior = abrirPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando);
+    gravarThread(p.dir, { ...t, faseAtual: 'CHECK' });
+    registrar(dir, t.id, 'phase_dispatch', { fase: 'CHECK', sessionId: 'sessao-check-atual', runtime: 'claude-bg' });
+    registrarSemCobertura();
+    const atual = abrirPedidoGate(p.dir, t.id, 'security.scan-unscanned', quando);
+    assert.notEqual(atual.id, anterior.id);
+    assert.equal(atual.fase, 'CHECK');
+    assert.equal(responderGate(p.dir, t.id, atual.id, resposta(t.id, atual.id, { resposta: 'b' }), quando).estado,
+      'aguardando');
   } finally { restaurar(); p.limpar(); }
 });
 

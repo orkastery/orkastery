@@ -252,6 +252,29 @@ const mesmaEvidenciaSemScan = (a: EvidenciaDoPedidoSemScan | null, b: EvidenciaD
   !!a && !!b && a.sha === b.sha && a.categorias.length === b.categorias.length &&
   a.categorias.every((categoria, i) => categoria === b.categorias[i]);
 
+/**
+ * A resposta b autoriza somente a rodada descrita no pedido. Um verify verde ou um gate do
+ * verify com outra evidencia encerra a autorizacao; um verify do proprio SHIP que repete a
+ * mesma evidencia nao a encerra.
+ */
+export function respostaBSemScanAindaVale(
+  eventos: readonly EventoLedger[],
+  pedido: PedidoHitlQualquer | undefined
+): boolean {
+  if (!pedido || motivoDoPedido(pedido) !== 'security.scan-unscanned') return false;
+  const indiceDaResposta = indiceDoUltimo(eventos,
+    evento => evento.tipo === 'human_gate' && evento.pedidoId === pedido.id);
+  const resposta = indiceDaResposta >= 0 ? eventos[indiceDaResposta] : undefined;
+  if (resposta?.opcao !== 2) return false;
+  const evidenciaDoPedido = evidenciaDoPedidoSemScan(pedido);
+  return !eventos.slice(indiceDaResposta + 1).some(evento =>
+    evento.tipo === 'verify_run' &&
+      (!Array.isArray(evento.motivos) || !evento.motivos.includes('security.scan-unscanned')) ||
+    evento.tipo === 'gate_blocked' && evento.gate === 'verify' &&
+      evento.motivo === 'security.scan-unscanned' &&
+      !mesmaEvidenciaSemScan(evidenciaDoPedido, evidenciaDoGateSemScan(evento)));
+}
+
 /** Uma pausa do modo cria pedido, nunca human_gate. Escalação exige evento tipado. */
 export function abrirPedidoGate(raiz: string, id: string, motivo = 'human.pending', quando = new Date().toISOString()): PedidoHitlQualquer {
   const preparado = prepararPedidoGate(raiz, id, motivo, quando);
@@ -314,8 +337,10 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   // GO-FIX 1: o contexto e calculado uma vez sobre o que ja foi lido; reler thread e ledger por
   // pedido deixava a conferencia quadratica, e o resumo agora a faz para cada thread da fila.
   const contexto = contextoHitlDosEventos(t, eventos);
+  const pedidosRespondidos = new Set(eventos.filter(e => e.tipo === 'human_gate').map(e => String(e.pedidoId)));
   const atual = eventos.filter(e => e.tipo === 'hitl_requested' &&
-    (motivo === 'security.scan-unscanned' || e.contexto === contexto) &&
+    (motivo !== 'security.scan-unscanned' || e.contexto === contexto ||
+      pedidosRespondidos.has(String((e.pedido as PedidoHitlQualquer).id))) &&
     alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' &&
     motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo).at(-1);
   const pedidoAtual = atual?.pedido as PedidoHitlQualquer | undefined;
@@ -327,16 +352,8 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   if (pedidoAtual && pedidoConfereComScan && estadoDoPedido(pedidoAtual, quando) === 'aberto' && !respostaAtual) {
     return { aberto: pedidoAtual };
   }
-  const evidenciaDoPedidoAtual = pedidoAtual ? evidenciaDoPedidoSemScan(pedidoAtual) : null;
-  const eventosDepoisDaResposta = indiceDaResposta >= 0 ? eventos.slice(indiceDaResposta + 1) : [];
-  const verifyVerdeDepoisDaResposta = eventosDepoisDaResposta.some(e => e.tipo === 'verify_run' &&
-    (!Array.isArray(e.motivos) || !e.motivos.includes('security.scan-unscanned')));
-  const evidenciaMudouDepoisDaResposta = eventosDepoisDaResposta.some(e => e.tipo === 'gate_blocked' &&
-    e.gate === 'verify' && e.motivo === 'security.scan-unscanned' &&
-    !mesmaEvidenciaSemScan(evidenciaDoPedidoAtual, evidenciaDoGateSemScan(e)));
-  const respostaBAindaVale = respostaAtual?.opcao === 2 && !verifyVerdeDepoisDaResposta && !evidenciaMudouDepoisDaResposta;
   if (motivo === 'security.scan-unscanned' && respostaAtual && pedidoConfereComScan &&
-      (respostaBAindaVale || respostaAtual.opcao === 1 && indiceVerify <= indiceDaResposta)) {
+      (respostaBSemScanAindaVale(eventos, pedidoAtual) || respostaAtual.opcao === 1 && indiceVerify <= indiceDaResposta)) {
     throw new Error('a pergunta desta rodada já foi respondida');
   }
   const sobre = motivo === 'human.pending' ? bloco.pausaSobre : `escalacao:${motivo}`;

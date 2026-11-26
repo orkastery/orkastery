@@ -45,7 +45,7 @@ import { guardaDaThread, MotivoDaGuarda } from './noctum-guarda';
 import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
-import { evidenciaDoPedidoSemScan } from './hitl-gates';
+import { evidenciaDoPedidoSemScan, respostaBSemScanAindaVale } from './hitl-gates';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -536,7 +536,7 @@ function autorizacaoRespondidaSemScan(
     e.pedidoId === pedido.id).at(-1);
   if (!evento || evento.sobre !== 'escalacao:security.scan-unscanned' || evento.opcao !== 2 ||
       evento.source !== 'human' || typeof evento.autorizadoPor !== 'string' ||
-      !reciboHumanoConfere(raiz, threadId, evento)) return null;
+      !reciboHumanoConfere(raiz, threadId, evento) || !respostaBSemScanAindaVale(eventos, pedido)) return null;
   return { por: evento.autorizadoPor.trim(), pedidoId: pedido.id };
 }
 

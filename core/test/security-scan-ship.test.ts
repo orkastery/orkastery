@@ -12,7 +12,7 @@ import { raizDoEstado } from '../src/estado-thread';
 import { writeReport } from '../src/security-scan/report';
 import type { Category, ScanReport, ToolRun, ToolState } from '../src/security-scan/types';
 import { ship, unscannedCategories } from '../src/ship';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { gravarBaseline, verificar } from '../src/verify';
 import { exec } from '../src/util';
 import { commitar, projetoTemporario, ProjetoDeTeste, shaDaBranch, shaNoRemotoDeTeste } from './apoio';
@@ -310,8 +310,34 @@ test('gate, pedido, resposta b e SHIP usam a autorização nominal autenticada',
   } finally { restaurar(); p.limpar(); }
 });
 
+test('pedido aberto de contexto anterior dá lugar à resposta b do contexto atual no SHIP', () => {
+  const p = projetoTemporario('ss-ship-pedido-aberto-antigo', true), restaurar = ambienteHitlSimulado();
+  try {
+    const carregado = comScanDaRodada(p, 'cobertura-depois-de-baseline-verde');
+    const { thread } = novaThread(carregado, { nome: 'pedido aberto anterior', modo: 'auto', criarWorktree: true });
+    gravarBaseline(carregado, thread.id);
+    commitar(thread.worktree as string, 'entrega.md', '# x\n', `feat: ${thread.id}`);
+    assert.deepEqual(verificar(carregado, thread.id).motivos, ['security.scan-unscanned']);
+    const anterior = abrirPedidoGate(p.dir, thread.id, 'security.scan-unscanned', new Date().toISOString());
+    gravarThread(p.dir, { ...thread, faseAtual: 'CHECK' });
+    registrar(dirThread(p.dir, thread.id), thread.id, 'phase_dispatch',
+      { fase: 'CHECK', sessionId: 'sessao-check-atual', runtime: 'claude-bg' });
+    assert.deepEqual(verificar(carregado, thread.id).motivos, ['security.scan-unscanned']);
+    const atual = abrirPedidoGate(p.dir, thread.id, 'security.scan-unscanned', new Date().toISOString());
+    assert.notEqual(atual.id, anterior.id);
+    responder(p, thread.id, atual, 'b', 'telegram:-7:pedido-atual');
+    process.env[ENV_HITL_VERIFIERS] = publicHitlVerifiers(process.env)!;
+    delete process.env.ORK_HITL_INGRESS_KEY;
+    const r = ship(carregado, thread.id, { para: 'main' });
+    assert.equal(r.ok, true, r.detalhe);
+    assert.equal(lerLedger(dirThread(p.dir, thread.id)).find(e => e.tipo === 'ship_unscanned_authorized')?.pedidoId,
+      atual.id);
+  } finally { restaurar(); p.limpar(); }
+});
+
 for (const cenario of ['b-antiga-depois-a', 'b-antiga-com-pedido-novo-aberto', 'categorias-a-menos', 'outro-sha',
-  'sem-recibo', 'recibo-forjado', 'verificador-de-outra-chave'] as const) {
+  'sem-recibo', 'recibo-forjado', 'verificador-de-outra-chave', 'b-vencida-por-achado', 'b-vencida-por-verde',
+  'b-vencida-por-evidencia'] as const) {
   test(`SHIP recusa resposta b que não corresponde ao pedido atual: ${cenario}`, () => {
     const p = projetoTemporario(`ss-ship-neg-${cenario}`, true), restaurar = ambienteHitlSimulado();
     try {
@@ -340,6 +366,26 @@ for (const cenario of ['b-antiga-depois-a', 'b-antiga-com-pedido-novo-aberto', '
       } else if (cenario === 'b-antiga-depois-a' || cenario === 'b-antiga-com-pedido-novo-aberto') {
         const segundo = repetirPedido(p, primeiro);
         if (cenario === 'b-antiga-depois-a') responder(p, thread.id, segundo, 'a', `telegram:-7:${cenario}-2`);
+      } else if (cenario === 'b-vencida-por-achado' || cenario === 'b-vencida-por-verde') {
+        registrar(dirThread(p.dir, thread.id), thread.id, 'verify_run', {
+          motivos: cenario === 'b-vencida-por-achado' ? ['verify.regression'] : [],
+          veredito: cenario === 'b-vencida-por-achado' ? 'reprovado' : 'verdade sustentada',
+        });
+      } else if (cenario === 'b-vencida-por-evidencia') {
+        registrar(dirThread(p.dir, thread.id), thread.id, 'verify_run',
+          { motivos: ['security.scan-unscanned'], veredito: 'reprovado' });
+        registrar(dirThread(p.dir, thread.id), thread.id, 'gate_blocked', {
+          gate: 'verify', motivo: 'security.scan-unscanned',
+          detalhe: 'security_scan sem cobertura: comando `scan`; categorias: sast, secret',
+          evidencia: `reexecucao no HEAD ${sha}`, fase: thread.faseAtual,
+        });
+        registrar(dirThread(p.dir, thread.id), thread.id, 'verify_run',
+          { motivos: ['security.scan-unscanned'], veredito: 'reprovado' });
+        registrar(dirThread(p.dir, thread.id), thread.id, 'gate_blocked', {
+          gate: 'verify', motivo: 'security.scan-unscanned',
+          detalhe: 'security_scan sem cobertura: comando `scan`; categorias: sast',
+          evidencia: `reexecucao no HEAD ${sha}`, fase: thread.faseAtual,
+        });
       }
       process.env[ENV_HITL_VERIFIERS] = publicHitlVerifiers({ ORK_HITL_INGRESS_KEY: CHAVE_HITL })!;
       delete process.env.ORK_HITL_INGRESS_KEY;
