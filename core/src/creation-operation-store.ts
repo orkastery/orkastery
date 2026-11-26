@@ -181,8 +181,8 @@ export function listCreationOperations(root: string, principal: string): Creatio
   if (!fs.existsSync(directory(root))) return [];
   return fs.readdirSync(directory(root)).filter((name) => /^cop-[a-f0-9]{32}\.json$/.test(name))
     .map((name) => {
-      const parsed: unknown = creationOperationSchema.parse(JSON.parse(fs.readFileSync(path.join(directory(root), name), 'utf8')));
-      return parsed as CreationOperation;
+      const parsed: CreationOperation = creationOperationSchema.parse(JSON.parse(fs.readFileSync(path.join(directory(root), name), 'utf8')));
+      return parsed;
     })
     .filter((op) => op.principal === principal).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.operationId.localeCompare(b.operationId));
 }

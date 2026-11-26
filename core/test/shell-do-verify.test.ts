@@ -1,8 +1,9 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+const childProcess: typeof import('node:child_process') = require('node:child_process');
 import { argvDoItem, rodarEmParalelo } from '../src/check-paralelo';
 import { resolverShellDoVerify, versaoDoBashValida } from '../src/shell-do-verify';
 import { executar, verificarClaim } from '../src/verify';
@@ -30,6 +31,18 @@ test('versão aceita sufixos oficiais do Bash sem aceitar texto livre', () => {
     assert.equal(versaoDoBashValida(versao), true, versao);
   for (const versao of ['5.2.37 texto', 'bash 5.2.37', '5.2.37;id'])
     assert.equal(versaoDoBashValida(versao), false, versao);
+});
+
+test('resolvedor lê spawnSync na hora de medir a versão', () => {
+  const chamada = mock.method(childProcess, 'spawnSync', () => ({
+    pid: 1, output: [null, '9.9.9-simulado', ''], stdout: '9.9.9-simulado', stderr: '',
+    status: 0, signal: null, error: undefined,
+  }));
+  try {
+    assert.deepEqual(resolverShellDoVerify({ candidatos: ['/bin/bash'], seguro: () => true }),
+      { caminho: '/bin/bash', versao: '9.9.9-simulado' });
+    assert.equal(chamada.mock.callCount(), 1);
+  } finally { chamada.mock.restore(); }
 });
 
 test('executor registra shell e o grupo paralelo usa o mesmo caminho', () => {
