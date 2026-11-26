@@ -40,7 +40,6 @@ import { CONTRATO_PROVA_NOTIFICACAO_EXCECAO, registrarNotificacaoAuditavel, vali
   type CapacidadeDaNotificacaoDaExcecao, type CapacidadeDoRunnerParaExcecao,
   type PortaGeridaDaNotificacaoDaExcecao, type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
 import { resolverExcecaoDeRecibo, type FonteProtegidaDaExcecao } from './excecao-recibo';
-import type { ResultadoSanitizadoDoTransporte } from './ci-fabrica-transporte';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -118,8 +117,6 @@ export interface ContextoDaPoliticaCi {
   replay?: Omit<OpcoesReplayCi, 'raiz' | 'manifesto' | 'head' | 'ambiente'>;
   /** HEAD já resolvido pelo adaptador; ausente, lê o checkout uma vez. */
   head?: string;
-  /** Compatibilidade interna até a retirada do launcher legado. */
-  project?: string;
   /** Injeção pura dos testes; produção lê a receita da ref protegida de destino. */
   receitaConfiavel?: ReceitaConfiavelReplayCi | null;
   /** Leitor hermético dos testes; produção usa `git show` fora do checkout do PR/MR. */
@@ -845,33 +842,6 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
     bundle: achado?.arquivo ?? null, policy,
     ...(excecaoAplicada && excecaoSanitizada ? { exception: excecaoSanitizada } : {}),
     ...(error ? { error } : {}) };
-}
-
-/** Compatibilidade interna do launcher até a retirada conjunta do módulo legado. */
-export function integrarResultadoDoTransporteNoCi(resultado: unknown,
-  transporte: ResultadoSanitizadoDoTransporte): unknown {
-  if (!resultado || typeof resultado !== 'object' || Array.isArray(resultado)) return resultado;
-  const base = resultado as Record<string, unknown>;
-  const policy = base.policy;
-  if (!policy || typeof policy !== 'object' || Array.isArray(policy)
-      || (policy as { receipt?: unknown }).receipt !== 'ausente') return resultado;
-  const policyBase = { ...policy as Record<string, unknown> };
-  delete policyBase.message;
-  delete policyBase.exception;
-  if (!transporte.aplicado) {
-    const error = { code: transporte.code, message: transporte.code, action: transporte.code };
-    return { ...base, ok: base.ok === true && !transporte.reprova,
-      policy: { ...policyBase, message: transporte.code }, error };
-  }
-  const julgamento = base.verify;
-  const medicaoOk = !!julgamento && typeof julgamento === 'object' && !Array.isArray(julgamento)
-    ? (julgamento as { ok?: unknown }).ok === true
-    : Array.isArray(base.commands) && base.commands.every((c) => !!c && typeof c === 'object'
-      && (c as { ok?: unknown }).ok === true);
-  const semErroDoRecibo = { ...base };
-  delete semErroDoRecibo.error;
-  return { ...semErroDoRecibo, ok: medicaoOk, exception: transporte.exception,
-    policy: { ...policyBase, exception: 'applied' } };
 }
 
 function diagnosticoDaDegradacaoReplay(causa: keyof typeof CODIGO_DA_DEGRADACAO_REPLAY_CI):
