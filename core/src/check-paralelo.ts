@@ -20,11 +20,12 @@ import { ENV_CONTAINERS_DA_LANE, ENV_CPUS_DA_LANE, ENV_CPUS_DA_LANE_APOS_RESERVA
   workersDaReserva } from './agendador-cpu';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { ambienteFuncionalDosTestes } from './ambiente-funcional';
+import { exigirShellDoVerify, resolverShellDoVerify, ShellDoVerifyIndisponivel } from './shell-do-verify';
+import type { ShellDoVerify } from './types';
 
 const TIMEOUT_BIN = '/usr/bin/timeout';
 const NICE_BIN = '/usr/bin/nice';
 const TIME_BIN = '/usr/bin/time';
-const BASH_BIN = '/usr/bin/bash';
 const CONTRATO_PERFIL_INTEGRACAO = 'ork.check.cpu-integracao/v2';
 const INTERVALO_CPU_MS = 100;
 
@@ -66,6 +67,7 @@ export interface ProcessoDoGrupo {
   comGrupo: boolean;
   /** O auxiliar morreu antes de gravar o resultado: o comando nao tem veredito (pode ter rodado pela metade). */
   semResultado?: boolean;
+  shell?: ShellDoVerify;
 }
 
 export type ProcessosDoGrupo = ProcessoDoGrupo[] & { agendamentoCpu?: PlanoCpuDoGrupo };
@@ -77,8 +79,11 @@ interface Especificacao {
   cpus?: number;
   /** Injecao deterministica dos testes; em producao a sonda le `/proc`. */
   medicaoCpu?: MedicaoCpuDoGrupo;
+  /** Injeção de teste: `null` prova a falha fechada sem shell controlado. */
+  shellDoVerify?: ShellDoVerify | null;
 }
 interface Terminado { nome: string; code: number | null; signal: string | null; error?: string; duracaoMs: number; comGrupo: boolean;
+  shell?: ShellDoVerify;
   medicaoCpu?: MedicaoCpuDaIntegracao; cotaDocker?: EvidenciaDaCotaDocker }
 
 interface PerfilCpuIntegracao {
@@ -91,8 +96,10 @@ interface PerfilCpuIntegracao {
 }
 
 /** O argv de um item: `nice` (se pedido e existir), `timeout(1)` (se existir) e o `argv` do item ou `bash -c`. */
-export function argvDoItem(item: ItemParalelo, comGrupo = fs.existsSync(TIMEOUT_BIN), comNice = fs.existsSync(NICE_BIN)): string[] {
-  const programa = item.argv?.length ? item.argv : [BASH_BIN, '--noprofile', '--norc', '-c', item.comando];
+export function argvDoItem(item: ItemParalelo, comGrupo = fs.existsSync(TIMEOUT_BIN), comNice = fs.existsSync(NICE_BIN),
+  shellInformado?: ShellDoVerify | null): string[] {
+  const shell = item.argv?.length ? null : exigirShellDoVerify(shellInformado === undefined ? resolverShellDoVerify() : shellInformado);
+  const programa = item.argv?.length ? item.argv : [shell!.caminho, '--noprofile', '--norc', '-c', item.comando];
   const base = comGrupo ? [TIMEOUT_BIN, '--kill-after=15', `${Math.ceil(item.prazoMs / 1000)}`, ...programa] : programa;
   return item.nice && comNice ? [NICE_BIN, '-n', String(item.nice), ...base] : base;
 }
@@ -468,7 +475,8 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
     const cotas = terminados.flatMap((t) => t.cotaDocker ? [t.cotaDocker] : []);
     plano.cotaDosContainersDaIntegracao = cotas.find((x) => x.estado === 'fallback') ?? cotas.at(-1);
   }
-  fs.writeFileSync(path.join(esp.dir, 'resultado.json'), JSON.stringify({ terminados, ...(plano ? { agendamentoCpu: plano } : {}) }), { mode: 0o600 });
+  fs.writeFileSync(path.join(esp.dir, 'resultado.json'),
+    JSON.stringify({ terminados, ...(plano ? { agendamentoCpu: plano } : {}) }), { mode: 0o600 });
 
   function lancar(item: ItemParalelo, i: number): Promise<Terminado> {
     return new Promise<Terminado>((resolve) => {
@@ -479,7 +487,17 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
       const registro = path.join(esp.dir, `${i}.containers.jsonl`);
       const tempo = path.join(esp.dir, `${i}.tempo`);
       if (medirIntegracao) fs.writeFileSync(registro, '', { mode: 0o600 });
-      const base = argvDoItem(item, comGrupo);
+      const shell = item.argv?.length ? null
+        : esp.shellDoVerify === undefined ? resolverShellDoVerify() : esp.shellDoVerify;
+      let base: string[];
+      try { base = argvDoItem(item, comGrupo, fs.existsSync(NICE_BIN), shell); }
+      catch (e) {
+        fs.closeSync(saida); fs.closeSync(erro);
+        const erroDoShell = e instanceof ShellDoVerifyIndisponivel ? e.code : (e as Error).message;
+        resolve({ nome: item.nome, code: null, signal: null, error: erroDoShell,
+          duracaoMs: Date.now() - inicio, comGrupo });
+        return;
+      }
       const medido = medirIntegracao && fs.existsSync(TIME_BIN)
         ? [TIME_BIN, '-f', '%U %S', '-o', tempo, ...base] : base;
       const [bin, ...args] = medido;
@@ -496,7 +514,7 @@ async function rodarEspecificacao(esp: Especificacao): Promise<void> {
         }
         const medicaoCpu = medirIntegracao && sonda ? sonda.fechar(arvoreMs, t.duracaoMs) : undefined;
         const cotaDocker = medirIntegracao ? evidenciaDaCotaDocker(registro) : undefined;
-        fim = { ...t, ...(medicaoCpu ? { medicaoCpu } : {}), ...(cotaDocker ? { cotaDocker } : {}) };
+        fim = { ...t, ...(shell ? { shell } : {}), ...(medicaoCpu ? { medicaoCpu } : {}), ...(cotaDocker ? { cotaDocker } : {}) };
         fs.closeSync(saida);
         fs.closeSync(erro);
         resolve(fim);
@@ -615,13 +633,15 @@ export function esperaDoGrupo(itens: ItemParalelo[], maxParalelo?: number): numb
  * (`esperaDoGrupo`), com folga para o `--kill-after` e para o auxiliar gravar; o diretorio das saidas some no fim.
  */
 export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessEnv = process.env,
-  opcoes: { maxParalelo?: number; cpus?: number; medicaoCpu?: MedicaoCpuDoGrupo } = {}): ProcessosDoGrupo {
+  opcoes: { maxParalelo?: number; cpus?: number; medicaoCpu?: MedicaoCpuDoGrupo;
+    shellDoVerify?: ShellDoVerify | null } = {}): ProcessosDoGrupo {
   if (itens.length === 0) return [] as ProcessosDoGrupo;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-check-paralelo-'));
   try {
     const especificacao = path.join(dir, 'especificacao.json');
     const esp: Especificacao = { itens, dir, ...(opcoes.maxParalelo ? { maxParalelo: opcoes.maxParalelo } : {}),
-      ...(opcoes.cpus ? { cpus: opcoes.cpus } : {}), ...(opcoes.medicaoCpu ? { medicaoCpu: opcoes.medicaoCpu } : {}) };
+      ...(opcoes.cpus ? { cpus: opcoes.cpus } : {}), ...(opcoes.medicaoCpu ? { medicaoCpu: opcoes.medicaoCpu } : {}),
+      ...(opcoes.shellDoVerify !== undefined ? { shellDoVerify: opcoes.shellDoVerify } : {}) };
     fs.writeFileSync(especificacao, JSON.stringify(esp), { mode: 0o600 });
     const prazo = esperaDoGrupo(itens, opcoes.maxParalelo) + 60_000;
     const ambienteDoAuxiliar = { ...ambiente };
@@ -641,7 +661,8 @@ export function rodarEmParalelo(itens: ItemParalelo[], ambiente: NodeJS.ProcessE
           stderr: `${ler('err')}${r.stderr ?? ''}`, duracaoMs: 0, comGrupo: fs.existsSync(TIMEOUT_BIN), semResultado: true };
       }
       return { nome: item.nome, ok: t.code === 0, code: t.code ?? -1, signal: t.signal, ...(t.error ? { error: t.error } : {}),
-        stdout: ler('out'), stderr: ler('err'), duracaoMs: t.duracaoMs, comGrupo: t.comGrupo };
+        stdout: ler('out'), stderr: ler('err'), duracaoMs: t.duracaoMs, comGrupo: t.comGrupo,
+        ...(t.shell ? { shell: t.shell } : {}) };
     }) as ProcessosDoGrupo;
     if (lido.agendamentoCpu) processos.agendamentoCpu = lido.agendamentoCpu;
     return processos;

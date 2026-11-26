@@ -18,6 +18,21 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ajustarManifesto, projetoTemporario } from './apoio';
 
+test('executor usa o grupo do timeout quando o auxiliar está disponível', () => {
+  let programa = '', argumentos: string[] = [];
+  const resultado = executar('grupo', 'true', process.cwd(), 1_000, undefined, undefined,
+    { caminho: '/bin/bash', versao: '5.2.0' }, {
+      existe: () => true,
+      executar: (binario, args) => {
+        programa = binario; argumentos = args;
+        return { ok: true, code: 0, stdout: '', stderr: '' };
+      },
+    });
+  assert.equal(resultado.ok, true);
+  assert.equal(programa, '/usr/bin/timeout');
+  assert.deepEqual(argumentos.slice(0, 3), ['--kill-after=15', '1', '/bin/bash']);
+});
+
 test('a causa separa estouro de prazo, falha, comando ausente e morte por sinal', () => {
   const estouro = executar('lento', 'sleep 5', process.cwd(), 1000);
   assert.equal(estouro.ok, false);
@@ -71,8 +86,10 @@ test('o comando de verificacao nunca herda a autoridade HITL, e o resto do ambie
   process.env.ORK_HITL_INGRESS_KEY = 'chave-SIMULADA-de-teste';
   process.env.ORK_HITL_TELEGRAM_USERS = '42';
   process.env.ORK_HITL_INGRESS_KEY_OPENCLAW = 'chave-SIMULADA-openclaw';
+  process.env.BASH_ENV = '/nao/executar'; process.env.ENV = '/nao/executar';
   try {
     assert.equal(Object.keys(ambienteDoVerify()).some((k) => k.startsWith('ORK_HITL_')), false);
+    assert.equal(ambienteDoVerify().BASH_ENV, undefined); assert.equal(ambienteDoVerify().ENV, undefined);
     const r = executar('ambiente', 'test -z "$ORK_HITL_INGRESS_KEY$ORK_HITL_TELEGRAM_USERS$ORK_HITL_INGRESS_KEY_OPENCLAW" && test -n "$PATH" && test -n "$HOME"',
       process.cwd(), 10_000);
     assert.equal(r.ok, true, r.resumo);

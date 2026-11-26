@@ -6,6 +6,50 @@ import { spawnSync } from 'node:child_process';
 import { z } from 'zod';
 import { dirEstado } from './manifest';
 import { MODOS_LEGADOS } from './modos';
+import { comTravaPortatil, ErroDaTravaPortatil } from './trava-portatil';
+
+export type CreationRequest = {
+  key: string;
+  action: 'create_entity' | 'create_entity_with_ticket' | 'open_ticket';
+  entity?: {
+    kind: 'project' | 'initiative';
+    id: string;
+    parentId: string;
+    title: string;
+    description: string;
+    acceptanceCriteria: string[];
+  };
+  entityId?: string;
+  expectedParentVersion?: number;
+  expectedEntityVersion?: number;
+  request: string;
+  doneWhen: string[];
+  workspaceIds: string[];
+  mode: (typeof MODOS_LEGADOS)[number];
+  scope?: { projectId: string; delivery: 'project' | 'initiatives'; initiativeIds: string[] };
+};
+
+export const creationStates = ['received', 'entity_persisted', 'ticket_persisted', 'completed', 'recoverable_failure',
+  'compensating', 'compensation_failed', 'compensated'] as const;
+export type CreationState = (typeof creationStates)[number];
+
+export type CreationOperation = {
+  schema: 'ork.creation-operation/v1';
+  operationId: string;
+  version: number;
+  principal: string;
+  requestHash: string;
+  request: CreationRequest;
+  state: CreationState;
+  createdAt: string;
+  updatedAt: string;
+  reserved: { entityId: string; ticketId: string | null; threadIds: string[] };
+  confirmed: { entityVersion: number | null; ticket: boolean };
+  nextAction: 'resume' | 'compensate' | 'none' | 'manual';
+  error: { code: string; message: string } | null;
+  receipts: string[];
+  events: Array<{ sequence: number; at: string; origin: 'ork.creation'; state: CreationState; reason: string }>;
+};
 
 const entityId = z.string().regex(/^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$/);
 const version = z.number().int().positive();
@@ -32,8 +76,6 @@ export const creationRequestSchema = z.object({
     ctx.addIssue({ code: 'custom', message: 'creation.input: entidade e versões incompatíveis com a ação' });
   }
 });
-export type CreationRequest = z.infer<typeof creationRequestSchema>;
-export const creationStates = ['received', 'entity_persisted', 'ticket_persisted', 'completed', 'recoverable_failure', 'compensating', 'compensation_failed', 'compensated'] as const;
 const state = z.enum(creationStates);
 const event = z.object({ sequence: version, at: z.string().datetime(), origin: z.literal('ork.creation'), state, reason: z.string().max(200) }).strict();
 export const creationOperationSchema = z.object({
@@ -59,8 +101,6 @@ export const creationOperationSchema = z.object({
     ctx.addIssue({ code: 'custom', message: 'creation.corrupt: vínculos ou resultado incompatíveis' });
   }
 });
-export type CreationOperation = z.infer<typeof creationOperationSchema>;
-export type CreationState = CreationOperation['state'];
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
@@ -90,12 +130,22 @@ function ensureDirectory(dir: string): void {
 }
 
 /** Stable inode and kernel ownership: process death releases the lock without a TTL race. */
-export function withCreationLock<T>(root: string, name: string, run: () => T): T {
+export function withCreationLock<T>(root: string, name: string, run: () => T, plataforma = process.platform): T {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('creation.lock: nome inválido');
-  if (process.platform !== 'linux') throw new Error('runtime.unavailable: journal exige flock Linux');
   const dir = path.join(directory(root), 'locks');
   ensureDirectory(dir);
   const target = path.join(dir, name);
+  if (plataforma === 'darwin') {
+    try { return comTravaPortatil(target, `creation:${name}`, run, { esperarMs: 5000 }); }
+    catch (e) {
+      if (e instanceof ErroDaTravaPortatil && e.codigo === 'trava.portatil.ocupada') {
+        throw new Error('creation.busy: exclusão portátil não adquirida');
+      }
+      if (e instanceof ErroDaTravaPortatil) throw new Error(`runtime.unavailable: journal sem trava portátil (${e.codigo})`);
+      throw e;
+    }
+  }
+  if (plataforma !== 'linux') throw new Error(`runtime.unavailable: journal sem trava portátil em ${plataforma}`);
   const fd = fs.openSync(target, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
   try {
     const stat = fs.fstatSync(fd);
@@ -123,21 +173,24 @@ export function writeCreationJson(target: string, value: unknown): void {
 }
 
 export function readCreationOperation(root: string, id: string, principal: string): CreationOperation {
-  const value = creationOperationSchema.parse(JSON.parse(fs.readFileSync(file(root, id), 'utf8')));
+  const value: CreationOperation = creationOperationSchema.parse(JSON.parse(fs.readFileSync(file(root, id), 'utf8')));
   if (value.principal !== principal) throw new Error('creation.unavailable: operação indisponível');
   return value;
 }
 export function listCreationOperations(root: string, principal: string): CreationOperation[] {
   if (!fs.existsSync(directory(root))) return [];
   return fs.readdirSync(directory(root)).filter((name) => /^cop-[a-f0-9]{32}\.json$/.test(name))
-    .map((name) => creationOperationSchema.parse(JSON.parse(fs.readFileSync(path.join(directory(root), name), 'utf8'))))
+    .map((name) => {
+      const parsed: CreationOperation = creationOperationSchema.parse(JSON.parse(fs.readFileSync(path.join(directory(root), name), 'utf8')));
+      return parsed;
+    })
     .filter((op) => op.principal === principal).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.operationId.localeCompare(b.operationId));
 }
 /** Caller supplies the authenticated principal out of band; a payload cannot choose it. */
 export function receiveCreationOperation(root: string, principal: string, raw: unknown, abbrev: string): CreationOperation {
   z.string().min(1).max(200).parse(principal);
   if (!/^[a-z][a-z0-9]{0,11}$/.test(abbrev)) throw new Error('creation.input: abbrev inválido');
-  const request = creationRequestSchema.parse(raw);
+  const request: CreationRequest = creationRequestSchema.parse(raw);
   const id = operationId(principal, request.key);
   return withCreationLock(root, id, () => {
     if (fs.existsSync(file(root, id))) {
@@ -174,7 +227,7 @@ export function advanceCreationOperation(root: string, id: string, principal: st
     if (prior.version !== expectedVersion) throw new Error('creation.conflict: revisão alterada');
     if (!transitions[prior.state].includes(change.state)) throw new Error('creation.transition: transição inválida');
     const now = new Date().toISOString();
-    const value = creationOperationSchema.parse({ ...prior, ...change, version: prior.version + 1, updatedAt: now,
+    const value: CreationOperation = creationOperationSchema.parse({ ...prior, ...change, version: prior.version + 1, updatedAt: now,
       events: [...prior.events, { sequence: prior.version + 1, at: now, origin: 'ork.creation', state: change.state, reason }] });
     writeCreationJson(file(root, id), value);
     return readCreationOperation(root, id, principal);

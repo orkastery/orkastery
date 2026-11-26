@@ -83,6 +83,11 @@ runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MC
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
 
+Os checks "trava portátil" e "shell do verify" também são gates. No Linux, o primeiro adquire e
+libera `flock`, que é o mecanismo usado pelo núcleo; no macOS, adquire e libera a trava por
+identidade de processo. O segundo mede Bash somente em `/bin/bash` ou `/usr/bin/bash`. Mecanismo
+de trava ausente ou nenhum desses shells disponível reprova o doctor.
+
 A troca automática entre perfis do **mesmo** runtime obedece ao bloco `runtime_profiles` do
 `orkastery.yaml` (D14, D16). Só booleano vale direto (N2): texto ou número que diz sim ou não
 sem ambiguidade (`off`, `"false"`, `0`, `"no"`, `nao`, `on`, `"true"`, `1`, `sim`) vale o que
@@ -762,7 +767,7 @@ Sai diferente de zero em qualquer falha. Cenários: `fx-happy`, `fx-hallucinatio
 | `ork audit finding add <rodada> --regra R --titulo T` | Registra um achado com evidência, claim e proposta |
 | ↳ opções | `--arquivo caminho:linha --impacto I --fix F --estimativa E` |
 | ↳ opções | `[--severidade critico\|maior\|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]` |
-| `ork audit verify <rodada>` | Reexecuta as claims dos achados. **Auditor sem self-report** |
+| `ork audit verify <rodada>` | Reexecuta as claims dos achados. Sem comando executado, inclusive com achado aberto sem comando, imprime `SEM VEREDITO` e sai 1; o achado sem comando avisa, mas não sustenta a rodada. **Auditor sem self-report** |
 | `ork audit report <rodada> [--publicar]` | Relatório com o bloco **obrigatório** de propostas |
 | `ork audit divida [--pack P] [--todos]` | O board de dívida: propostas abertas e recorrência |
 | `ork audit finding estado <id> <estado>` | Carimba o achado: `aberto`, `adiado`, `resolvido`, `descartado` |

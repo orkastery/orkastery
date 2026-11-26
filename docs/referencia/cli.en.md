@@ -82,6 +82,11 @@ runtime dispatches through the process environment, as before I-33. There is no 
 `accounts` in this cycle: `add` is interactive and local, and state reads already come from
 `ork_observe`. On hosts with a CLI surface (Hermes, OpenClaw), parity comes through these commands.
 
+The "portable lock" and "verify shell" checks are gates too. On Linux, the first one acquires and
+releases `flock`, the mechanism used by the core; on macOS it acquires and releases the
+process-identity lock. The second measures Bash only at `/bin/bash` or `/usr/bin/bash`. A missing
+platform lock mechanism or the absence of both controlled shells fails the doctor.
+
 Automatic switching between profiles of the **same** runtime follows the `runtime_profiles` block of
 `orkastery.yaml` (D14, D16). Only a boolean counts as is (N2): text or a number that says yes or no
 unambiguously (`off`, `"false"`, `0`, `"no"`, `nao`, `on`, `"true"`, `1`, `sim`) counts as what it
@@ -763,7 +768,7 @@ Exits non-zero on any failure. Scenarios: `fx-happy`, `fx-hallucination`,
 | `ork audit finding add <rodada> --regra R --titulo T` | Records a finding with evidence, claim and proposal |
 | ↳ options | `--arquivo caminho:linha --impacto I --fix F --estimativa E` |
 | ↳ options | `[--severidade critico\|maior\|menor] [--irreversivel "<passo>"] [--verificar "<comando>"]` |
-| `ork audit verify <rodada>` | Reruns the claims of the findings. **No auditor self-report** |
+| `ork audit verify <rodada>` | Reruns the claims of the findings. With no command executed, including an open finding without a command, it prints `NO VERDICT` and exits 1; a finding without a command remains a warning but does not sustain the run. **No auditor self-report** |
 | `ork audit report <rodada> [--publicar]` | Report with the **mandatory** proposals block |
 | `ork audit divida [--pack P] [--todos]` | The debt board: open proposals and recurrence |
 | `ork audit finding estado <id> <estado>` | Stamps the finding: `aberto`, `adiado`, `resolvido`, `descartado` |

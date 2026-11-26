@@ -14,6 +14,7 @@ A tabela única substitui as listas anteriores e ordena o realinhamento pelas fr
 
 | Ordem | Frente | Itens | Resultado que libera a próxima etapa |
 | --- | --- | --- | --- |
+| 0 | Issues de usuários (ordem do dono em 24/11/2026) | [RM-096](RM-096-nucleo-portatil-no-macos.md) e [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) F0 | O pacote instalado percorre o primeiro ciclo no macOS; infraestrutura ausente produz diagnóstico tipado e nunca um verde falso |
 | 1 | A — decisão e execução do dono | [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) e [RM-048](RM-048-hitl-humano-no-centro.md), com [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Pergunta curta segue um padrão único; autorização autenticada fica presa ao escopo, à validade, ao canal e à prova; a fábrica executa a ação reservada sem pedir terminal ao dono |
 | 1 | B — medição do fluxo | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) F1 e F2 | Espera ganha motivo tipado e vazão útil passa a ter fórmula e origem, em paralelo à frente A |
 | 2 | B — ritmo, fluidez, qualidade e intenção | [RM-071](RM-071-relatorio-da-esteira-do-sdlc.md) F3 a F6 e [RM-094](RM-094-caixa-de-intencoes.md) F1 | O fluxo mostra ritmo, intervenções, qualidade e gargalo semanal; a caixa captura intenção sem autorizar execução |
@@ -109,7 +110,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-07 |
-| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-25 |
 | [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) | Credenciais redigidas em toda superfície de comando, motivo e detalhe | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
 | [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
@@ -125,6 +126,8 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) | Ação do dono executada pela fábrica | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-094](RM-094-caixa-de-intencoes.md) | Caixa de intenções | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-095](RM-095-resultado-de-producao-vira-proposta.md) | Resultado de produção vira proposta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-096](RM-096-nucleo-portatil-no-macos.md) | Núcleo portátil no macOS | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-25 |
+| [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) | Resolução de tipos no worktree do security scan | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-25 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

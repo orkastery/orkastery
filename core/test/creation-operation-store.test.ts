@@ -38,6 +38,10 @@ test('journal conserva sequência, rejeita revisão antiga, transição inválid
     assert.throws(() => advanceCreationOperation(f.root, op.operationId, op.principal, 2, { ...change, state: 'received' }, 'bad'), /creation.transition/);
     assert.equal(creationOperationSchema.safeParse({ ...next, request: { ...next.request, request: 'alterado' } }).success, false);
     assert.equal(creationOperationSchema.safeParse({ ...next, events: [next.events[1]] }).success, false);
+    const journal = path.join(f.root, '.orkastery/creation-operations', op.operationId + '.json');
+    fs.writeFileSync(journal, JSON.stringify({ ...next, version: 'inválida' }));
+    assert.throws(() => readCreationOperation(f.root, op.operationId, op.principal),
+      'a leitura do journal sempre revalida o schema persistido');
     assert.equal(fs.readdirSync(path.join(f.root, '.orkastery/creation-operations')).filter((n) => n.endsWith('.tmp')).length, 0);
     assert.equal(fs.statSync(path.join(f.root, '.orkastery/creation-operations', op.operationId + '.json')).mode & 0o777, 0o600);
     assert.throws(() => readCreationOperation(f.root, '../portfolio', 'fixture-author'), /creation.id/);

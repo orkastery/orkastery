@@ -656,8 +656,12 @@ test('achado resolvido sai da reexecucao e da conta de recorrencia', (t) => {
 
   carimbarAchado(p.dir, lerBoard(p.dir)[0], { estado: 'resolvido' });
   const depois = verificarRodada(p.carregado, rodada.id);
-  assert.equal(depois.ok, true, 'achado resolvido sai da reexecucao');
+  assert.equal(depois.ok, false, 'zero claims executadas não aprova a rodada');
   assert.equal(depois.resultados.length, 0);
+  assert.deepEqual(depois.motivos, ['verify.sem-veredito']);
+  const relatorio = relatorioDaRodada(p.carregado, rodada.id).texto;
+  assert.match(relatorio, /veredito: SEM VEREDITO/);
+  assert.doesNotMatch(relatorio, /veredito: REPROVADO/);
   assert.deepEqual(recorrencias(lerBoard(p.dir)), [], 'divida paga nao conta como recorrencia');
   assert.equal(parseEstadoDeAchado('resolvido'), 'resolvido');
 });

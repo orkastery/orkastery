@@ -132,6 +132,47 @@ jobs:
       - name: grafo no pacote instalado
         run: node core/scripts/provar-grafo-instalado.cjs
 
+  portabilidade-macos:
+    name: pacote instalado e quickstart no macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '24'
+
+      - name: instalar dependencias do pacote
+        run: npm ci
+        working-directory: core
+
+      - name: testar trava portátil com dois processos
+        run: npm --prefix core run build:test && node --test core/dist-test/test/trava-portatil.test.js core/dist-test/test/macos-locks.test.js
+
+      - name: provar tarball, demo e primeira thread
+        run: node core/scripts/provar-macos-instalado.cjs
+
+  portabilidade-linux:
+    name: pacote instalado e quickstart no Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+
+      - name: instalar dependencias do pacote
+        run: npm ci
+        working-directory: core
+
+      - name: provar tarball, demo e primeira thread
+        run: node core/scripts/provar-macos-instalado.cjs
+
   # RM-059 (T0.9): os mods do Claude Code (adapters/claude-code/mods). O Claude Code vem fixado do
   # registro do npm, sem credencial nem chave de API: `claude plugin validate` e `claude plugin test`
   # rodam sem login e sem rede. O cenario procura no binario cada evento e chamada que os mods usam;
