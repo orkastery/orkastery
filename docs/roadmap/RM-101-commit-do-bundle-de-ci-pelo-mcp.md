@@ -39,7 +39,7 @@ sdlc:
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** sessões de GO que usam o transporte MCP conseguem gerar o bundle oficial de CI, mas não conseguem registrá-lo pelo mesmo transporte. O caminho oficial fica incompleto e incentiva commit por fora do núcleo ou uma claim sem significado.
-- **Evidências e fonte:** achado da condução de 25 e 26/11/2026. O `ork_git_commit` recusou `.ork-ci/<thread>.json` com `mcp.git.claim.missing`, e a condução precisou commitar o bundle por fora em mais de uma thread.
+- **Evidências e fonte:** achado da condução de 25 e 26/11/2026. O `ork_git_commit` recusou `.ork-ci/<thread>.json` com `mcp.git.claim.missing`, e a condução precisou commitar o bundle por fora em mais de uma thread. Esta mesma thread reproduziu a recusa em 26/11/2026, e a condução commitou o bundle.
 - **Objetivo/OKR:** fechar o GO pelo transporte autorizado, mantendo o bundle derivado ligado à rodada verde, ao HEAD e à thread que o produziu.
 - **Hipótese:** se o núcleo reconhecer o bundle como artefato derivado com recibo próprio, então o MCP poderá commitá-lo sem claim artificial, enquanto arquivos comuns continuam exigindo claims.
 - **Métrica principal / linha de base / meta / janela / fonte:** proporção de bundles gerados pelo fluxo oficial que são commitados pelo MCP sem desvio de transporte. A linha de base é o achado da condução; a meta e a janela serão definidas na fase GOAL; a fonte será o ledger e o recibo do commit.
