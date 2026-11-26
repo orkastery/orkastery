@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.10",
-  "publicadoEm": "2026-11-26T06:53:05.895Z",
+  "publicadoEm": "2026-11-26T07:45:03.021Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -45,9 +45,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
+        "viva": false,
+        "desdeEm": "2026-11-26T07:44:41.510Z",
+        "motivo": "sessão ecf696de encerrada (done)"
       }
     },
     {
