@@ -173,7 +173,7 @@ export function writeCreationJson(target: string, value: unknown): void {
 }
 
 export function readCreationOperation(root: string, id: string, principal: string): CreationOperation {
-  const value = creationOperationSchema.parse(JSON.parse(fs.readFileSync(file(root, id), 'utf8'))) as unknown as CreationOperation;
+  const value: CreationOperation = creationOperationSchema.parse(JSON.parse(fs.readFileSync(file(root, id), 'utf8')));
   if (value.principal !== principal) throw new Error('creation.unavailable: operação indisponível');
   return value;
 }
@@ -190,7 +190,7 @@ export function listCreationOperations(root: string, principal: string): Creatio
 export function receiveCreationOperation(root: string, principal: string, raw: unknown, abbrev: string): CreationOperation {
   z.string().min(1).max(200).parse(principal);
   if (!/^[a-z][a-z0-9]{0,11}$/.test(abbrev)) throw new Error('creation.input: abbrev inválido');
-  const request = creationRequestSchema.parse(raw) as unknown as CreationRequest;
+  const request: CreationRequest = creationRequestSchema.parse(raw);
   const id = operationId(principal, request.key);
   return withCreationLock(root, id, () => {
     if (fs.existsSync(file(root, id))) {
@@ -227,8 +227,8 @@ export function advanceCreationOperation(root: string, id: string, principal: st
     if (prior.version !== expectedVersion) throw new Error('creation.conflict: revisão alterada');
     if (!transitions[prior.state].includes(change.state)) throw new Error('creation.transition: transição inválida');
     const now = new Date().toISOString();
-    const value = creationOperationSchema.parse({ ...prior, ...change, version: prior.version + 1, updatedAt: now,
-      events: [...prior.events, { sequence: prior.version + 1, at: now, origin: 'ork.creation', state: change.state, reason }] }) as unknown as CreationOperation;
+    const value: CreationOperation = creationOperationSchema.parse({ ...prior, ...change, version: prior.version + 1, updatedAt: now,
+      events: [...prior.events, { sequence: prior.version + 1, at: now, origin: 'ork.creation', state: change.state, reason }] });
     writeCreationJson(file(root, id), value);
     return readCreationOperation(root, id, principal);
   });
