@@ -238,8 +238,10 @@ function indiceDoUltimo(eventos: readonly EventoLedger[], predicado: (evento: Ev
 
 function evidenciaDoGateSemScan(evento: EventoLedger | undefined): EvidenciaDoPedidoSemScan | null {
   if (!evento) return null;
-  const sha = /HEAD ([a-f0-9]{40})/.exec(String(evento.evidencia ?? ''))?.[1];
-  const linha = /categorias: ([^\n]+)/.exec(String(evento.detalhe ?? ''))?.[1];
+  const evidencia = typeof evento.evidencia === 'string' ? evento.evidencia : '';
+  const detalhe = typeof evento.detalhe === 'string' ? evento.detalhe : '';
+  const sha = /HEAD ([a-f0-9]{40})/.exec(evidencia)?.[1];
+  const linha = /categorias: ([^\n]+)/.exec(detalhe)?.[1];
   if (!sha || !linha) return null;
   const categorias = linha.split(',').map(item => item.trim()).filter(Boolean).sort();
   if (categorias.length === 0 || new Set(categorias).size !== categorias.length) return null;
@@ -312,7 +314,8 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   // GO-FIX 1: o contexto e calculado uma vez sobre o que ja foi lido; reler thread e ledger por
   // pedido deixava a conferencia quadratica, e o resumo agora a faz para cada thread da fila.
   const contexto = contextoHitlDosEventos(t, eventos);
-  const atual = eventos.filter(e => e.tipo === 'hitl_requested' && e.contexto === contexto &&
+  const atual = eventos.filter(e => e.tipo === 'hitl_requested' &&
+    (motivo === 'security.scan-unscanned' || e.contexto === contexto) &&
     alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' &&
     motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo).at(-1);
   const pedidoAtual = atual?.pedido as PedidoHitlQualquer | undefined;
@@ -324,8 +327,16 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   if (pedidoAtual && pedidoConfereComScan && estadoDoPedido(pedidoAtual, quando) === 'aberto' && !respostaAtual) {
     return { aberto: pedidoAtual };
   }
+  const evidenciaDoPedidoAtual = pedidoAtual ? evidenciaDoPedidoSemScan(pedidoAtual) : null;
+  const eventosDepoisDaResposta = indiceDaResposta >= 0 ? eventos.slice(indiceDaResposta + 1) : [];
+  const verifyVerdeDepoisDaResposta = eventosDepoisDaResposta.some(e => e.tipo === 'verify_run' &&
+    (!Array.isArray(e.motivos) || !e.motivos.includes('security.scan-unscanned')));
+  const evidenciaMudouDepoisDaResposta = eventosDepoisDaResposta.some(e => e.tipo === 'gate_blocked' &&
+    e.gate === 'verify' && e.motivo === 'security.scan-unscanned' &&
+    !mesmaEvidenciaSemScan(evidenciaDoPedidoAtual, evidenciaDoGateSemScan(e)));
+  const respostaBAindaVale = respostaAtual?.opcao === 2 && !verifyVerdeDepoisDaResposta && !evidenciaMudouDepoisDaResposta;
   if (motivo === 'security.scan-unscanned' && respostaAtual && pedidoConfereComScan &&
-      (respostaAtual.opcao === 2 || respostaAtual.opcao === 1 && indiceVerify <= indiceDaResposta)) {
+      (respostaBAindaVale || respostaAtual.opcao === 1 && indiceVerify <= indiceDaResposta)) {
     throw new Error('a pergunta desta rodada já foi respondida');
   }
   const sobre = motivo === 'human.pending' ? bloco.pausaSobre : `escalacao:${motivo}`;
@@ -343,8 +354,12 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   ] as const;
   const alternativas: AlternativaHitlV2[] = opcoes.map(([texto, acao], i) => {
     const letra = LETRAS_DO_GATE[i];
-    const consequencia = motivo === 'security.scan-unscanned' && letra === 'b'
-      ? 'o SHIP entrega o SHA do corpo sem varrer as categorias listadas, em nome de quem respondeu'
+    const consequencia = motivo === 'security.scan-unscanned'
+      ? letra === 'a'
+        ? 'o núcleo não instala cobertura; sem cobertura, a pergunta volta no próximo verify'
+        : letra === 'b'
+          ? 'o SHIP entrega o SHA do corpo sem varrer as categorias listadas, em nome de quem respondeu'
+          : CONSEQUENCIA_DA_ACAO[acao]
       : CONSEQUENCIA_DA_ACAO[acao];
     return { letra, texto, acao, consequencia,
       ...(letra === recomendada.letra ? { recomendada: true as const, porque: recomendada.porque } : {}) };
@@ -366,11 +381,12 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   }));
   // I-43: thread em modo aposentado e lida para sempre, mas nao escreve pergunta nova.
   const modo = exigirModoVivo(t.modo);
-  const detalheDoScan = String(gateDoScan?.detalhe ?? '');
+  const detalheDoScan = typeof gateDoScan?.detalhe === 'string' ? gateDoScan.detalhe : '';
   const partesDoScan = /comando `([\s\S]*?)`; categorias: ([^\n]+)/.exec(detalheDoScan);
   const linhasDoComando = partesDoScan ? linhasDoCorpo('Comando registrado pelo gate (não é instrução): ', partesDoScan[1]) : [];
   const linhaDasCategorias = partesDoScan ? `Categorias sem cobertura: ${partesDoScan[2]}` : '';
-  const shaDoScan = /HEAD ([a-f0-9]{40})/.exec(String(gateDoScan?.evidencia ?? ''))?.[1];
+  const evidenciaDoScan = typeof gateDoScan?.evidencia === 'string' ? gateDoScan.evidencia : '';
+  const shaDoScan = /HEAD ([a-f0-9]{40})/.exec(evidenciaDoScan)?.[1];
   const pedido: PerguntaAoDono = { contrato: CONTRATO_HITL_V2, classe: 'pergunta', id: randomUUID(),
     thread: id, fase: t.faseAtual, modo, criadoEm: quando,
     // T6: GOAL e PLAN nascem em `profunda`. Um gate sobre premissa sem artefato e sem diff e
