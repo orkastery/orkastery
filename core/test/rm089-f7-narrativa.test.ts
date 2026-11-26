@@ -16,27 +16,24 @@ test('a narrativa pública descreve os contratos v2 e os limites das forjas', ()
     assert.match(texto, /ork-fabrica\/utf8-/);
     assert.match(texto, /ci\.fabrica\.maintainer-adicional/);
     assert.match(texto, /ship\.fabrica\.sha-divergente/);
+    assert.match(texto, /Administration/);
+    assert.match(texto, /não aplica|does not apply/);
     assert.match(texto, /\bsha\b|\bSHA\b/);
-    assert.doesNotMatch(texto, /excecao-transporte|transporte_excecao|recibo-forte-assinatura\/v1/);
+    assert.doesNotMatch(texto, /excecao-transporte|transporte_excecao|recibo-forte-assinatura\/v1|ci\.fabrica\.(?:resultado|assinatura|chave)-invalida/);
   }
 });
 
-test('o changelog mantém a F7 em Não publicado e declara as retiradas', () => {
+test('o changelog declara os contratos e as retiradas da F7', () => {
   const changelog = ler('CHANGELOG.md');
-  const naoPublicado = changelog.slice(changelog.indexOf('## Não publicado'), changelog.indexOf('\n## [', 1));
-  assert.match(naoPublicado, /Decisão da fábrica, F7 \(RM-089\)/);
-  assert.match(naoPublicado, /motor e as portas/);
-  assert.match(naoPublicado, /sem transporte ao runner e sem empacotamento da árvore de produção/);
-  assert.doesNotMatch(naoPublicado, /—/);
+  assert.match(changelog, /Decisão da fábrica, F7 \(RM-089\)/);
+  assert.match(changelog, /motor e as portas/);
+  assert.match(changelog, /sem transporte ao runner e sem empacotamento da árvore de produção/);
 });
 
-test('o roadmap mantém a F7 no futuro e registra a ordem posterior', () => {
+test('o roadmap preserva a ordem e a ausência do transporte retirado', () => {
   const item = ler('docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md');
   const indice = ler('docs/roadmap/README.md');
-  assert.match(item, /\| F7 \| Decisão forte da fábrica \| O motor e as portas verificarão/);
-  assert.match(item, /F7 está em GO, ainda não foi mesclada nem publicada/);
-  assert.match(item, /concluir o GO com verify integral.*CHECK independente/s);
   assert.match(item, /issues #302, #299, #303 e #304, nessa ordem/);
   assert.match(indice, /issues #302, #299, #303 e #304, nessa sequência/);
-  assert.doesNotMatch(item, /F7 construída|transporta a prova da exceção autorizada/);
+  assert.doesNotMatch(item, /transporta a prova da exceção autorizada/);
 });

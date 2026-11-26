@@ -119,8 +119,9 @@ As causas fechadas mapeiam, na mesma ordem, para `ci.recibo.projecao-acima-do-li
 **Fronteira de confiança:** o bundle e o `sha256` chegam no próprio PR/MR e podem ser forjados por quem controla essa
 mudança. A âncora exige claims não vazias, comandos e preparo do `verify` do manifesto da branch de destino, protegido
 administrativamente por `CODEOWNERS` e pela regra obrigatória. Ela prova que a receita aceita não esvaziou as claims nem
-trocou ou omitiu esses comandos ou o preparo. Sem exceção auditável, o runner não consulta nem confere a projeção contra
-o ledger. Com uma exceção F6, lê somente o recibo e o envelope exatos. A
+trocou ou omitiu esses comandos ou o preparo. O runner não consulta nem confere a projeção contra o ledger. No caminho
+da F7, sem transporte, ele não aplica exceção ao resultado forte. A exceção auditável F5 descrita abaixo permanece um
+contrato separado. A
 baseline projetada não é uma fonte confiável e não participa do julgamento do CI: qualquer falha atual de preparo,
 claim ou comando reprova nos três níveis, sem exceção de dívida preexistente. O nível básico somente reexecuta preparo,
 claims e comandos ancorados no HEAD; não usa ancestralidade nem diff posterior para aceitar outro HEAD.
@@ -163,14 +164,15 @@ O runner revalida schema, policy, assinatura, hashes, idempotência, horário, d
 `ork.ci-exception/v1` em `ork.ci-run/v1`, na anotação e no relatório. Ele não notifica, não escreve ledger ou forja e
 não recebe capacidade de escrita. A exceção dispensa apenas a ausência do recibo F5; falha de preparo, claim, comando
 ou replay continua decidindo `ok: false`. O recibo assinado prova entrega pelo emissor e não prova leitura humana.
+
 ## Decisão da fábrica
 
 A F7 fornece contratos executáveis para o motor e para as portas da decisão. Ela não provisiona nem opera o serviço. O
 manifesto da branch de destino pode declarar `ci.fabrica.github_app_id` e `ci.fabrica.gitlab_user_id`. A leitura da
 branch fonte não decide essas identidades e o manifesto não recebe segredo.
 
-A prova dos registros exige o verify verde mais recente com os comandos do manifesto, comparação completa, commits de
-produto registrados pela thread, CHECK independente posterior à última mudança de produto e ligado ao HEAD revisado, e
+A prova dos registros exige que o último verify seja verde e tenha os comandos do manifesto, comparação completa, commits de
+produto registrados pela thread, CHECK independente posterior à última mudança de produto e ligado ao commit aceito do verify, e
 tag da mesma condução. Commit de produto não é merge e muda ao menos um arquivo fora de `.ork-ci`. Só arquivos do bundle
 podem mudar depois do verify. O resultado usa `ork.ci-recibo-forte-payload/v2`,
 `ork.ci-recibo-forte-assinatura/v2` e a porta exclusiva `ork.ci-recibo-forte-signing-port/v2`. A assinatura Ed25519
@@ -179,23 +181,27 @@ fecha o escopo, a validade, o verify, o CHECK e a condução. Emissor, chave pú
 No GitHub, o nome decisório é `ork-fabrica/utf8-<destino-em-hex>` e o diagnóstico usa
 `ork-fabrica-diagnostico/utf8-<destino-em-hex>`. O sufixo codifica em hexadecimal os bytes UTF-8 do nome completo da
 branch. Em `exigir`, uma regra própria da branch precisa exigir o nome decisório com o App configurado e atualização
-estrita. O App precisa ler conteúdo, pull requests e regras da branch, e criar check-runs. Fork e `merge_group` não são
-aceitos nesta etapa.
+estrita. O App precisa de leitura para conteúdo, pull requests, regras da branch e Administration, esta última para ler
+a proteção clássica, além de escrita de check-runs. Fork e `merge_group` não são aceitos nesta etapa. A atualização
+estrita não prova mudança própria do commit de merge criado pela forja; ela fica fora da garantia do verify do HEAD.
 
 No GitLab, a conta configurada usa token `api`, acesso restrito aos projetos declarados e função Maintainer. A branch
 de destino fica protegida sem push de Maintainer nem force push. A comparação precisa ser completa, o MR precisa estar
-atualizado com o destino e a API de merge recebe `sha` igual ao HEAD relido. Commit status e external status check são
+atualizado com o destino e toda chamada à API de merge recebe `sha` igual ao HEAD relido e falha sem a confirmação desse vínculo. Commit status e external status check são
 diagnóstico, nunca autoridade positiva. Na edição Free, outro Maintainer efetivo gera o aviso não bloqueante
 `ci.fabrica.maintainer-adicional`; Owner, administrador e bypass ficam fora da garantia. Nas edições pagas, a regra
 também exige reset de aprovações após push, proíbe edição no MR e aprovação pelo autor, e confere aprovações válidas.
-Merge train não é aceito nesta etapa.
+Merge train não é aceito nesta etapa. Mudança própria do merge criado pelo GitLab não pertence ao HEAD verificado e fica fora da garantia.
 
 Os códigos públicos são `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`,
 `ci.fabrica.prazo-excedido`, `ci.fabrica.regra-destino-invalida`, `ci.fabrica.maintainer-adicional`,
-`ci.fabrica.nome-colidente`, `ci.fabrica.publicacao-recusada`, `ci.fabrica.resultado-invalido`,
-`ci.fabrica.assinatura-invalida` e `ci.fabrica.chave-invalida`. O contrato do SHIP também distingue
+`ci.fabrica.nome-colidente` e `ci.fabrica.publicacao-recusada`. O contrato do SHIP também distingue
 `ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente` e `ship.fabrica.sha-divergente`. Sinal negativo da CI veta;
 sinal positivo não autoriza sozinho.
+
+Esta F7 não fornece transporte para apresentar exceção F6 à fábrica, e o runner não aplica a exceção ao resultado forte.
+O motor só vincula uma exceção exata recebida por uma porta externa ao runner. Evento com `emitidoEm` posterior a
+`recebidoEm` é recusado, sem tolerância de relógio.
 
 ## Preflight coletivo e credencial do CI
 
