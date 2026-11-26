@@ -2478,9 +2478,9 @@ function comandoObjective(args: Args): number {
 
 
 function comandoCi(args: Args): number {
+  const carregado = exigirManifesto();
   const sub = args.posicionais[1] ?? 'status';
   const m = msg().operacao.produto.ci;
-  const carregado = exigirManifesto();
   if (sub === 'prepare') {
     const thread = args.posicionais[2];
     if (!thread) {
@@ -2513,8 +2513,7 @@ function comandoCi(args: Args): number {
     if (branch) {
       const runner = ambienteDeCi();
       const result = executarCiDaBranch(carregado, branch,
-        { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined,
-          env: process.env });
+        { destino: runner?.targetBranch ?? null, pullRequest: runner?.targetBranch !== null && runner?.targetBranch !== undefined });
       registrarReciboRunnerDaAdocao(carregado, result);
       publicarAvisoDaPolitica(result);
       console.log(JSON.stringify(result, null, 2));
