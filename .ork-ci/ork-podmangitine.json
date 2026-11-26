@@ -1514,58 +1514,6 @@
       ]
     },
     {
-      "id": "C103",
-      "thread": "ork-podmangitine",
-      "fase": "GO",
-      "arquivo": "core/test/retry.test.ts",
-      "alegacao": "A suíte posiciona a thread em CHECK antes do verify e prova que a autorização dessa fase libera somente a pausa correspondente.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/retry.test.js"
-      ],
-      "criadoEm": "2026-11-25T16:59:41.719Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C104",
-      "thread": "ork-podmangitine",
-      "fase": "GO",
-      "arquivo": "core/test/locale-f2b-casos.ts",
-      "alegacao": "A fixture pública executa o verify reprovado em CHECK e preserva o retrato pt-BR depois de o gate passar a registrar a fase real.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2b-snapshot.test.js"
-      ],
-      "criadoEm": "2026-11-25T16:59:41.898Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C105",
       "thread": "ork-podmangitine",
       "fase": "GO",
@@ -2058,6 +2006,58 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C132",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/retry.test.ts",
+      "alegacao": "Com as fixtures na fase inicial da thread, a suíte prova que, diante da mesma reprovação, o modo Classic espera autorização enquanto o modo Maestro executa a correção dirigida sem pausa humana.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/retry.test.js"
+      ],
+      "criadoEm": "2026-11-26T02:29:53.104Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C133",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/locale-f2b-snapshot.test.ts",
+      "alegacao": "A suíte compara, na mesma ordem e byte a byte, os casos atuais de verify, ship, retry, master, pulse e roadmap status com a fixture pública pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-11-26T02:29:59.957Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -2118,7 +2118,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "746a6be326ce6b440748876f3de24c101975c0de",
-    "sha256": "6ba05d6e15b6540d651736075dd1905884962a371105faebec41c393c4f0cd75"
+    "head": "00f349cbb5fe3b347561cee9506be07991ff1d4c",
+    "sha256": "0aa1338442d1e0e259ab3def6a0bf355d13d53741b49c20eed0fbc11f91617de"
   }
 }
