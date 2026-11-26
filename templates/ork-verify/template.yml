@@ -1,6 +1,4 @@
-# CI/CD Component do ork-verify (GitLab 17.0 ou mais novo). A policy protegida habilita o transporte;
-# sem opt-in, o job ork-verify preserva o replay anterior e remove o ID token antes de instalar o cliente.
-# `dist/ci-fabrica-transporte.js` e `ork ci run --branch` compartilham o mesmo launcher protegido.
+# CI/CD Component do ork-verify para GitLab. O job fixa a versão do cliente e preserva o histórico necessário ao replay.
 spec:
   inputs:
     contexto:
@@ -10,74 +8,21 @@ spec:
       description: "O stage do job"
       default: test
     imagem:
-      description: "A imagem do job, com Node 20 ou mais novo"
+      description: "A imagem do job com Node"
       default: node:22
     versao_do_ork:
       description: "A versao exata do @orkastery/cli"
       default: "0.6.11"
       regex: ^\d+\.\d+\.\d+$
-    transporte_habilitado:
-      description: "Somente a policy protegida habilita o launcher autenticado"
-      type: boolean
-      default: false
-    sha256_do_ork:
-      description: "SHA-256 do tarball com a arvore de producao embutida"
-      default: "0000000000000000000000000000000000000000000000000000000000000000"
-      regex: ^[a-f0-9]{64}$
 ---
-"$[[ inputs.contexto ]]-preparar-cliente":
-  stage: $[[ inputs.stage ]]
-  image: $[[ inputs.imagem ]]
-  variables:
-    GIT_STRATEGY: "none"
-  rules:
-    - if: '"$[[ inputs.transporte_habilitado ]]" == "true" && $CI_PIPELINE_SOURCE == "merge_request_event"'
-  script:
-    - mkdir -p .ork-protected-input/target .ork-verificador
-    - >-
-      node -e 'const u=`${process.env.CI_API_V4_URL}/projects/${encodeURIComponent(process.env.CI_PROJECT_ID)}/repository/files/orkastery.yaml/raw?ref=${encodeURIComponent(process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME)}`;
-      fetch(u,{headers:{"JOB-TOKEN":process.env.CI_JOB_TOKEN}}).then(async r=>{if(!r.ok)throw new Error(`target:${r.status}`);require("node:fs").writeFileSync(".ork-protected-input/target/orkastery.yaml",await r.text())})'
-    - PACOTE="$(npm pack "@orkastery/cli@$[[ inputs.versao_do_ork ]]" --silent)"
-    - echo "$[[ inputs.sha256_do_ork ]]  ${PACOTE}" | sha256sum --check --strict
-    - tar -xzf "${PACOTE}" -C .ork-verificador
-    - >-
-      ORK_ESPERADO_VERSAO="$[[ inputs.versao_do_ork ]]" ORK_ESPERADO_SHA="$[[ inputs.sha256_do_ork ]]" node -e 'const c=require("./.ork-verificador/package/dist/manifest").exigirManifesto(".ork-protected-input/target").manifesto.ci.transporte_excecao;
-      if(!c||c.cliente.versao!==process.env.ORK_ESPERADO_VERSAO||c.cliente.sha256!==process.env.ORK_ESPERADO_SHA)throw new Error("ci.excecao.transporte-configuracao-ausente")'
-    - mv "${PACOTE}" .ork-protected-input/cliente.tgz
-  artifacts:
-    paths:
-      - .ork-protected-input/cliente.tgz
-      - .ork-protected-input/target/orkastery.yaml
-    expire_in: 1 hour
-
 "$[[ inputs.contexto ]]":
   stage: $[[ inputs.stage ]]
   image: $[[ inputs.imagem ]]
-  needs:
-    - job: "$[[ inputs.contexto ]]-preparar-cliente"
-      optional: true
-      artifacts: true
   variables:
     GIT_DEPTH: "0"
-  id_tokens:
-    ORK_FABRICA_ID_TOKEN:
-      aud: "urn:orkastery:fabrica:ci"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
   script:
-    - |
-      if [ "$[[ inputs.transporte_habilitado ]]" != "true" ]; then
-        unset ORK_FABRICA_ID_TOKEN
-        npm install --global --ignore-scripts --no-audit --no-fund "@orkastery/cli@$[[ inputs.versao_do_ork ]]"
-        ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"
-        exit $?
-      fi
-      test "$CI_PIPELINE_SOURCE" = "merge_request_event"
-      test "$CI_MERGE_REQUEST_TARGET_BRANCH_PROTECTED" = "true"
-      mkdir -p "$CI_BUILDS_DIR/ork-protected-client"
-      tar -xzf .ork-protected-input/cliente.tgz -C "$CI_BUILDS_DIR/ork-protected-client"
-      export ORK_TRANSPORTE_PROTEGIDO=1
-      export ORK_TARGET_PROTEGIDA_DIR="$CI_PROJECT_DIR/.ork-protected-input/target"
-      export ORK_FONTE_NAO_CONFIAVEL_DIR="$CI_PROJECT_DIR"
-      node "$CI_BUILDS_DIR/ork-protected-client/package/dist/index.js" ci run --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    - npm install --global --ignore-scripts --no-audit --no-fund "@orkastery/cli@$[[ inputs.versao_do_ork ]]"
+    - ork ci run --branch "${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-$CI_COMMIT_REF_NAME}"

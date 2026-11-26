@@ -23,41 +23,40 @@ function script(job: Mapa): string {
   return job.script.join('\n');
 }
 
-test('modelo: replay anterior sem opt-in e preparo protegido sem OIDC', () => {
+test('modelo: replay da F5 fixa versão, histórico e branch sem transporte', () => {
   const t = fs.readFileSync(MODELO, 'utf8');
   const jobs = documentos(MODELO)[0];
-  const preparo = mapa(jobs['ork-cliente-protegido']);
   const final = mapa(jobs['ork-verify']);
   const comandos = script(final);
   assert.equal(mapa(final.variables).GIT_DEPTH, '0');
   assert.match(comandos, new RegExp(RODAR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   const versao = /ORK_VERSAO="\$\{ORK_VERSAO:-([0-9]+\.[0-9]+\.[0-9]+)\}"/.exec(comandos)?.[1];
-  assert.ok(versao, 'o replay sem opt-in fixa a versão padrão');
+  assert.ok(versao, 'o replay fixa a versão padrão');
   assert.match(comandos, /"@orkastery\/cli@\$\{ORK_VERSAO\}"/);
-  assert.equal('id_tokens' in preparo, false, 'o preparo do cliente não recebe OIDC');
-  assert.match(script(preparo), /CI_JOB_TOKEN/);
+  assert.equal('id_tokens' in final, false);
+  assert.equal(Object.keys(jobs).filter((chave) => !chave.startsWith('.')).length, 1);
+  assert.doesNotMatch(t, /transporte|ORK_FABRICA_ID_TOKEN|id_tokens/);
   assert.equal('workflow' in jobs, false, 'workflow:rules fica no .gitlab-ci.yml do projeto, não num include');
   assert.match(t, /^#\s+workflow:$/m);
   assert.match(t, /CI_OPEN_MERGE_REQUESTS/);
   for (const p of PROIBIDOS) assert.doesNotMatch(comandos, p);
 });
 
-test('componente: opt-in explícito, preparo sem OIDC e replay anterior no mesmo job', () => {
+test('componente: replay da F5 fica em um job sem transporte', () => {
   const [cabecalho, jobs] = documentos(COMPONENTE);
   const inputs = mapa(mapa(cabecalho.spec).inputs);
-  for (const entrada of ['contexto', 'stage', 'imagem', 'versao_do_ork', 'sha256_do_ork']) {
+  for (const entrada of ['contexto', 'stage', 'imagem', 'versao_do_ork']) {
     assert.ok(entrada in inputs, `entrada ${entrada}`);
   }
   assert.equal(mapa(inputs.contexto).default, 'ork-verify');
-  const comandosDoModelo = script(mapa(documentos(MODELO)[0]['ork-verify']));
-  const versaoDoModelo = /ORK_VERSAO="\$\{ORK_VERSAO:-([0-9]+\.[0-9]+\.[0-9]+)\}"/.exec(comandosDoModelo)?.[1];
-  assert.equal(mapa(inputs.versao_do_ork).default, versaoDoModelo);
-  const preparo = mapa(jobs['$[[ inputs.contexto ]]-preparar-cliente']);
   const final = mapa(jobs['$[[ inputs.contexto ]]']);
   const comandos = script(final);
-  assert.equal('id_tokens' in preparo, false);
+  assert.equal(mapa(inputs.versao_do_ork).default, '0.6.11');
+  assert.equal(Object.keys(jobs).length, 1);
+  assert.equal('id_tokens' in final, false);
   assert.match(comandos, new RegExp(RODAR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(comandos, /"@orkastery\/cli@\$\[\[ inputs\.versao_do_ork \]\]"/);
+  assert.doesNotMatch(fs.readFileSync(COMPONENTE, 'utf8'), /transporte|ORK_FABRICA_ID_TOKEN|id_tokens/);
   assert.equal('workflow' in jobs, false);
   for (const p of PROIBIDOS) assert.doesNotMatch(comandos, p);
 });
