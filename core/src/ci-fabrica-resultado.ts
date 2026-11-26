@@ -107,13 +107,13 @@ function chaveValida(chave: ChavePublicaDoResultadoForte | undefined, agora: str
 }
 
 export function verificarResultadoForteDaFabrica(resultado: ResultadoForteDaFabrica, politica: PoliticaDoResultadoForte,
-  esperado: { projeto: string; origem: string; destino: string; head: string }, agora: string): VerificacaoDoResultadoForte {
+  esperado: { projeto: string; origem: string; destino: string; head: string; fork?: boolean }, agora: string): VerificacaoDoResultadoForte {
   const p = resultado.payload;
   const corpo = { contrato: resultado.contrato, payload: resultado.payload, emissor: resultado.emissor,
     chaveId: resultado.chaveId, algoritmo: resultado.algoritmo, assinatura: resultado.assinatura };
   if (resultado.contrato !== CONTRATO_ASSINATURA_RESULTADO_FORTE || p.contrato !== CONTRATO_PAYLOAD_RESULTADO_FORTE
       || resultado.algoritmo !== 'Ed25519' || resultado.emissor !== politica.emissor
-      || resultado.sha256 !== sha256(JSON.stringify(corpo)) || p.projeto !== esperado.projeto
+      || resultado.sha256 !== sha256(JSON.stringify(corpo)) || esperado.fork === true || p.projeto !== esperado.projeto
       || p.origem !== esperado.origem || p.destino !== esperado.destino || p.head !== esperado.head
       || p.commitAvaliado !== esperado.head || p.check.shaRevisado !== p.verify.commit
       || !SHA.test(p.verify.commit) || !HASH.test(p.verify.chaveDeProva) || !HASH.test(p.check.parecerSha256)

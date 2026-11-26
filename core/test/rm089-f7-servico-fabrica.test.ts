@@ -152,3 +152,14 @@ test('resultado forte recebe somente os fatos relidos, nunca o HEAD informado pe
   assert.equal(d.estado, 'liberado');
   assert.deepEqual(recebidos, [H]);
 });
+
+test('evento antigo não reaplica efeito depois de evento mais novo', () => {
+  const d = processarEventoDaFabrica({ id: 'antigo', assinaturaValida: true,
+    emitidoEm: '2026-11-26T10:00:00.000Z', recebidoEm: '2026-11-26T10:01:00.000Z' }, {
+    reler: base, ultimoEventoEmitidoEm: () => '2026-11-26T10:30:00.000Z', avaliarDestino: () => null,
+    revalidarAntesDoEfeito: () => true, emitirResultado: () => ({ sha256: K }),
+    persistir: () => undefined, publicar: () => undefined,
+  });
+  assert.equal(d.estado, 'bloqueado');
+  assert.equal(d.codigo, 'ci.fabrica.prova-ausente');
+});

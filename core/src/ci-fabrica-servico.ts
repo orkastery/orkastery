@@ -38,6 +38,8 @@ export interface PortasDoServicoDaFabrica {
   persistir(decisao: DecisaoDaFabrica): void;
   publicar(decisao: DecisaoDaFabrica): void;
   jaProcessado?(eventoId: string, digestCanonico: string): DecisaoDaFabrica | null;
+  /** Último evento aceito para a mesma origem nativa. Evento antigo nunca reaplica efeito sobre fatos novos. */
+  ultimoEventoEmitidoEm?(): string | null;
 }
 
 const instante = (valor: string): number => Date.parse(valor);
@@ -67,7 +69,9 @@ export function processarEventoDaFabrica(evento: EventoDaFabrica,
     digestCanonico = digestCanonicoDosFatos(registros);
     const existente = portas.jaProcessado?.(evento.id, digestCanonico);
     if (existente?.digestCanonico === digestCanonico) return existente;
+    const ultimoEmitido = portas.ultimoEventoEmitidoEm?.(), ultimo = ultimoEmitido ? instante(ultimoEmitido) : NaN;
     if (!evento.assinaturaValida || !Number.isFinite(recebido) || !Number.isFinite(emitido)
+        || (Number.isFinite(ultimo) && emitido <= ultimo)
         || emitido > recebido || recebido - emitido > janelaMs) {
       decisao = decisaoDeFalha(evento.id, nivel, 'ci.fabrica.prova-ausente', registros, digestCanonico);
     } else {
