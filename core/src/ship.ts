@@ -18,6 +18,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { aprovacoesHumanas, reciboHumanoConfere, registrarGateBloqueado, registrarGateLiberado } from './gates';
 import { adquirirRegiao, esperandoPor, liberar, leasesColidentes, LEASE_MAIN_TREE } from './leases';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -178,11 +179,11 @@ export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string, 
   if (shaDe === ponta) return shaDe;
   // `passos` recebe os comandos que de fato rodaram, na ordem: e a evidencia do ship (sugestao da conferencia da rodada 2).
   const curto = (sha: string) => sha.slice(0, 8);
-  // As listas crescem com o historico entre a branch e a ponta; `exec` usa o buffer ampliado comum do nucleo.
+  // As listas crescem com o historico entre a branch e a ponta; o buffer explicito preserva historicos longos.
   const listar = (args: string[]): string[] | null => {
     passos.push(`git ${args.map((a) => a.replace(/^([0-9a-f]{40,64})\.\.([0-9a-f]{40,64})$/, (_, x, y) => `${curto(x)}..${curto(y)}`)).join(' ')}`);
-    const r = exec('git', args, raiz, 120000);
-    return r.ok ? r.stdout.split('\n').filter((l) => /^[0-9a-f]{40,64}$/.test(l)) : null;
+    const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', timeout: 120000, maxBuffer: 256 * 1024 * 1024 });
+    return r.status === 0 && !r.error ? r.stdout.split('\n').filter((l) => /^[0-9a-f]{40,64}$/.test(l)) : null;
   };
   const primeiroPai = listar(['rev-list', '--first-parent', `${shaDe}..${ponta}`]);
   const descendentes = listar(['rev-list', '--ancestry-path', `${shaDe}..${ponta}`]);
@@ -527,16 +528,16 @@ function autorizacaoRespondidaSemScan(
     motivoDoPedido(e.pedido as PedidoHitlQualquer) === 'security.scan-unscanned').at(-1);
   const pedido = solicitado?.pedido as PedidoHitlQualquer | undefined;
   try { validarPedidoHitl(pedido); } catch { return null; }
-  const evidencia = evidenciaDoPedidoSemScan(pedido!);
+  const evidencia = evidenciaDoPedidoSemScan(pedido);
   const esperadas = [...categorias].sort();
   if (!evidencia || evidencia.sha !== sha || evidencia.categorias.length !== esperadas.length ||
       !evidencia.categorias.every((categoria, i) => categoria === esperadas[i])) return null;
   const evento = eventos.filter(e => e.tipo === TIPOS_DE_EVENTO.pausaHumana &&
-    e.pedidoId === pedido!.id).at(-1);
+    e.pedidoId === pedido.id).at(-1);
   if (!evento || evento.sobre !== 'escalacao:security.scan-unscanned' || evento.opcao !== 2 ||
       evento.source !== 'human' || typeof evento.autorizadoPor !== 'string' ||
       !reciboHumanoConfere(raiz, threadId, evento)) return null;
-  return { por: evento.autorizadoPor.trim(), pedidoId: pedido!.id };
+  return { por: evento.autorizadoPor.trim(), pedidoId: pedido.id };
 }
 
 /**

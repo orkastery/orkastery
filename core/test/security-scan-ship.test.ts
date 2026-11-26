@@ -20,6 +20,9 @@ import { abrirPedidoGate, assinaturaDaResposta, responderGate, registrarPedidoHi
 import { ehV2 } from '../src/hitl-contract';
 import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from '../src/hitl-public-receipt';
 
+const CHAVE_HITL = 'chave-simulada-security-scan-ship-000';
+const OUTRA_CHAVE_HITL = 'outra-chave-simulada-security-scan-ship';
+
 /** The declared command is `true`: the ship runs verify first, and only the key matters to the gate. */
 function comScan(p: ProjetoDeTeste, opts: { chave?: boolean; exigeCi?: boolean }): ManifestoCarregado {
   const b = p.carregado;
@@ -56,7 +59,7 @@ function comFalhaSemRelatorio(p: ProjetoDeTeste): ManifestoCarregado {
 function ambienteHitlSimulado() {
   const nomes = ['ORK_HITL_INGRESS_KEY', 'ORK_HITL_TELEGRAM_USERS', 'ORK_HITL_TELEGRAM_CHATS', ENV_HITL_VERIFIERS];
   const antigos = nomes.map(nome => process.env[nome]);
-  process.env.ORK_HITL_INGRESS_KEY = 'chave-simulada-security-scan-ship-000';
+  process.env.ORK_HITL_INGRESS_KEY = CHAVE_HITL;
   process.env.ORK_HITL_TELEGRAM_USERS = '42';
   process.env.ORK_HITL_TELEGRAM_CHATS = '-7';
   return () => nomes.forEach((nome, i) => antigos[i] === undefined ? delete process.env[nome] : process.env[nome] = antigos[i]);
@@ -149,6 +152,7 @@ test('secret unavailable e required_for_ship false: human.pending e nada empurra
     assert.equal(r.bloqueado, true);
     assert.equal(r.motivo, 'human.pending');
     assert.match(r.detalhe, /secret/);
+    assert.match(r.correcao ?? '', /abra o pedido com ork gate request .* e o dono responde b/);
     assert.match(r.correcao ?? '', /--allow-unscanned/);
     assert.equal(shaNoRemotoDeTeste(p.dir, p.remoto as string, 'main'), remotoAntes);
     assert.equal(shaDaBranch(p.dir, 'main'), remotoAntes);
@@ -306,20 +310,39 @@ test('gate, pedido, resposta b e SHIP usam a autorização nominal autenticada',
   } finally { restaurar(); p.limpar(); }
 });
 
-for (const cenario of ['b-antiga-depois-a', 'b-antiga-com-pedido-novo-aberto', 'categorias-a-menos'] as const) {
+for (const cenario of ['b-antiga-depois-a', 'b-antiga-com-pedido-novo-aberto', 'categorias-a-menos', 'outro-sha',
+  'sem-recibo', 'recibo-forjado', 'verificador-de-outra-chave'] as const) {
   test(`SHIP recusa resposta b que não corresponde ao pedido atual: ${cenario}`, () => {
     const p = projetoTemporario(`ss-ship-neg-${cenario}`, true), restaurar = ambienteHitlSimulado();
     try {
-      const carregado = comScan(p, {}), { thread, sha } = entrega(p);
+      const carregado = comScan(p, {}), entregaAtual = entrega(p), { thread } = entregaAtual;
+      let sha = entregaAtual.sha;
       const atuais = cenario === 'categorias-a-menos' ? ['dependency'] as Category[] : ['sast'] as Category[];
       gravar(p, sha, atuais.map(categoria => run(categoria === 'dependency' ? 'npm-audit' : 'semgrep', categoria, 'unavailable')));
       const pedidas = cenario === 'categorias-a-menos' ? ['dependency', 'iac', 'sast'] : ['sast'];
       const primeiro = abrirPedidoSemScan(p, thread.id, thread.faseAtual, sha, pedidas);
-      responder(p, thread.id, primeiro, 'b', `telegram:-7:${cenario}-1`);
-      if (cenario !== 'categorias-a-menos') {
+      if (cenario === 'sem-recibo' || cenario === 'recibo-forjado') {
+        registrar(dirThread(p.dir, thread.id), thread.id, 'human_gate', { pedidoId: primeiro.id,
+          fase: primeiro.fase, origem: 'telegram', source: 'human', autorizadoPor: 'telegram:42',
+          mensagem: `telegram:-7:${cenario}`, recebidoEm: new Date().toISOString(),
+          sobre: 'escalacao:security.scan-unscanned', estado: 'aguardando', opcao: 2,
+          ...(cenario === 'recibo-forjado' ? { recibo: 'a'.repeat(64) } : {}) });
+      } else if (cenario === 'verificador-de-outra-chave') {
+        process.env.ORK_HITL_INGRESS_KEY = OUTRA_CHAVE_HITL;
+        responder(p, thread.id, primeiro, 'b', `telegram:-7:${cenario}-1`);
+        process.env.ORK_HITL_INGRESS_KEY = CHAVE_HITL;
+      } else {
+        responder(p, thread.id, primeiro, 'b', `telegram:-7:${cenario}-1`);
+      }
+      if (cenario === 'outro-sha') {
+        sha = commitar(thread.worktree as string, 'outra.md', '# outra\n', `feat: ${thread.id} outra candidata`);
+        gravar(p, sha, [run('semgrep', 'sast', 'unavailable')]);
+      } else if (cenario === 'b-antiga-depois-a' || cenario === 'b-antiga-com-pedido-novo-aberto') {
         const segundo = repetirPedido(p, primeiro);
         if (cenario === 'b-antiga-depois-a') responder(p, thread.id, segundo, 'a', `telegram:-7:${cenario}-2`);
       }
+      process.env[ENV_HITL_VERIFIERS] = publicHitlVerifiers({ ORK_HITL_INGRESS_KEY: CHAVE_HITL })!;
+      delete process.env.ORK_HITL_INGRESS_KEY;
       const r = ship(carregado, thread.id, { para: 'main' });
       assert.equal(r.ok, false);
       assert.equal(r.motivo, 'human.pending');

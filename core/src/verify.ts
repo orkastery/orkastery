@@ -1114,7 +1114,7 @@ export function evidenciaDoSecurityScan(
   const geradoEm = relatorio ? Date.parse(relatorio.generatedAt) : Number.NaN;
   if (!relatorio || relatorio.head !== commit || !Number.isFinite(geradoEm) || geradoEm < inicioDaRodadaMs) return vazia;
   const achadoNovoNoLaco = relatorio.findings.some((achado) => achado.status === 'new' && achado.loop);
-  const categorias = [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort() as Category[];
+  const categorias = [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort();
   return {
     coberturaAusente: !achadoNovoNoLaco && categorias.length > 0 ? { comando: comando.comando, categorias } : null,
     achadoNovoNoLaco,

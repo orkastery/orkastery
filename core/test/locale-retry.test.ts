@@ -85,6 +85,8 @@ test('locale en F2b retry: a politica tem ingles para os 26 motivos, e o --json 
   }
   assert.equal(en['security.scan-unscanned'].porque,
     'the security scan finished without covering loop categories: rerunning GO-FIX installs neither Docker nor binaries and cannot authorize an unscanned delivery');
+  assert.equal(pt['security.scan-unscanned'].correcao,
+    'instale a cobertura indicada pelo gate; para o SHIP seguir sem ela, abra o pedido tipado com ork gate request <thread> e o dono responde b; --allow-unscanned e a forma equivalente no CLI');
   assert.equal(en['security.scan-unscanned'].correcao,
     'install the coverage named by the gate; for SHIP to proceed without it, open the typed request with ork gate request <thread> and the owner answers b; --allow-unscanned is the CLI equivalent');
   const a = cenario('retry-dado-pt'), b = cenario('retry-dado-en');
