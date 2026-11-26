@@ -86,7 +86,7 @@ function git(wt: string, args: string[], input?: string): string {
   return r.stdout;
 }
 /** Lista positiva de configuração passiva. Não é blacklist de shell. */
-function configPassiva(chave: string, valor: string, credenciaisInertes = false): boolean {
+function configPassiva(chave: string, valor: string, credenciaisInertes = false, redeInerte = false): boolean {
   if (credenciaisInertes && (chave==='credential.helper' || /^credential\..+\.helper$/.test(chave))) return valor.length<=8192 && !valor.includes('\0');
   // Definição não executa nada: a ausência de uso efetivo é provada abaixo.
   if (/^filter\.[a-zA-Z0-9._-]+\.(clean|smudge|process|required)$/.test(chave)) return valor.length<=8192 && !valor.includes('\0');
@@ -102,6 +102,18 @@ function configPassiva(chave: string, valor: string, credenciaisInertes = false)
   if (['core.bare','commit.gpgsign','tag.gpgsign','core.fsmonitor'].includes(chave)) return valor==='false';
   if (chave==='core.autocrlf') return ['true','false','input'].includes(valor);
   if (chave==='core.eol') return ['lf','crlf','native'].includes(valor);
+  // Metadado do VS Code: não é variável do Git. O valor não sai do perfil nem vira argumento.
+  if (/^branch\..+\.vscode-merge-base$/.test(chave)) return valor.length<=2048 && !/[\x00-\x1f\x7f]/.test(valor);
+  // O commit pode usar este nível ao gravar objetos soltos; é dado fechado, não caminho nem comando.
+  if (chave==='core.compression') return /^(?:-1|[0-9])$/.test(valor);
+  // Só `git pull` consulta a estratégia; o modo interativo permanece fora da lista positiva.
+  if (chave==='pull.rebase') return ['true','false','merges'].includes(valor);
+  if (redeInerte) {
+    // Status e commit locais não abrem transporte HTTP. O SHIP e as consultas de rede usam o perfil estrito.
+    if (chave==='http.postbuffer') return /^(?:0|[1-9][0-9]*)(?:[kmg])?$/i.test(valor) && valor.length<=32;
+    if (chave==='http.lowspeedlimit' || chave==='http.lowspeedtime') return /^(?:0|[1-9][0-9]*)$/.test(valor) && valor.length<=20;
+    if (chave==='http.version') return /^(?:HTTP\/1\.1|HTTP\/2)$/i.test(valor);
+  }
   if (chave==='init.defaultbranch') return /^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(valor);
   if (/^remote\.[a-zA-Z0-9._-]+\.(url|fetch)$/.test(chave) || /^branch\.[a-zA-Z0-9._/-]+\.(remote|merge)$/.test(chave))
     return valor.length<=2048 && !/[\x00-\x1f]/.test(valor);
@@ -184,12 +196,43 @@ export const HOOKS_INERTES_DO_COMMIT: ReadonlySet<string> = new Set(['pre-push',
   'pre-applypatch', 'post-applypatch', 'sendemail-validate', 'pre-merge-commit', 'post-rewrite',
   'p4-changelist', 'p4-prepare-changelist', 'p4-post-changelist', 'p4-pre-submit']);
 /** O que a operação faria com o hook e a saída exata, para a recusa nomear os dois. */
-export interface HooksDaOperacao { inertes: ReadonlySet<string>; correcao: string }
+export interface HooksDaOperacao { inertes: ReadonlySet<string>; correcao: string; configuracaoDeRedeInerte?: boolean }
 export const HOOKS_DO_COMMIT: HooksDaOperacao = { inertes: HOOKS_INERTES_DO_COMMIT,
-  correcao: 'o commit do MCP o executaria; commite pelo shell da worktree, onde o hook roda como sempre' };
+  correcao: 'o commit do MCP o executaria; commite pelo shell da worktree, onde o hook roda como sempre',
+  configuracaoDeRedeInerte: true };
 /** Padrão estrito (SHIP): merge e push executariam qualquer hook, inclusive o pre-push. */
 export const HOOKS_ESTRITOS: HooksDaOperacao = { inertes: new Set(),
   correcao: 'o SHIP do MCP o executaria (merge ou push); entregue por PR com o bundle do ork ci prepare, ou pelo ork ship do CLI' };
+
+type EscopoDaConfiguracao = 'system'|'global'|'local'|'worktree'|'command';
+interface ConfiguracaoDoGit { escopo: EscopoDaConfiguracao; chave: string; valor: string }
+const ESCOPOS_DA_CONFIGURACAO = new Set<EscopoDaConfiguracao>(['system','global','local','worktree','command']);
+
+/** `--null --show-scope --list`: pares `escopo\0chave[\nvalor]\0`, sem ambiguidade por quebra de linha no valor. */
+function inventarioDaConfiguracao(raw: string): ConfiguracaoDoGit[] {
+  const partes=raw.split('\0');
+  if(partes.pop()!=='' || partes.length%2!==0)falha('execution-profile.unsupported: configuracao preservada (inventario inconclusivo)');
+  const resultado:ConfiguracaoDoGit[]=[];
+  for(let i=0;i<partes.length;i+=2) {
+    const escopo=partes[i] as EscopoDaConfiguracao,item=partes[i+1],separador=item.indexOf('\n');
+    const chave=(separador<0?item:item.slice(0,separador)).toLowerCase();
+    if(!ESCOPOS_DA_CONFIGURACAO.has(escopo) || !chave)
+      falha('execution-profile.unsupported: configuracao preservada (inventario inconclusivo)');
+    resultado.push({escopo,chave,valor:separador<0?'':item.slice(separador+1)});
+  }
+  return resultado;
+}
+
+/** Nunca expõe subseção: ela pode conter nome de branch, URL, login ou outro identificador privado. */
+function rotuloDaConfiguracao(chave: string): string {
+  const normalizada=chave.toLowerCase(),primeiro=normalizada.indexOf('.'),ultimo=normalizada.lastIndexOf('.');
+  const segura=(parte:string)=>parte.replace(/[^a-z0-9_-]/g,'?').slice(0,96);
+  if(primeiro<=0)return 'chave-invalida';
+  const secao=segura(normalizada.slice(0,primeiro)),variavel=segura(normalizada.slice(ultimo+1));
+  if(!secao || !variavel)return 'chave-invalida';
+  return primeiro===ultimo?`${secao}.${variavel}`:`${secao}.<subsecao>.${variavel}`;
+}
+
 function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados:string[],hooksDaOperacao:HooksDaOperacao=HOOKS_ESTRITOS): string {
   fisico(path.dirname(comum),comum); fisico(comum,gitdir);
   for(const nome of ['objects','refs','logs','info'])arvoreMetadados(comum,path.join(comum,nome),{armazemDeObjetos:nome==='objects'});
@@ -215,9 +258,10 @@ function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados
       }
     }
   }
-  const raw=git(wt,['config','--null','--list']);
-  for(const item of raw.split('\0').filter(Boolean)) {
-    const i=item.indexOf('\n'); if(i<0 || !configPassiva(item.slice(0,i).toLowerCase(),item.slice(i+1),true)) falha('execution-profile.unsupported: configuracao preservada');
+  const raw=git(wt,['config','--null','--show-scope','--list']);
+  for(const item of inventarioDaConfiguracao(raw)) {
+    if(!configPassiva(item.chave,item.valor,true,hooksDaOperacao.configuracaoDeRedeInerte===true))
+      falha(`execution-profile.unsupported: configuracao preservada (${rotuloDaConfiguracao(item.chave)}, ${item.escopo})`);
   }
   const atributos=atributosPassivos(wt,id,selecionados);
   return createHash('sha256').update(raw).update('\0').update(atributos).digest('hex');

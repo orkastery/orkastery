@@ -115,6 +115,16 @@
           "tipo": "contem",
           "valor": "aviso registrado",
           "porque": "o warn nao e descartado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "ela faz o scan sair 1 por padrao",
+          "porque": "cobertura ausente do laco reprova sem depender de opt-in"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`security.scan-unscanned` nomeia o comando e as categorias sem cobertura, escala ao humano e nao abre GO-FIX automatico",
+          "porque": "o motivo tipado escala a falta de cobertura sem inventar correcao de codigo"
         }
       ]
     },

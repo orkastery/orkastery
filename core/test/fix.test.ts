@@ -16,7 +16,7 @@ import { adicionarClaim } from '../src/claims';
 import { abrirRodada, derivarCorrecoes, reverificar, tipoDoMotivo, ultimaRodada } from '../src/fix';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
-import { gravarBaseline, verificar } from '../src/verify';
+import { gravarBaseline, julgarResultadoDoVerify, verificar } from '../src/verify';
 import { ajustarManifesto, commitar, projetoTemporario } from './apoio';
 
 /** Nenhuma autorizacao humana foi registrada no ledger desta thread. */
@@ -251,4 +251,21 @@ test('derivarCorrecoes numera FX sem colidir com as correcoes ja gravadas', (t) 
   const seguintes = derivarCorrecoes(thread, 2, resultado, primeiras.map((c) => c.id));
   assert.deepEqual(seguintes.map((c) => c.id), ['FX3', 'FX4']);
   assert.deepEqual(seguintes.map((c) => c.rodada), [2, 2]);
+});
+
+test('cobertura ausente do security_scan escala ao dono sem abrir GO-FIX do scan', (t) => {
+  const p = projetoTemporario('fix-scan-unscanned');
+  t.after(p.limpar);
+  const { thread } = novaThread(p.carregado, { nome: 'scan sem cobertura', modo: 'auto' });
+  const base = verificar(p.carregado, thread.id);
+  const scan = { ...base.comandos[0], nome: 'security_scan', comando: 'ork security-scan', ok: false,
+    code: 1, resumo: 'sast sem cobertura', executado: true, causa: 'exit' as const };
+  const julgamento = julgarResultadoDoVerify({ claims: [], comandos: [scan], baseline: null,
+    securityScanSemCobertura: { comando: scan.comando, categorias: ['sast'] } });
+  const semBaseline = { ...base, ...julgamento, claims: [], comandos: [scan], baseline: null };
+  assert.deepEqual(semBaseline.motivos, ['security.scan-unscanned']);
+  assert.deepEqual(derivarCorrecoes(thread, 1, semBaseline, []), []);
+
+  const comoRegressao = { ...semBaseline, regressoes: [scan], falhasSemBaseline: [] };
+  assert.deepEqual(derivarCorrecoes(thread, 1, comoRegressao, []), []);
 });

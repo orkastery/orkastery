@@ -78,7 +78,7 @@ fontes:
   - UC-040-02, reprovar o verify por segredo ou vulnerabilidade `high`/`critical` nova: `verify.security_scan` no manifesto.
   - UC-040-03, triar cada achado novo no CHECK e corrigir no GO-FIX: skills `security-auditor` e `security-remediation`.
   - UC-040-04, dispensar um falso positivo com decisão registrada: `.ork-security/dismissals.json`.
-  - UC-040-05, parar o SHIP sem varredura possível e entregar só com autorização: `ork ship --allow-unscanned "<quem>"`.
+  - UC-040-05, parar o SHIP sem varredura possível e entregar só com autorização: resposta b do pedido tipado ou `ork ship --allow-unscanned "<quem>"`.
   - UC-040-06, rodar o scan no CHECK independente do CI, com a ferramenta ausente reprovando: `ork ci prepare`.
 - **Pré-condições e gatilho:**
   - `verify.security_scan` declarado no manifesto (o `ork init` grava quando detecta JS/TS, Python ou Go). Sem a chave, nada muda.
@@ -99,22 +99,24 @@ fontes:
   - Saída da ferramenta ausente ou fora do formato: `failed`. O Semgrep com erro não fatal (`Timeout`, `PartialParsing`) fica `ran` com motivo `partial-*`.
   - Ferramenta que passa do prazo: `failed` com `timeout`; `ORK_SECURITY_SCAN_DEADLINE_MS` limita a rodada inteira e um vigia desfaz as worktrees e os contêineres se o processo morrer. O `ork verify` e o `ork ci run` exportam a variável com o prazo do `security_scan` menos `min(300 s, prazo/4)`, e a claim cujo comando é o do scan roda com esse prazo.
   - Nada a varrer: `unsupported-ci` (GitLab CI sem analisador) e `no-requirements-file` (com outra ferramenta da categoria rodando) ficam declarados como `unavailable`, sem contar como categoria não varrida.
-  - Sem Docker nem binário: `unavailable`, saída 0, e o gate do SHIP decide (abaixo).
+  - Sem Docker nem binário: ferramenta não dispensada do laço fica `unavailable` e a saída é 1. O gate do SHIP continua como segunda guarda (abaixo).
+  - No verify, somente o relatório produzido pela rodada sem achado novo e com cobertura ausente grava `security.scan-unscanned` com o comando e as categorias; a política escala ao humano, sem abrir GO-FIX do scan.
   - Dispensa sem `reason` ou `decisionRef`, ou config inválida: saída 1, com a entrada nomeada e nada varrido.
   - Laço esgotado em `retry.max_tentativas` ou veredito inconclusivo: sobe ao humano, como qualquer correção.
 - **Pós-condições:** o relatório por SHA em `.orkastery/security-scan/<sha>/`; `ship_unscanned_authorized` no ledger quando a entrega segue sem varredura, com quem, o SHA e as categorias. Nada é escrito fora do checkout, exceto o cache da base em `$XDG_CACHE_HOME/orkastery/security-scan/`.
 - **Regras de negócio:**
   - BR-040-01: `secret` entra no laço sempre que `new`; `dependency`, `sast`, `iac` e `workflow` só com `high` ou `critical`; `quality` e `license` nunca.
-  - BR-040-02: `unavailable` e `failed` nunca contam como limpo; com `ORK_SECURITY_SCAN_REQUIRED=1`, em categoria do laço, a saída é 1. Exceção: `unsupported-ci`, e `no-requirements-file` quando outra ferramenta da mesma categoria rodou, são declarados e não contam, aqui nem no SHIP.
+  - BR-040-02: `unavailable` e `failed` nunca contam como limpo e, em categoria do laço, a saída é 1. `ORK_SECURITY_SCAN_REQUIRED=1` continua aceito como marcador compatível, sem alterar a regra. Exceção: `unsupported-ci`, e `no-requirements-file` quando outra ferramenta da mesma categoria rodou, são declarados e não contam, aqui nem no SHIP.
   - BR-040-03: o valor de um segredo nunca vai ao relatório, ao stdout nem ao ledger; só o hash entra na impressão digital.
-  - BR-040-04: com `verify.security_scan` e sem `ci.required_for_ship`, categoria do laço sem varredura no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo a exceção de BR-040-02, ou nenhum relatório) para o `ork ship` com `human.pending` antes de qualquer push. O `--dry-run` não grava a autorização.
+  - BR-040-04: com `verify.security_scan` e sem `ci.required_for_ship`, categoria do laço sem varredura no SHA da candidata (ferramenta `unavailable` ou `failed`, salvo a exceção de BR-040-02, ou nenhum relatório) para o `ork ship` com `human.pending` antes de qualquer push. A resposta b do pedido tipado autoriza nominalmente o mesmo SHA e categorias no CLI e no MCP; `--allow-unscanned` é a forma equivalente no CLI. O `--dry-run` não grava a autorização.
+  - BR-040-07: `security.scan-unscanned` só nasce do relatório atual sem achado novo, mantém o verify vermelho, não vira regressão contra baseline verde e não impede a autorização humana nominal de BR-040-04; outro motivo do verify continua bloqueando o SHIP.
   - BR-040-05: caminho excluído em `config.json` não gera achado e é listado no relatório.
   - BR-040-06: o relatório vale pelo SHA; mudança não commitada não é varrida.
 - **Critérios de aceite e testes:**
   - Dado um segredo novo na thread, quando o scan roda, então sai 1 e o valor do segredo não aparece em `report.json`, `report.md` nem no stdout (`core/test/security-scan-report.test.ts`, `core/test/security-scan-run.test.ts`).
   - Dado código deslocado de linha entre base e HEAD, quando o scan compara, então o achado segue `existing` (`core/test/security-scan-compare.test.ts`).
-  - Dado `docker` ausente do `PATH` e nenhum binário, quando o scan roda, então toda ferramenta sai `unavailable` com saída 0, e com `ORK_SECURITY_SCAN_REQUIRED=1` sai 1 (`core/test/security-scan-run.test.ts`).
-  - Dado categoria do laço sem varredura no SHA, quando o `ork ship` roda sem `--allow-unscanned`, então para com `human.pending` e nada é empurrado; com a flag, entrega e grava o evento; com `--dry-run`, não grava (`core/test/security-scan-ship.test.ts`).
+  - Dado `docker` ausente do `PATH` e nenhum binário, quando o scan roda, então toda ferramenta não dispensada sai `unavailable` e o comando sai 1 com a variável ausente, igual a `ORK_SECURITY_SCAN_REQUIRED=1` (`core/test/security-scan-run.test.ts`).
+  - Dado categoria do laço sem varredura no SHA, quando o `ork ship` roda sem autorização, então para com `human.pending` e nada é empurrado; com a resposta b autenticada ou a flag do CLI, entrega e grava o evento; com `--dry-run`, não grava (`core/test/security-scan-ship.test.ts`, `core/test/mcp-ship.test.ts`).
   - Dado `security_scan` com prazo próprio, quando o verify, uma claim do scan ou o `ork ci run` o rodam, então o comando recebe `ORK_SECURITY_SCAN_DEADLINE_MS` igual ao prazo menos a margem (`core/test/security-scan-deadline.test.ts`).
   - Dado o bundle do CI, quando o `ork ci prepare` o monta, então o `security_scan` leva `ORK_SECURITY_SCAN_REQUIRED=1` (`core/test/security-scan-ci.test.ts`).
   - Dado Docker real, quando o scan roda numa fixture de cada stack, então todas as ferramentas rodam e os achados novos do laço aparecem (`core/test/security-scan-integracao.test.ts`, só na estação).

@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { lerLedger } from '../src/ledger';
-import { lerLicoes, propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDasLicoes } from '../src/licoes';
+import { DICA_DO_MOTIVO, lerLicoes, propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDasLicoes } from '../src/licoes';
 import { abrirMemoria } from '../src/memoria';
 import { montarPromptComMemoria } from '../src/phase';
 import { novaThread } from '../src/thread';
@@ -17,6 +17,12 @@ import { projetoTemporario, ProjetoDeTeste } from './apoio';
 
 const dias = (n: number, base = Date.parse('2026-09-27T12:00:00Z')) => new Date(base - n * 86_400_000).toISOString();
 const AGORA = dias(0);
+
+test('cobertura ausente do security scan tem lição própria de recuperação', () => {
+  assert.match(DICA_DO_MOTIVO['security.scan-unscanned'], /instale Docker ou os binarios nativos/);
+  assert.match(DICA_DO_MOTIVO['security.scan-unscanned'], /autorizacao humana nominal/);
+  assert.notEqual(DICA_DO_MOTIVO['security.scan-unscanned'], DICA_DO_MOTIVO['verify.failed']);
+});
 
 function fechada(p: ProjetoDeTeste, id: string, o: { score: number; justificativa: string; classes: ClasseDeFalha[]; motivos: string[]; em: string }): void {
   const dir = path.join(p.dir, '.orkastery', 'threads', id);

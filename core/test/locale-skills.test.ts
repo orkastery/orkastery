@@ -87,6 +87,9 @@ test('locale en F3b skills: cada variante tem a estrutura do original (D5) e vei
     assert.equal(sha(fs.readFileSync(v.original)), origens[v.chave],
       `${v.chave}: o original mudou depois da traducao; atualize a variante e o sha256 em fixtures/variantes-en.json`);
   }
+  const checkQualityEn = fs.readFileSync(path.join(ASSETS, 'skills-en', 'phases', 'check-quality', 'SKILL.md'), 'utf8');
+  assert.ok(checkQualityEn.includes('A tool `unavailable` or `failed` is declared in the verdict and never counts as clean; ' +
+    'in a loop category, it makes the scan exit 1 by default.'), 'a variante inglesa preserva a regra de falha fechada');
 });
 
 test('locale en F3b skills: todo .md instalavel dos hosts com catalogo e a skill do Hermes tem variante', () => {

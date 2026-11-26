@@ -70,6 +70,8 @@ import { chaveDoReciboDeProva } from './recibo-prova';
 import { ENV_TMPDIR_DA_RODADA, selecionarTemporario } from './temporario-das-lanes';
 import { ambienteFuncionalDosTestes, ENV_PATH_FUNCIONAL_DA_RODADA,
   transporteDoAmbienteFuncional } from './ambiente-funcional';
+import { readReport, unscannedLoopTools } from './security-scan/report';
+import { type Category } from './security-scan/types';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -1070,6 +1072,12 @@ export interface EntradaDoJulgamentoVerify {
   claims: ResultadoDeClaim[];
   comandos: ResultadoDeComando[];
   baseline: Baseline | null;
+  /** Cobertura ausente comprovada pelo relatorio produzido nesta rodada para o SHA. */
+  securityScanSemCobertura?: CoberturaAusenteDoSecurityScan | null;
+  /** O relatorio produzido nesta rodada tem achado `new` do laco. */
+  securityScanComAchadoNovo?: boolean;
+  /** A falha do scan tem um relatorio do mesmo SHA produzido dentro desta rodada. */
+  securityScanRelatorioDaRodada?: boolean;
   preparo?: ResultadoDeComando | null;
   produtoAlterado?: boolean;
   policyViolada?: boolean;
@@ -1087,6 +1095,44 @@ export interface JulgamentoVerify {
   motivos: MotivoGate[];
   bloqueantes: MotivoGate[];
   ok: boolean;
+}
+
+export interface CoberturaAusenteDoSecurityScan {
+  comando: string;
+  categorias: Category[];
+}
+
+export interface EvidenciaDoSecurityScan {
+  coberturaAusente: CoberturaAusenteDoSecurityScan | null;
+  achadoNovoNoLaco: boolean;
+  relatorioDaRodada: boolean;
+}
+
+/**
+ * O comando do scan pode sair 1 por achado ou por falta de cobertura. So a segunda causa recebe o
+ * motivo `security.scan-unscanned`: o relatorio produzido nesta rodada nomeia as categorias e nao
+ * pode conter achado novo do laco. Sem relatorio novo, a falha continua `verify.failed`.
+ */
+export function evidenciaDoSecurityScan(
+  raiz: string,
+  commit: string,
+  comandos: readonly ResultadoDeComando[],
+  inicioDaRodadaMs: number
+): EvidenciaDoSecurityScan {
+  const vazia = { coberturaAusente: null, achadoNovoNoLaco: false, relatorioDaRodada: false };
+  const comando = comandos.find((resultado) => resultado.nome === 'security_scan' &&
+    resultado.executado !== false && !resultado.ok && !semVereditoPorTempo(resultado));
+  if (!comando) return vazia;
+  const relatorio = readReport(raizDoEstado(raiz), commit);
+  const geradoEm = relatorio ? Date.parse(relatorio.generatedAt) : Number.NaN;
+  if (!relatorio || relatorio.head !== commit || !Number.isFinite(geradoEm) || geradoEm < inicioDaRodadaMs) return vazia;
+  const achadoNovoNoLaco = relatorio.findings.some((achado) => achado.status === 'new' && achado.loop);
+  const categorias = [...new Set(unscannedLoopTools(relatorio).map((ferramenta) => ferramenta.category))].sort();
+  return {
+    coberturaAusente: !achadoNovoNoLaco && categorias.length > 0 ? { comando: comando.comando, categorias } : null,
+    achadoNovoNoLaco,
+    relatorioDaRodada: true,
+  };
 }
 
 /**
@@ -1109,6 +1155,35 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
       continue;
     }
     const antes = baseline?.comandos.find((comando) => comando.nome === atual.nome);
+    if (atual.nome === 'security_scan' && entrada.securityScanComAchadoNovo) {
+      if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
+      else {
+        const comparacao = compararComBaseline(atual, antes);
+        if (comparacao) comparacoes.push(comparacao.granularidade === 'comando'
+          ? { ...comparacao, classificacaoDoComando: 'regressao' }
+          : comparacao);
+        regressoes.push(atual);
+      }
+      continue;
+    }
+    if (atual.nome === 'security_scan' && entrada.securityScanSemCobertura) {
+      if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') falhasSemBaseline.push(atual);
+      else if (!antes.ok) {
+        const comparacao = compararComBaseline(atual, antes);
+        if (comparacao) comparacoes.push(comparacao);
+        preExistentes.push(atual);
+      }
+      continue;
+    }
+    // A34: baseline vermelha nao explica a falha atual do scan. Sem relatorio desta rodada, ou
+    // com relatorio atual que nao traz nem achado novo do laco nem categoria sem cobertura, a
+    // falha fica no bucket bloqueante de `verify.failed` e nunca vira divida pre-existente.
+    if (atual.nome === 'security_scan' && !atual.ok &&
+        (!entrada.securityScanRelatorioDaRodada ||
+          (!entrada.securityScanComAchadoNovo && !entrada.securityScanSemCobertura))) {
+      falhasSemBaseline.push(atual);
+      continue;
+    }
     if (!antes || vereditoDaBaseline(antes) === 'sem-veredito') {
       if (!atual.ok) falhasSemBaseline.push(atual);
       continue;
@@ -1131,7 +1206,13 @@ export function julgarResultadoDoVerify(entrada: EntradaDoJulgamentoVerify): Jul
   if (claims.some((claim) => claim.motivo === 'claims.failed')) motivos.push('claims.failed');
   if (claims.some((claim) => claim.motivo === 'claims.unverifiable')) motivos.push('claims.unverifiable');
   if (regressoes.length > 0) motivos.push('verify.regression');
-  if (falhasSemBaseline.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  const falhasSemBaselineSemScan = entrada.securityScanSemCobertura
+    ? falhasSemBaseline.filter((resultado) => resultado.nome !== 'security_scan')
+    : falhasSemBaseline;
+  if (falhasSemBaselineSemScan.length > 0 || preparoFalhou) motivos.push('verify.failed');
+  // A20 da thread ork-podmangitine: cobertura ausente nao e "falha sem baseline". O motivo proprio
+  // preserva a comparacao em `preExistentes` e escala a falta de ferramenta ao humano.
+  if (entrada.securityScanSemCobertura) motivos.push('security.scan-unscanned');
   if (estouros.length > 0 || preparoSemVeredito || claims.some((claim) => claim.motivo === 'verify.timeout')) {
     motivos.push('verify.timeout');
   }
@@ -1525,7 +1606,11 @@ function verificarSobConducao(
   const baseline = thread.baseline ?? null;
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
-  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline,
+  const evidenciaSecurityScan = evidenciaDoSecurityScan(raiz, commit, comandos, inicioDaRodada);
+  const securityScanSemCobertura = evidenciaSecurityScan.coberturaAusente;
+  const julgamento = julgarResultadoDoVerify({ claims, comandos, baseline, securityScanSemCobertura,
+    securityScanComAchadoNovo: evidenciaSecurityScan.achadoNovoNoLaco,
+    securityScanRelatorioDaRodada: evidenciaSecurityScan.relatorioDaRodada,
     preparo: preparo?.resultado ?? null, produtoAlterado, policyViolada: dadoPrivadoBloqueia.length > 0 });
   const { regressoes, preExistentes, falhasSemBaseline, comparacoes, estouros, naoExecutados,
     baselineSemVeredito, motivos, bloqueantes, ok } = julgamento;
@@ -1575,6 +1660,7 @@ function verificarSobConducao(
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
     comparacoes,
     ...(baselineSemVeredito.length > 0 ? { baselineSemVeredito } : {}),
+    ...(securityScanSemCobertura ? { securityScanSemCobertura } : {}),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
     steal,
@@ -1631,8 +1717,11 @@ function verificarSobConducao(
                   ...naoExecutados.map((c) => porQueDasLanes(c) ? `${c.nome} sem veredito (${porQueDasLanes(c)})` : `${c.nome} nao foi executado`),
                   ...claims.filter((c) => c.motivo === 'verify.sem-veredito').map((c) => `${c.claim.id}: ${c.detalhe}`)]
                   .filter(Boolean).join('; ')
-                : motivo === 'policy.violation'
+              : motivo === 'policy.violation'
                   ? dadoPrivadoBloqueia.map((v) => `policy ${v.policy}: ${v.detalhe}`).join('; ')
+                  : motivo === 'security.scan-unscanned'
+                    ? `security_scan sem cobertura: comando \`${securityScanSemCobertura!.comando}\`; categorias: ` +
+                      securityScanSemCobertura!.categorias.join(', ')
                   : `falha sem baseline em: ${falhasSemBaseline.map((r) => r.nome).join(', ')}` + (falhasSemBaseline
                     .some((r) => baselineSemVeredito.includes(r.nome))
                     ? `; a baseline nao teve veredito de ${falhasSemBaseline.filter((r) => baselineSemVeredito.includes(r.nome))
@@ -1648,6 +1737,11 @@ function verificarSobConducao(
               ? 'rode `ork verify` de novo, sem editar a worktree durante a rodada'
               : motivo === 'policy.violation'
                 ? dadoPrivadoBloqueia.map((v) => v.correcao).join('; ')
+                : motivo === 'security.scan-unscanned'
+                  ? `rode \`${securityScanSemCobertura!.comando}\` com cobertura para ` +
+                    `${securityScanSemCobertura!.categorias.join(', ')}; se o SHIP precisar seguir sem varredura, ` +
+                    'abra o pedido tipado com `ork gate request <thread>` e o dono responde b; no CLI, ' +
+                    '`--allow-unscanned "<quem>"` e a forma equivalente'
                 : 'corrija a regressao, ou grave a baseline antes do GO com `ork verify <thread> --baseline`',
     });
   }

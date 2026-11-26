@@ -19,6 +19,7 @@ import { executarCiDaBranchComContexto, publicarAvisoDaPolitica, receitaConfiave
 import { comLocale, msg } from '../src/locale';
 import type { ManifestoCarregado } from '../src/manifest';
 import type { Claim, Manifesto, ResultadoDeComando } from '../src/types';
+import { reportDir, writeReport } from '../src/security-scan/report';
 
 const HEAD_A = 'a'.repeat(40), HEAD_B = 'b'.repeat(40);
 
@@ -166,6 +167,68 @@ test('R2: baseline projetada não transforma falha atual em dívida preexistente
   assert.equal(replay.julgamento?.ok, false);
   assert.ok(replay.julgamento?.motivos.includes('verify.failed'));
   assert.equal(replay.recibo?.resultado.ok, false);
+});
+
+test('o replay tipa cobertura ausente do security scan sem acrescentar verify.failed', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm089-scan-'));
+  const entrada = projecao({ commands: [{ name: 'security_scan', command: 'ork security-scan' }] });
+  try {
+    const severidades = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    writeReport(raiz, {
+      schema: 'ork.security-scan/v1', base: HEAD_B, head: HEAD_A, generatedAt: '2026-11-25T00:00:00.000Z',
+      stacks: ['js'], excluded: [], findings: [], tools: [{
+        name: 'gitleaks', category: 'secret', version: '1', executor: null, state: 'unavailable',
+        reason: 'docker-missing', counts: { new: { ...severidades }, existing: { ...severidades }, dismissed: { ...severidades } },
+      }],
+    });
+    const replay = reexecutarProjecaoReplayCi(entrada, {
+      raiz, manifesto, head: HEAD_A, casaEfemera: path.join(raiz, 'casa'),
+      identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
+      receitaConfiavel: { commands: entrada.commands, check: 'agile' },
+      executor: ({ nome, comando }) => {
+        if (nome === 'security_scan') writeReport(raiz, {
+          schema: 'ork.security-scan/v1', base: HEAD_B, head: HEAD_A, generatedAt: new Date().toISOString(),
+          stacks: ['js'], excluded: [], findings: [], tools: [{
+            name: 'gitleaks', category: 'secret', version: '1', executor: null, state: 'unavailable',
+            reason: 'docker-missing', counts: { new: { ...severidades }, existing: { ...severidades }, dismissed: { ...severidades } },
+          }],
+        });
+        return resultado(nome, comando, nome !== 'security_scan');
+      },
+    });
+    assert.deepEqual(replay.julgamento?.motivos, ['security.scan-unscanned']);
+    assert.equal(replay.recibo?.resultado.ok, false);
+  } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('o replay ignora relatório anterior do mesmo SHA e relatório com head diferente', () => {
+  const entrada = projecao({ commands: [{ name: 'security_scan', command: 'ork security-scan' }] });
+  const severidades = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const variante of ['anterior', 'head-diferente'] as const) {
+    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), `ork-rm089-scan-${variante}-`));
+    try {
+      const report = { schema: 'ork.security-scan/v1' as const, base: HEAD_B,
+        head: variante === 'anterior' ? HEAD_A : HEAD_B,
+        generatedAt: variante === 'anterior' ? '2026-11-25T00:00:00.000Z' : '2099-11-25T00:00:00.000Z',
+        stacks: ['js' as const], excluded: [], findings: [], tools: [{ name: 'gitleaks', category: 'secret' as const, version: '1',
+          executor: null, state: 'unavailable' as const, reason: 'docker-missing',
+          counts: { new: { ...severidades }, existing: { ...severidades }, dismissed: { ...severidades } } }] };
+      const escrito = writeReport(raiz, report);
+      if (variante === 'head-diferente') {
+        const destino = reportDir(raiz, HEAD_A);
+        fs.mkdirSync(destino, { recursive: true });
+        fs.copyFileSync(escrito.json, path.join(destino, 'report.json'));
+      }
+      const replay = reexecutarProjecaoReplayCi(entrada, {
+        raiz, manifesto, head: HEAD_A, casaEfemera: path.join(raiz, 'casa'),
+        identidadeProduto: () => 'produto-estavel', hermeticidade: () => null,
+        receitaConfiavel: { commands: entrada.commands, check: 'agile' },
+        executor: ({ nome, comando }) => resultado(nome, comando, nome !== 'security_scan'),
+      });
+      assert.deepEqual(replay.julgamento?.motivos, ['verify.failed'], variante);
+      assert.equal(replay.julgamento?.preExistentes.length, 0, variante);
+    } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+  }
 });
 
 function carregado(raiz: string, nivel?: 'observar' | 'avisar' | 'exigir'): ManifestoCarregado {
