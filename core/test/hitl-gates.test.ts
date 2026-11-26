@@ -162,6 +162,40 @@ test('security.scan-unscanned substitui pedido aberto de contexto anterior', () 
   } finally { restaurar(); p.limpar(); }
 });
 
+test('outros gates substituem pedido aberto ou respondido de contexto anterior', () => {
+  for (const motivo of ['human.pending', 'policy.violation'] as const) {
+    for (const respondido of [false, true]) {
+      const p = projetoTemporario(`hitl-contexto-${motivo}-${respondido}`), restaurar = ambiente();
+      try {
+        const { thread: t } = novaThread(p.carregado, { nome: `contexto ${motivo}`, modo: motivo === 'human.pending' ? 'classic' : 'auto' });
+        const dir = dirThread(p.dir, t.id);
+        const preparar = (sessao: string) => {
+          registrar(dir, t.id, 'phase_dispatch', { fase: t.faseAtual, sessionId: sessao, runtime: 'claude-bg' });
+          if (motivo === 'human.pending') {
+            registrar(dir, t.id, 'phase_result', { fase: t.faseAtual, sessionId: sessao, evidencia: 'fixture simulada' });
+          } else {
+            registrar(dir, t.id, 'gate_blocked', { gate: 'verify', fase: t.faseAtual, motivo, detalhe: 'policy simulada' });
+          }
+        };
+        preparar('sessao-anterior');
+        const anterior = abrirPedidoGate(p.dir, t.id, motivo, quando);
+        if (respondido) responderGate(p.dir, t.id, anterior.id,
+          resposta(t.id, anterior.id, { mensagem: 'telegram:-7:contexto-anterior' }), quando);
+
+        preparar('sessao-atual');
+        const atual = abrirPedidoGate(p.dir, t.id, motivo, quando);
+        assert.notEqual(atual.id, anterior.id, `${motivo}: pedido novo`);
+        assert.ok(ehV2(anterior) && anterior.classe === 'pergunta');
+        assert.ok(ehV2(atual) && atual.classe === 'pergunta');
+        assert.notEqual(atual.codigo, anterior.codigo, `${motivo}: código novo`);
+        assert.equal(responderGate(p.dir, t.id, atual.id,
+          resposta(t.id, atual.id, { mensagem: 'telegram:-7:contexto-atual' }), quando).estado,
+        motivo === 'human.pending' ? 'aprovado' : 'aguardando', `${motivo}: resposta aceita`);
+      } finally { restaurar(); p.limpar(); }
+    }
+  }
+});
+
 test('gates de outros motivos exigem a fase atual', () => {
   const p = projetoTemporario('hitl-fase-outros');
   try {

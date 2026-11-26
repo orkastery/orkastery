@@ -98,11 +98,13 @@ sdlc:
 
 ## Estado com evidências
 
+O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`) e em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
+
 ### Dívida proposta pelo CHECK
 
 - **Impressão digital estável do ESLint:** o normalizador usa a mensagem inteira no `snippet`, e regras como `no-unsafe-argument` podem imprimir a mesma união de tipos em ordens diferentes. A proposta é normalizar essa parte variável sem colidir achados distintos. Origem: A56 da rodada 7 do CHECK independente da thread `ork-podmangitine`. Estado: proposta sem prioridade; fora do escopo das correções das issues #302 e #299.
-
-O código está na `main` desde o PR #186 (merge `6d9c0f5d`, cabeça da branch `34f019b1`) e em produção na versão 0.6.0 (tag `v0.6.0` e `@orkastery/cli` 0.6.0 no npm, publicado em 27/10/2026). A suíte, o scan do próprio repositório, a integração com Docker real e a prova ponta a ponta estão resumidos em [Evidências](#evidências).
+- **Verify parcial após autorização sem scan:** um verify só das claims não executa o scan, mas encerra a resposta b como se tivesse comprovado cobertura. A proposta é encerrar a autorização por verify verde somente quando o `security_scan` tiver sido executado. Origem: A59 da rodada 8 do CHECK independente da thread `ork-podmangitine`. Estado: proposta sem prioridade; fora do escopo desta correção.
+- **Achado anterior no novo pedido do mesmo SHA:** quando uma rodada encontra um achado e outra volta à falta de cobertura, o pedido seguinte não apresenta o achado anterior ao dono. A proposta é citar o último `verify.regression` do mesmo SHA ou recusar a autorização sem varredura para uma candidata com achado novo registrado. Origem: A60 da rodada 8 do CHECK independente da thread `ork-podmangitine`. Estado: proposta sem prioridade; fora do escopo desta correção.
 
 ### Fatia da issue #302: sonda compatível e falha fechada
 

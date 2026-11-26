@@ -339,7 +339,7 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   const contexto = contextoHitlDosEventos(t, eventos);
   const pedidosRespondidos = new Set(eventos.filter(e => e.tipo === 'human_gate').map(e => String(e.pedidoId)));
   const atual = eventos.filter(e => e.tipo === 'hitl_requested' &&
-    (motivo !== 'security.scan-unscanned' || e.contexto === contexto ||
+    (e.contexto === contexto || motivo === 'security.scan-unscanned' &&
       pedidosRespondidos.has(String((e.pedido as PedidoHitlQualquer).id))) &&
     alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' &&
     motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo).at(-1);

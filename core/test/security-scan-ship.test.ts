@@ -341,7 +341,7 @@ for (const cenario of ['b-antiga-depois-a', 'b-antiga-com-pedido-novo-aberto', '
   test(`SHIP recusa resposta b que não corresponde ao pedido atual: ${cenario}`, () => {
     const p = projetoTemporario(`ss-ship-neg-${cenario}`, true), restaurar = ambienteHitlSimulado();
     try {
-      const carregado = comScan(p, {}), entregaAtual = entrega(p), { thread } = entregaAtual;
+      const carregado = comScanDaRodada(p, 'cobertura-sem-baseline'), entregaAtual = entrega(p), { thread } = entregaAtual;
       let sha = entregaAtual.sha;
       const atuais = cenario === 'categorias-a-menos' ? ['dependency'] as Category[] : ['sast'] as Category[];
       gravar(p, sha, atuais.map(categoria => run(categoria === 'dependency' ? 'npm-audit' : 'semgrep', categoria, 'unavailable')));
