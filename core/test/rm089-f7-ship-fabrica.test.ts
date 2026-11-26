@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { novaThread } from '../src/thread';
-import { ship } from '../src/ship';
+import { decidirShipComFabrica, ship } from '../src/ship';
 import { criarPortaDaFabricaNoShip } from '../src/ship-fabrica';
 import type { ChamadorDaApi } from '../src/forja/api';
 import type { ForjaResolvida } from '../src/forja/contrato';
@@ -58,4 +58,11 @@ test('ship falha fechado quando o check decisório não vem do App configurado',
   assert.equal(resultado.ok, false);
   assert.equal(resultado.motivo, 'ci.failed');
   projeto.limpar();
+});
+
+test('sinal positivo da CI não substitui a decisão válida da fábrica', () => {
+  const r = decidirShipComFabrica({ configurada: true, nivel: 'exigir', forja: 'github', destino: 'main',
+    head: 'a'.repeat(40), resultado: null, github: { appIdEsperado: 731, checkVerde: false },
+    ci: { state: 'success' } });
+  assert.equal(r.ok, false);
 });
