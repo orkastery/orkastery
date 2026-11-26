@@ -33,6 +33,7 @@ export interface DependenciasDaFabricaNoShip {
 }
 
 const dormir = (ms: number): void => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+const PRAZO_MINIMO_DA_LEITURA_GITLAB_MS = 1000;
 
 function lerManifestoDaBranch(raiz: string, remoto: string, destino: string): string | null {
   if (!branchValida(destino)) return null;
@@ -88,18 +89,31 @@ function consultarGitlab(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaD
   nivel: 'observar' | 'avisar' | 'exigir', contaDaFabrica: number,
   agoraMs: () => number, esperar: (ms: number) => void): ResultadoDaFabricaNoShip {
   const fim = agoraMs() + Math.max(0, c.prazoMs);
+  const pendente = (): ResultadoDaFabricaNoShip => {
+    const base = entradaBase(c, nivel, 'gitlab');
+    return { ok: true, entrada: { ...base, resultado: { valido: true, destino: c.destino, head: c.head },
+      gitlab: { estado: 'pendente' } } };
+  };
+  let primeiraLeitura = true;
   for (;;) {
+    const antesDaLeitura = agoraMs();
+    if (!primeiraLeitura && antesDaLeitura >= fim) return pendente();
     const lidos = pedidosDaBranchGitlab({ repositorio: forja.repo, base: c.destino, branch: c.origem,
-      prazoMs: Math.max(1, fim - agoraMs()), api });
-    if (lidos.erro) return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
-    const exato = lidos.prs.find((p) => p.head === c.head);
+      prazoMs: Math.max(PRAZO_MINIMO_DA_LEITURA_GITLAB_MS, fim - antesDaLeitura), api });
+    primeiraLeitura = false;
+    if (lidos.erro) {
+      if (c.prazoMs > 0 && agoraMs() >= fim) return pendente();
+      return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
+    }
+    const maisNovo = lidos.prs[0];
+    const exato = maisNovo?.head === c.head ? maisNovo : undefined;
     if (exato?.estado === 'mesclado' && exato.mescladoPorId === contaDaFabrica) {
       const base = entradaBase(c, nivel, 'gitlab');
       return { ok: true, entrada: { ...base, resultado: { valido: true, destino: c.destino, head: c.head },
         gitlab: { estado: 'mesclado', shaMesclado: exato.head, mergeSha: exato.mergeSha ?? exato.head,
           numero: exato.numero, mescladoPorId: contaDaFabrica } } };
     }
-    const divergente = lidos.prs.find((p) => p.estado === 'mesclado' && p.head !== c.head
+    const divergente = (maisNovo ? [maisNovo] : []).find((p) => p.estado === 'mesclado' && p.head !== c.head
       && p.mescladoPorId === contaDaFabrica);
     if (divergente) {
       const base = entradaBase(c, nivel, 'gitlab');
@@ -107,12 +121,9 @@ function consultarGitlab(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaD
         gitlab: { estado: 'mesclado', shaMesclado: divergente.head, mergeSha: divergente.mergeSha ?? divergente.head,
           numero: divergente.numero, mescladoPorId: contaDaFabrica } } };
     }
+    if (maisNovo?.estado === 'mesclado') return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
     const agora = agoraMs();
-    if (agora >= fim) {
-      const base = entradaBase(c, nivel, 'gitlab');
-      return { ok: true, entrada: { ...base, resultado: { valido: true, destino: c.destino, head: c.head },
-        gitlab: { estado: 'pendente' } } };
-    }
+    if (agora >= fim) return pendente();
     esperar(Math.min(1000, fim - agora));
   }
 }

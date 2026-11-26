@@ -878,23 +878,44 @@ export function ship(
     const prova = entradaDaFabrica?.gitlab;
     const mergeSha = prova?.mergeSha ?? prova?.shaMesclado ?? shaDe;
     const descricao = `GitLab MR ${prova?.numero ?? '(não informado)'} mesclado pela fábrica no SHA ${shaDe.slice(0, 8)}`;
+    const passos = [descricao];
+    let shaRemoto: string | null;
+    if (urlFixada) {
+      const fixado: RemotoFixado = { gitdir: criarGitdirDoPush(raiz), ...urlFixada, config: configDoRemoto };
+      try {
+        shaRemoto = shaNoRemotoFixado(fixado, para);
+        passos.push(`git --git-dir=<gitdir privado> ${[...configDoRemoto, 'ls-remote', '--',
+          '<origin fixado>', `refs/heads/${para}`].join(' ')}`);
+      } finally { fs.rmSync(fixado.gitdir, { recursive: true, force: true }); }
+    } else {
+      shaRemoto = shaNoRemoto(raiz, remoto, para, configDoRemoto);
+      passos.push(comConfig(['ls-remote', '--', remoto, `refs/heads/${para}`]));
+    }
+    conferirDepoisDoPush(passos);
     r.mergeSha = mergeSha;
     r.pontaDaBase = mergeSha;
     r.jaIncorporado = true;
     r.remoto = remoto;
-    r.shaRemoto = null;
-    r.pushVerificado = false;
-    r.passos = [descricao];
+    r.shaRemoto = shaRemoto;
+    r.pushVerificado = shaRemoto !== null && shaRemoto === mergeSha;
+    r.passos = passos;
+    if (!r.pushVerificado) {
+      return bloquear(
+        'runtime.unavailable',
+        textoDoCatalogo((m) => m.ship.pushSemProva(shaRemoto, mergeSha)),
+        textoDoCatalogo((m) => m.ship.pushSemProvaCorrecao)
+      );
+    }
     if (r.dryRun) return { ...r, ok: true, bloqueado: false };
     registrarGateLiberado(dir, threadId, {
       gate: 'ship', modo: thread.modo, autorizadoPor: autorizacao.por,
-      evidencia: `${descricao}; autor GitLab ${prova?.mescladoPorId ?? '(não informado)'}`,
+      evidencia: `${descricao}; autor GitLab ${prova?.mescladoPorId ?? '(não informado)'}; ls-remote ${shaRemoto}`,
       tipoDeAutorizacao: autorizacao.tipo,
     });
     registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
       de, para, shaDe, shaParaAntes: shaPara, mergeSha, pontaDaBase: mergeSha, jaIncorporado: true,
-      remoto, shaRemoto: null, pushVerificado: false,
-      fonteDaProva: `GitLab API merge request ${prova?.numero ?? '(não informado)'}`,
+      remoto, shaRemoto, pushVerificado: true,
+      fonteDaProva: `git ls-remote ${remoto} refs/heads/${para}; GitLab API merge request ${prova?.numero ?? '(não informado)'}`,
       autorizadoPor: autorizacao.por, tipoDeAutorizacao: autorizacao.tipo,
       politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA, modo: thread.modo, tag: tagDoModo(thread.modo),
       evidencia: { verificadoNoCommit: verificacao.commit,

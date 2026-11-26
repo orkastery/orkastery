@@ -14,7 +14,7 @@ import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,co
   ambienteDoWorkerShip,ambienteDoWorkerDoTransporte} from './mcp-ship-transporte';
 import {ehTransporteFixado,TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
-import {ship,ResultadoShip,arvoreComBranch} from './ship';
+import {ship,ResultadoShip,OpcoesShip,arvoreComBranch} from './ship';
 import {criarPortaDaFabricaNoShip} from './ship-fabrica';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
 import {lerClaims} from './claims';
@@ -257,11 +257,16 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
-    return ship(c,t.id,opcoesDoShipMcpComPreflight({de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
-      ...opcoesDaFabricaDoShipMcp(c,deadline),
+    return ship(c,t.id,opcoesDoShipMcpComPreflight(opcoesDoWorkerShipMcp(c,deadline,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
-      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa));
+      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}}),preflightEmpresa));
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}
+}
+/** A composição exercitável que o núcleo do worker entrega ao SHIP. */
+export function opcoesDoWorkerShipMcp(c:ManifestoCarregado,deadline:number,opcoes:OpcoesShip):OpcoesShip {
+  return {...opcoes,
+    ...opcoesDaFabricaDoShipMcp(c,deadline),
+  };
 }
 /** Composição única da porta da fábrica usada pelo worker MCP. */
 export function opcoesDaFabricaDoShipMcp(c:ManifestoCarregado,deadline:number) {

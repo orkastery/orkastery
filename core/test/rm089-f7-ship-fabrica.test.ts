@@ -1,17 +1,22 @@
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { novaThread } from '../src/thread';
+import { dirThread, novaThread } from '../src/thread';
 import { decidirShipComFabrica, ship } from '../src/ship';
 import { criarPortaDaFabricaNoShip } from '../src/ship-fabrica';
-import { opcoesDaFabricaDoShipMcp } from '../src/mcp-ship';
-import type { ChamadorDaApi } from '../src/forja/api';
+import { opcoesDaFabricaDoShipMcp, opcoesDoWorkerShipMcp } from '../src/mcp-ship';
+import { chamadorDaApi, chaveDoLogin, type ChamadorDaApi } from '../src/forja/api';
 import type { ForjaResolvida } from '../src/forja/contrato';
+import { rodarCli } from '../src/forja/executor';
 import { exigirManifesto } from '../src/manifest';
 import { opcoesDaFabricaDoShipCli } from '../src/index';
 import { exec } from '../src/util';
+import { adicionarClaim } from '../src/claims';
+import { lerLedger } from '../src/ledger';
+import type { ExecutorVerify } from '../src/verify';
 import { commitar, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -32,17 +37,30 @@ const forjaGithub: ForjaResolvida = { tipo: 'github', host: 'github.com', porta:
 const forjaGitlab: ForjaResolvida = { tipo: 'gitlab', host: 'gitlab.com', porta: null, caminhoBase: '', sshHost: null,
   sshPorta: null, ca: null, repo: 'grupo/projeto', origem: { tipo: 'manifesto', host: 'remoto', porta: 'padrao', caminhoBase: 'padrao' } };
 
-function mr(branch: string, sha: string, estado: 'opened' | 'merged', autor = 77) {
-  return { iid: 5, sha, state: estado, draft: false, source_project_id: 1, target_project_id: 1,
-    target_branch: 'main', source_branch: branch, web_url: 'https://gitlab.example/grupo/projeto/-/merge_requests/5',
+function mr(branch: string, sha: string, estado: 'opened' | 'merged', autor = 77, iid = 5,
+  mergeSha = 'c'.repeat(40)) {
+  return { iid, sha, state: estado, draft: false, source_project_id: 1, target_project_id: 1,
+    target_branch: 'main', source_branch: branch, web_url: `https://gitlab.example/grupo/projeto/-/merge_requests/${iid}`,
     created_at: '2026-11-26T10:00:00.000Z', merged_at: estado === 'merged' ? '2026-11-26T10:05:00.000Z' : null,
     has_conflicts: false, detailed_merge_status: 'mergeable', merge_user: { id: autor },
-    merge_commit_sha: estado === 'merged' ? 'c'.repeat(40) : null };
+    merge_commit_sha: estado === 'merged' ? mergeSha : null };
 }
 
 function apiGitlab(lista: () => unknown[]): ChamadorDaApi {
   return () => ({ ok: true, valor: { status: 200, cabecalhos: {},
     limite: { restante: null, total: null, reiniciaEm: null }, corpo: lista() } });
+}
+
+function glabFalso(lista: unknown[], atrasoMs: number): string {
+  const arquivo = path.join(os.tmpdir(), `glab-falso-${process.pid}-${Math.random().toString(16).slice(2)}.sh`);
+  const corpo = JSON.stringify(lista), nl = String.fromCharCode(10);
+  const seguro = corpo.replaceAll("'", "'\"'\"'");
+  fs.writeFileSync(arquivo, ['#!/bin/sh', `/bin/sleep ${atrasoMs / 1000}`,
+    "printf '%s\\n' 'HTTP/1.1 200 OK' 'Content-Type: application/json' ''",
+    `printf '%s' '${seguro}'`,
+  ].join(nl));
+  fs.chmodSync(arquivo, 0o755);
+  return arquivo;
 }
 
 test('ship consulta na forja o check decisório exato do destino, HEAD e App', () => {
@@ -184,17 +202,35 @@ function casoGitlab(nome: string, corpo: (branch: string, head: string) => unkno
   return { projeto, thread, head, branch, porta, prazoFabricaMs, esperou: () => esperou };
 }
 
+function mesclarNoDestinoRemoto(f: ReturnType<typeof casoGitlab>, manterLocal: boolean): { antes: string; mergeSha: string } {
+  const antes = exec('git', ['rev-parse', 'main'], f.projeto.dir).stdout.trim();
+  assert.equal(exec('git', ['merge', '--no-ff', '-m', 'merge observado', f.branch], f.projeto.dir).ok, true);
+  const mergeSha = exec('git', ['rev-parse', 'main'], f.projeto.dir).stdout.trim();
+  assert.equal(exec('git', ['push', 'origin', 'main'], f.projeto.dir).ok, true);
+  if (!manterLocal) assert.equal(exec('git', ['reset', '--hard', antes], f.projeto.dir).ok, true);
+  return { antes, mergeSha };
+}
+
 for (const localAtualizada of [false, true]) {
   test(`ship registra merge GitLab da fábrica sem criar outro merge local: main ${localAtualizada ? 'atualizada' : 'inalterada'}`, () => {
-    const f = casoGitlab(`mesmo-sha-${localAtualizada}`, (branch, head) => [mr(branch, head, 'merged')]);
-    if (localAtualizada) assert.equal(exec('git', ['merge', '--no-ff', '-m', 'merge já observado', f.branch], f.projeto.dir).ok, true);
-    const mainAntes = exec('git', ['rev-parse', 'main'], f.projeto.dir).stdout.trim();
+    let mergeObservado = '';
+    const f = casoGitlab(`mesmo-sha-${localAtualizada}`,
+      (branch, head) => [mr(branch, head, 'merged', 77, 5, mergeObservado)]);
+    const { antes, mergeSha } = mesclarNoDestinoRemoto(f, localAtualizada);
+    mergeObservado = mergeSha;
     const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
       prazoFabricaMs: f.prazoFabricaMs });
     assert.equal(resultado.ok, true, resultado.detalhe);
-    assert.equal(resultado.mergeSha, 'c'.repeat(40));
-    assert.equal(resultado.pushVerificado, false);
-    assert.equal(exec('git', ['rev-parse', 'main'], f.projeto.dir).stdout.trim(), mainAntes);
+    assert.equal(resultado.mergeSha, mergeSha);
+    assert.equal(resultado.shaRemoto, mergeSha);
+    assert.equal(resultado.pushVerificado, true);
+    assert.equal(exec('git', ['rev-parse', 'main'], f.projeto.dir).stdout.trim(), localAtualizada ? mergeSha : antes);
+    const eventos = lerLedger(dirThread(f.projeto.dir, f.thread.id));
+    const gate = eventos.find((e) => e.tipo === 'gate_passed' && e.gate === 'ship');
+    const entrega = eventos.find((e) => e.tipo === 'ship_done');
+    assert.ok(gate);
+    assert.deepEqual(entrega && { mergeSha: entrega.mergeSha, shaRemoto: entrega.shaRemoto,
+      pushVerificado: entrega.pushVerificado }, { mergeSha, shaRemoto: mergeSha, pushVerificado: true });
     f.projeto.limpar();
   });
 }
@@ -209,18 +245,49 @@ test('ship devolve SHA divergente no primeiro retrato GitLab', () => {
   f.projeto.limpar();
 });
 
-for (const caso of ['autor-diferente', 'mr-aberto'] as const) {
-  test(`ship não conta como decisão da fábrica: ${caso}`, () => {
-    const f = casoGitlab(caso, (branch, head) => [mr(branch, head, caso === 'mr-aberto' ? 'opened' : 'merged',
-      caso === 'autor-diferente' ? 88 : 77)]);
-    const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
-      prazoFabricaMs: f.prazoFabricaMs });
-    assert.equal(resultado.ok, false);
-    assert.equal(resultado.codigo, 'ship.fabrica.merge-pendente');
-    assert.ok(f.esperou() > 0);
-    f.projeto.limpar();
-  });
-}
+test('ship recusa imediatamente MR mesclado no HEAD por autor diferente', () => {
+  const f = casoGitlab('autor-diferente', (branch, head) => [mr(branch, head, 'merged', 88)]);
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.codigo, undefined);
+  assert.match(resultado.detalhe, /ci\.fabrica\.prova-ausente/);
+  assert.equal(f.esperou(), 0);
+  f.projeto.limpar();
+});
+
+test('ship exige a conta da fábrica também para SHA divergente', () => {
+  const f = casoGitlab('sha-divergente-outro-autor', (branch) => [mr(branch, 'f'.repeat(40), 'merged', 88)]);
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.codigo, undefined);
+  assert.match(resultado.detalhe, /ci\.fabrica\.prova-ausente/);
+  assert.equal(f.esperou(), 0);
+  f.projeto.limpar();
+});
+
+test('ship ignora MR antigo da branch quando o MR mais novo continua aberto no HEAD', () => {
+  const f = casoGitlab('mr-antigo', (branch, head) => [
+    mr(branch, head, 'opened', 77, 6), mr(branch, 'e'.repeat(40), 'merged', 77, 4),
+  ]);
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.codigo, 'ship.fabrica.merge-pendente');
+  assert.ok(f.esperou() > 0);
+  f.projeto.limpar();
+});
+
+test('ship espera MR aberto até o prazo e devolve merge pendente', () => {
+  const f = casoGitlab('mr-aberto', (branch, head) => [mr(branch, head, 'opened')]);
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.codigo, 'ship.fabrica.merge-pendente');
+  assert.ok(f.esperou() > 0);
+  f.projeto.limpar();
+});
 
 test('dry-run consulta o GitLab uma vez sem esperar o prazo', () => {
   const f = casoGitlab('dry-run', (branch, head) => [mr(branch, head, 'opened')], 1500);
@@ -232,6 +299,49 @@ test('dry-run consulta o GitLab uma vez sem esperar o prazo', () => {
   f.projeto.limpar();
 });
 
+test('API GitLab pelo rodarCli preserva prazo útil no fim da espera e no dry-run', () => {
+  const casos = [
+    { nome: 'h0', estado: 'merged' as const, prazo: 3000, dryRun: false, ok: true },
+    { nome: 'h1', estado: 'opened' as const, prazo: 3000, dryRun: false, ok: false },
+    { nome: 'h2', estado: 'merged' as const, prazo: 3000, dryRun: true, ok: true },
+    { nome: 'h3', estado: 'opened' as const, prazo: 3000, dryRun: true, ok: false },
+  ];
+  for (const caso of casos) {
+    let mergeObservado = '';
+    const f = casoGitlab(`executor-${caso.nome}`, () => []);
+    if (caso.estado === 'merged') mergeObservado = mesclarNoDestinoRemoto(f, false).mergeSha;
+    const binario = glabFalso([mr(f.branch, f.head, caso.estado, caso.estado === 'merged' ? 77 : 0, 5,
+      mergeObservado || 'c'.repeat(40))], 150);
+    const sonda = rodarCli({ cmd: 'glab', args: [], prazoMs: 1000, maxBuffer: 1024 * 1024, binario, reduzido: true });
+    assert.match(sonda.stdout, /^HTTP\/1\.1 200 OK/);
+    const prazos: number[] = [], erros: string[] = [];
+    const porta = criarPortaDaFabricaNoShip(f.projeto.carregado, { resolver: () => forjaGitlab,
+      criarApi: (forja) => {
+        const api = chamadorDaApi(forja, { rodar: (c) => rodarCli({ ...c, binario }),
+          logins: new Map([[chaveDoLogin(forja), true]]) });
+        return (pedido) => {
+          assert.equal(typeof pedido.prazoMs, 'number');
+          prazos.push(pedido.prazoMs ?? 0);
+          const lido = api(pedido);
+          if (!lido.ok) erros.push(`${lido.erro.codigo}: ${lido.erro.detalhe}`);
+          return lido;
+        };
+      } });
+    try {
+      const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: porta,
+        prazoFabricaMs: caso.prazo, dryRun: caso.dryRun });
+      assert.equal(resultado.ok, caso.ok, JSON.stringify({ detalhe: resultado.detalhe, prazos, erros }));
+      if (!caso.ok) assert.equal(resultado.codigo, 'ship.fabrica.merge-pendente');
+      assert.ok(prazos.length >= 1);
+      assert.ok(prazos.every((prazo) => prazo >= 1000), prazos.join(','));
+      assert.deepEqual(erros, []);
+    } finally {
+      fs.rmSync(binario, { force: true });
+      f.projeto.limpar();
+    }
+  }
+});
+
 test('o comando ork ship instala a porta da fábrica', () => {
   const projeto = projetoTemporario('rm089-f7-cli-porta', true);
   const opcoes = opcoesDaFabricaDoShipCli(projeto.carregado);
@@ -239,9 +349,20 @@ test('o comando ork ship instala a porta da fábrica', () => {
   versionarDestino(projeto, ['politica_recibo: exigir', 'fabrica:', '  github_app_id: 731']);
   const { thread } = novaThread(projeto.carregado, { nome: 'cli porta', modo: 'auto', criarWorktree: true });
   commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega via cli');
-  const r = spawnSync(process.execPath, [CLI, 'ship', thread.id, '--para', 'main'],
-    { cwd: projeto.dir, env: process.env, encoding: 'utf8', timeout: 120_000 });
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  delete env.FORCE_COLOR;
+  const supervisor = [
+    'import os, subprocess, sys',
+    'e = os.environ.copy(); e.pop("NODE_TEST_CONTEXT", None)',
+    'r = subprocess.run(sys.argv[1:], env=e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)',
+    'sys.stdout.buffer.write(r.stdout); sys.stderr.buffer.write(r.stderr)',
+    'raise SystemExit(r.returncode)',
+  ].join('\n');
+  const r = spawnSync('/usr/bin/python3', ['-c', supervisor, process.execPath, CLI, 'ship', thread.id, '--para', 'main'],
+    { cwd: projeto.dir, env, encoding: 'utf8', timeout: 120_000 });
   assert.equal(r.status, 1, `${r.stdout}\n${r.stderr}`);
+  assert.match(`${r.stdout}\n${r.stderr}`, /ci\.fabrica\.prova-ausente/);
   projeto.limpar();
 });
 
@@ -250,5 +371,23 @@ test('o worker MCP compõe a porta da fábrica no ship', () => {
   const opcoes = opcoesDaFabricaDoShipMcp(projeto.carregado, Date.now() + 10_000);
   assert.equal(typeof opcoes.portaDaFabrica, 'function');
   assert.ok(opcoes.prazoFabricaMs >= 0);
+  projeto.limpar();
+});
+
+test('as opções do worker MCP executam o ship com a porta da fábrica recusando', () => {
+  const projeto = projetoTemporario('rm089-f7-mcp-worker-porta', true);
+  versionarDestino(projeto, ['politica_recibo: exigir', 'fabrica:', '  github_app_id: 731']);
+  const { thread } = novaThread(projeto.carregado, { nome: 'mcp worker porta', modo: 'auto', criarWorktree: true });
+  commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega mcp');
+  adicionarClaim(projeto.dir, thread.id, { arquivo: 'entrega.md', alegacao: 'entrega da fixture', fase: 'GO',
+    verificar: ['test -f entrega.md'] });
+  const executor: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '' });
+  const destino = exec('git', ['rev-parse', 'main'], projeto.dir).stdout.trim();
+  const resultado = ship(projeto.carregado, thread.id,
+    opcoesDoWorkerShipMcp(projeto.carregado, Date.now() + 30_000, { para: 'main', executorVerify: executor }));
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.motivo, 'ci.failed');
+  assert.match(resultado.detalhe, /ci\.fabrica\.prova-ausente/);
+  assert.equal(exec('git', ['rev-parse', 'main'], projeto.dir).stdout.trim(), destino);
   projeto.limpar();
 });
