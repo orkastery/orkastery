@@ -1,6 +1,6 @@
 /** RM-089 F7: serviço determinístico da fábrica. O evento só dispara a releitura dos fatos. */
 import { conferirRegistrosDaFabrica, type RegistrosParaDecisaoDaFabrica,
-  type ResultadoDosRegistrosDaFabrica } from './ci-fabrica-registros';
+  type ProvaDosRegistrosDaFabrica, type ResultadoDosRegistrosDaFabrica } from './ci-fabrica-registros';
 import type { PoliticaDeReciboCi } from './types';
 
 export const CONTRATO_DECISAO_DA_FABRICA = 'ork.ci-fabrica-decisao/v1' as const;
@@ -22,11 +22,13 @@ export interface DecisaoDaFabrica {
   estado: 'liberado' | 'diagnostico' | 'bloqueado';
   head: string | null;
   codigo?: CodigoDaFabrica;
+  resultadoForteSha256?: string;
 }
 
 export interface PortasDoServicoDaFabrica {
   reler(): RegistrosParaDecisaoDaFabrica;
   avaliarDestino?(prova: Extract<ResultadoDosRegistrosDaFabrica, { ok: true }>['prova']): CodigoDaFabrica | null;
+  emitirResultado?(prova: ProvaDosRegistrosDaFabrica): { sha256: string };
   persistir(decisao: DecisaoDaFabrica): void;
   publicar(decisao: DecisaoDaFabrica): void;
   jaProcessado?(eventoId: string): DecisaoDaFabrica | null;
@@ -54,9 +56,13 @@ export function processarEventoDaFabrica(evento: EventoDaFabrica, nivel: Politic
       if (!conferido.ok) decisao = decisaoDeFalha(evento.id, nivel, conferido.codigo, registros.head);
       else {
         const codigo = portas.avaliarDestino?.(conferido.prova) ?? null;
-        decisao = codigo ? decisaoDeFalha(evento.id, nivel, codigo, registros.head)
-          : { contrato: CONTRATO_DECISAO_DA_FABRICA, eventoId: evento.id, nivel,
-            estado: nivel === 'exigir' ? 'liberado' : 'diagnostico', head: registros.head };
+        if (codigo) decisao = decisaoDeFalha(evento.id, nivel, codigo, registros.head);
+        else {
+          const resultado = portas.emitirResultado?.(conferido.prova);
+          decisao = { contrato: CONTRATO_DECISAO_DA_FABRICA, eventoId: evento.id, nivel,
+            estado: nivel === 'exigir' ? 'liberado' : 'diagnostico', head: registros.head,
+            ...(resultado ? { resultadoForteSha256: resultado.sha256 } : {}) };
+        }
       }
     } catch (erro) {
       const nome = (erro as Error).name;
