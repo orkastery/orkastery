@@ -63,3 +63,26 @@ export function avaliarGateGitlabFree(e: EntradaGitlabFree): ResultadoGateGitlab
 /** Export explícito para a matriz adversarial: nenhum status do GitLab autoriza. */
 export const statusPositivoAutorizaGateGitlab = (): boolean =>
   statusDoGitlabAutorizaFabrica('commit-status');
+
+export interface EntradaGitlabPago extends EntradaGitlabFree {
+  plano: 'premium' | 'ultimate';
+  resetAprovacoesNoPush: boolean;
+  regraDeAprovacaoEditavelNoMr: boolean;
+  impedirAprovacaoPeloAutor: boolean;
+  aprovacoesExigidas: number;
+  aprovacoesValidas: number;
+  mergeTrainAtivo: boolean;
+  configuracaoCompleta: boolean;
+}
+
+/** Aprovação é defesa adicional. O vínculo final continua sendo o SHA relido no pedido de merge. */
+export function avaliarGateGitlabPago(e: EntradaGitlabPago): ResultadoGateGitlabFree {
+  const configuracaoValida = e.configuracaoCompleta && e.resetAprovacoesNoPush
+    && !e.regraDeAprovacaoEditavelNoMr && e.impedirAprovacaoPeloAutor && e.aprovacoesExigidas > 0
+    && e.aprovacoesValidas >= e.aprovacoesExigidas && !e.mergeTrainAtivo;
+  if (!configuracaoValida) {
+    return e.nivel === 'exigir' ? falha('ci.fabrica.regra-destino-invalida')
+      : { ok: true, mesclar: false, diagnosticos: ['ci.fabrica.regra-destino-invalida'], pedidoDeMerge: null };
+  }
+  return avaliarGateGitlabFree(e);
+}

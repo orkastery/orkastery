@@ -50,6 +50,10 @@ export const caminhoDaBaseDeMergeGitlab = (projeto: string, de: string, ate: str
   parametros.append('refs[]', de); parametros.append('refs[]', ate);
   return `projects/${encodeURIComponent(projeto)}/repository/merge_base?${parametros.toString()}`;
 };
+export const caminhoDasConfiguracoesDeAprovacaoGitlab = (projeto: string, iid: number): string =>
+  `projects/${encodeURIComponent(projeto)}/merge_requests/${iid}/approval_state`;
+export const caminhoDaRegraProtegidaGitlab = (projeto: string, destino: string): string =>
+  `projects/${encodeURIComponent(projeto)}/protected_branches/${encodeURIComponent(destino)}`;
 
 export const CONSULTA_ARVORES_GITLAB = `query($path: ID!, $base: String!, $dirRoadmap: String!, $refReservas: String!, $dirReservas: String!,
   $refFabrica: String!, $dirFabrica: String!) {
