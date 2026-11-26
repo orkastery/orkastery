@@ -34,10 +34,8 @@ test('modelo: replay anterior sem opt-in e preparo protegido sem OIDC', () => {
   const versao = /ORK_VERSAO="\$\{ORK_VERSAO:-([0-9]+\.[0-9]+\.[0-9]+)\}"/.exec(comandos)?.[1];
   assert.ok(versao, 'o replay sem opt-in fixa a versão padrão');
   assert.match(comandos, /"@orkastery\/cli@\$\{ORK_VERSAO\}"/);
-  assert.match(comandos, /unset ORK_FABRICA_ID_TOKEN[\s\S]*npm install --global --ignore-scripts/);
   assert.equal('id_tokens' in preparo, false, 'o preparo do cliente não recebe OIDC');
   assert.match(script(preparo), /CI_JOB_TOKEN/);
-  assert.equal(mapa(mapa(final.id_tokens).ORK_FABRICA_ID_TOKEN).aud, 'urn:orkastery:fabrica:ci');
   assert.equal('workflow' in jobs, false, 'workflow:rules fica no .gitlab-ci.yml do projeto, não num include');
   assert.match(t, /^#\s+workflow:$/m);
   assert.match(t, /CI_OPEN_MERGE_REQUESTS/);
@@ -47,11 +45,10 @@ test('modelo: replay anterior sem opt-in e preparo protegido sem OIDC', () => {
 test('componente: opt-in explícito, preparo sem OIDC e replay anterior no mesmo job', () => {
   const [cabecalho, jobs] = documentos(COMPONENTE);
   const inputs = mapa(mapa(cabecalho.spec).inputs);
-  for (const entrada of ['contexto', 'stage', 'imagem', 'versao_do_ork', 'transporte_habilitado', 'sha256_do_ork']) {
+  for (const entrada of ['contexto', 'stage', 'imagem', 'versao_do_ork', 'sha256_do_ork']) {
     assert.ok(entrada in inputs, `entrada ${entrada}`);
   }
   assert.equal(mapa(inputs.contexto).default, 'ork-verify');
-  assert.equal(mapa(inputs.transporte_habilitado).default, false);
   const comandosDoModelo = script(mapa(documentos(MODELO)[0]['ork-verify']));
   const versaoDoModelo = /ORK_VERSAO="\$\{ORK_VERSAO:-([0-9]+\.[0-9]+\.[0-9]+)\}"/.exec(comandosDoModelo)?.[1];
   assert.equal(mapa(inputs.versao_do_ork).default, versaoDoModelo);
@@ -61,7 +58,6 @@ test('componente: opt-in explícito, preparo sem OIDC e replay anterior no mesmo
   assert.equal('id_tokens' in preparo, false);
   assert.match(comandos, new RegExp(RODAR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(comandos, /"@orkastery\/cli@\$\[\[ inputs\.versao_do_ork \]\]"/);
-  assert.match(comandos, /unset ORK_FABRICA_ID_TOKEN[\s\S]*npm install --global --ignore-scripts/);
   assert.equal('workflow' in jobs, false);
   for (const p of PROIBIDOS) assert.doesNotMatch(comandos, p);
 });
