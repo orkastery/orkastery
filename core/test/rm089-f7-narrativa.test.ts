@@ -29,3 +29,14 @@ test('o changelog mantém a F7 em Não publicado e declara as retiradas', () => 
   assert.match(naoPublicado, /sem transporte ao runner e sem empacotamento da árvore de produção/);
   assert.doesNotMatch(naoPublicado, /—/);
 });
+
+test('o roadmap mantém a F7 no futuro e registra a ordem posterior', () => {
+  const item = ler('docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md');
+  const indice = ler('docs/roadmap/README.md');
+  assert.match(item, /\| F7 \| Decisão forte da fábrica \| O motor e as portas verificarão/);
+  assert.match(item, /F7 está em GO, ainda não foi mesclada nem publicada/);
+  assert.match(item, /concluir o GO com verify integral.*CHECK independente/s);
+  assert.match(item, /issues #302, #299, #303 e #304, nessa ordem/);
+  assert.match(indice, /issues #302, #299, #303 e #304, nessa sequência/);
+  assert.doesNotMatch(item, /F7 construída|transporta a prova da exceção autorizada/);
+});
