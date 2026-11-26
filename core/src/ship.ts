@@ -47,6 +47,7 @@ import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
 import { evidenciaDoPedidoSemScan, respostaBSemScanAindaVale } from './hitl-gates';
 import { sinalDaCiParaFabrica } from './forja/produtor';
+import type { PortaDaFabricaNoShip } from './ship-fabrica';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -76,6 +77,10 @@ export interface OpcoesShip {
    * preenchidos pelo próprio `ship`, para a porta não poder autorizar outro commit. Não é opção de CLI nem argumento MCP.
    */
   fabrica?: Omit<EntradaDoShipComFabrica, 'destino' | 'head' | 'ci'>;
+  /** Porta confiável instalada pelo CLI ou MCP; lê a configuração da branch de destino e consulta a forja. */
+  portaDaFabrica?: PortaDaFabricaNoShip;
+  /** Prazo restante da operação para a espera do merge da fábrica no GitLab. */
+  prazoFabricaMs?: number;
   /**
    * Pares `-c chave=valor` que o transporte fixado do MCP leva so ao `ls-remote` e ao `push` da base (o ssh com a
    * chave fixada, o helper da forja, a CA). Interno e confiavel, como o `executorVerify`: a CLI nunca o recebe.
@@ -807,9 +812,17 @@ export function ship(
   // verde ou status de outro commit não libera a entrega.
   const ci = consultarCi(carregado, shaDe, remoto, opcoes.executorCi);
   r.ci = ci;
-  const entradaDaFabrica: EntradaDoShipComFabrica | null = opcoes.fabrica
-    ? { ...opcoes.fabrica, destino: para, head: shaDe, ci }
-    : null;
+  const lidaDaFabrica = opcoes.portaDaFabrica?.({ remoto, origem: de, destino: para, head: shaDe, ci,
+    prazoMs: opcoes.prazoFabricaMs ?? 120_000 });
+  if (lidaDaFabrica && !lidaDaFabrica.ok) {
+    return bloquear(
+      'ci.failed',
+      textoDoCatalogo((m) => m.ship.fabricaRecusou(lidaDaFabrica.codigo, shaDe)),
+      textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, lidaDaFabrica.codigo)),
+    );
+  }
+  const entradaDaFabrica: EntradaDoShipComFabrica | null = lidaDaFabrica?.entrada
+    ?? (opcoes.fabrica ? { ...opcoes.fabrica, destino: para, head: shaDe, ci } : null);
   const fabricaEmExigir = entradaDaFabrica?.configurada === true && entradaDaFabrica.nivel === 'exigir';
   const decisaoDaFabrica = entradaDaFabrica ? decidirShipComFabrica(entradaDaFabrica)
     : ({ ok: true, acao: 'fluxo-publicado' } as const);

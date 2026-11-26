@@ -1,54 +1,61 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
-import { codigoDoPushRecusadoNoShip, decidirShipComFabrica,
-  type EntradaDoShipComFabrica } from '../src/ship';
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import { novaThread } from '../src/thread';
+import { ship } from '../src/ship';
+import { criarPortaDaFabricaNoShip } from '../src/ship-fabrica';
+import type { ChamadorDaApi } from '../src/forja/api';
+import type { ForjaResolvida } from '../src/forja/contrato';
+import { commitar, projetoTemporario } from './apoio';
 
-const H = 'a'.repeat(40);
-const github = (): EntradaDoShipComFabrica => ({ configurada: true, nivel: 'exigir', forja: 'github',
-  destino: 'main', head: H, resultado: { valido: true, destino: 'main', head: H, githubAppId: 42 },
-  github: { appIdEsperado: 42, checkVerde: true }, ci: { state: 'success' } });
+const manifesto = `ci:
+  politica_recibo: exigir
+  fabrica:
+    github_app_id: 731
+`;
 
-test('C126 sinal positivo da CI não autoriza e sinal negativo veta', () => {
-  const semFabrica = github(); semFabrica.resultado = null;
-  const positivo = decidirShipComFabrica(semFabrica);
-  assert.equal(positivo.ok, false);
-  if (!positivo.ok) assert.equal(positivo.codigo, 'ci.fabrica.prova-ausente');
-  const negativo = github(); negativo.ci.state = 'failure';
-  const veto = decidirShipComFabrica(negativo);
-  assert.equal(veto.ok, false);
-  if (!veto.ok) assert.equal(veto.codigo, 'ci.failed');
+test('ship consulta na forja o check decisório exato do destino, HEAD e App', () => {
+  const projeto = projetoTemporario('rm089-f7-ship-fabrica', true);
+  const { thread } = novaThread(projeto.carregado, { nome: 'ship fabrica', modo: 'auto', criarWorktree: true });
+  const head = commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega pela fabrica');
+  const forja: ForjaResolvida = { tipo: 'github', host: 'github.com', porta: null, caminhoBase: '', sshHost: null,
+    sshPorta: null, ca: null, repo: 'exemplo/projeto', origem: { tipo: 'manifesto', host: 'remoto', porta: 'padrao', caminhoBase: 'padrao' } };
+  const caminhos: string[] = [];
+  const api: ChamadorDaApi = (pedido) => {
+    caminhos.push(pedido.caminho);
+    return { ok: true, valor: { status: 200, cabecalhos: {}, limite: { restante: null, total: null, reiniciaEm: null },
+      corpo: { total_count: 1, check_runs: [{ id: 8, name: 'ork-fabrica/utf8-6d61696e', head_sha: head,
+        status: 'completed', conclusion: 'success', app: { id: 731 } }] } } };
+  };
+  const portaDaFabrica = criarPortaDaFabricaNoShip(projeto.carregado, {
+    lerManifestoDestino: () => manifesto, resolver: () => forja, criarApi: () => api,
+  });
+
+  const resultado = ship(projeto.carregado, thread.id, { para: 'main', portaDaFabrica });
+
+  assert.equal(resultado.ok, true, resultado.detalhe);
+  assert.equal(caminhos.length, 1);
+  assert.match(caminhos[0], new RegExp(`/commits/${head}/check-runs\\?`));
+  assert.match(caminhos[0], /check_name=ork-fabrica%2Futf8-6d61696e/);
+  projeto.limpar();
 });
 
-test('GitHub só mescla depois do resultado e check da fábrica para destino e App esperados', () => {
-  assert.deepEqual(decidirShipComFabrica(github()), { ok: true, acao: 'mesclar-github' });
-  const app = github(); app.resultado!.githubAppId = 7;
-  assert.equal(decidirShipComFabrica(app).ok, false);
-  const destino = github(); destino.resultado!.destino = 'release';
-  assert.equal(decidirShipComFabrica(destino).ok, false);
-});
+test('ship falha fechado quando o check decisório não vem do App configurado', () => {
+  const projeto = projetoTemporario('rm089-f7-ship-fabrica-app', true);
+  const { thread } = novaThread(projeto.carregado, { nome: 'ship fabrica app', modo: 'auto', criarWorktree: true });
+  const head = commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega pela fabrica');
+  const forja: ForjaResolvida = { tipo: 'github', host: 'github.com', porta: null, caminhoBase: '', sshHost: null,
+    sshPorta: null, ca: null, repo: 'exemplo/projeto', origem: { tipo: 'manifesto', host: 'remoto', porta: 'padrao', caminhoBase: 'padrao' } };
+  const api: ChamadorDaApi = () => ({ ok: true, valor: { status: 200, cabecalhos: {},
+    limite: { restante: null, total: null, reiniciaEm: null }, corpo: { total_count: 1,
+      check_runs: [{ id: 9, name: 'ork-fabrica/utf8-6d61696e', head_sha: head,
+        status: 'completed', conclusion: 'success', app: { id: 999 } }] } } });
+  const portaDaFabrica = criarPortaDaFabricaNoShip(projeto.carregado, {
+    lerManifestoDestino: () => manifesto, resolver: () => forja, criarApi: () => api,
+  });
 
-test('os três resultados do ship ficam no campo codigo e push da fábrica tem precedência', () => {
-  const push = github(); push.github!.pushAceito = false;
-  const recusado = decidirShipComFabrica(push);
-  assert.equal(recusado.ok, false);
-  if (!recusado.ok) assert.equal(recusado.codigo, 'ship.fabrica.push-recusado');
-  assert.equal(codigoDoPushRecusadoNoShip(true), 'ship.fabrica.push-recusado');
-  assert.equal(codigoDoPushRecusadoNoShip(false), 'entrega.base-protegida');
+  const resultado = ship(projeto.carregado, thread.id, { para: 'main', portaDaFabrica });
 
-  const pendente: EntradaDoShipComFabrica = { ...github(), forja: 'gitlab', github: undefined,
-    resultado: { valido: true, destino: 'main', head: H }, gitlab: { estado: 'pendente' } };
-  const espera = decidirShipComFabrica(pendente);
-  assert.equal(espera.ok, false); if (!espera.ok) assert.equal(espera.codigo, 'ship.fabrica.merge-pendente');
-  pendente.gitlab = { estado: 'mesclado', shaMesclado: 'b'.repeat(40) };
-  const divergente = decidirShipComFabrica(pendente);
-  assert.equal(divergente.ok, false); if (!divergente.ok) assert.equal(divergente.codigo, 'ship.fabrica.sha-divergente');
-  pendente.gitlab.shaMesclado = H;
-  assert.deepEqual(decidirShipComFabrica(pendente), { ok: true, acao: 'registrar-gitlab' });
-});
-
-test('sem fábrica ou fora de exigir preserva o fluxo publicado', () => {
-  for (const nivel of ['observar', 'avisar'] as const) { const e = github(); e.nivel = nivel;
-    assert.deepEqual(decidirShipComFabrica(e), { ok: true, acao: 'fluxo-publicado' }); }
-  const e = github(); e.configurada = false;
-  assert.deepEqual(decidirShipComFabrica(e), { ok: true, acao: 'fluxo-publicado' });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.motivo, 'ci.failed');
+  projeto.limpar();
 });

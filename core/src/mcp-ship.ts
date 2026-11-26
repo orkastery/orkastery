@@ -15,6 +15,7 @@ import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,co
 import {ehTransporteFixado,TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
+import {criarPortaDaFabricaNoShip} from './ship-fabrica';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
 import {lerClaims} from './claims';
 import {criarExecutorSandbox} from './verify-sandbox';
@@ -257,6 +258,7 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
     return ship(c,t.id,opcoesDoShipMcpComPreflight({de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+      portaDaFabrica:criarPortaDaFabricaNoShip(c),prazoFabricaMs:Math.max(0,deadline-Date.now()-RESERVA),
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
       revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa));
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}

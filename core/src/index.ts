@@ -232,6 +232,7 @@ import {
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
 import { exec, shaCurto, tabela } from './util';
 import { executarShipAposPreflight, ship, textoDoShip } from './ship';
+import { criarPortaDaFabricaNoShip } from './ship-fabrica';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi, publicarAvisoDaPolitica } from './ci';
 import { ambienteDeCi } from './forja/ambiente-de-ci';
 import { contextoDaVarredura, mergeBase, relatorioDoDadoPrivado, varrerArvore, varrerDiff } from './dado-privado';
@@ -2346,6 +2347,7 @@ function comandoShip(args: Args): number {
       allowUnscanned: typeof semScan === 'string' ? semScan.trim() : undefined,
       semPush: args.opcoes['sem-push'] === true,
       preflightEmpresa: preflight,
+      portaDaFabrica: criarPortaDaFabricaNoShip(carregado),
       // RM-058 N2 (A1 da rodada 2 do CHECK): o `--esperar` chega à fila pesada da verificação do ship, com aviso.
       ...((f) => ({ esperarFilaPesadaMs: f.esperarMs, avisoDaFilaPesada: { aoEsperar: f.aoEsperar, comandoDeEsperar: f.comandoDeEsperar } }))(
         filaPesadaDoCli(args, 'verify', `ork ship ${id} --para ${para} --esperar 30`)),
