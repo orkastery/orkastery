@@ -13,48 +13,6 @@ const MAX_PAGINAS = 10;
 
 type Entrada = { repository: string; sha: string; context: string; executor: ExecutorCi; host?: string };
 
-export interface EvidenciaCanonicaGithubCi {
-  forja: 'github';
-  project: string;
-  source: string;
-  target: string;
-  head: string;
-  operation: 'ci.run';
-  execucaoId: string;
-  checkId: string;
-  workflowId: string;
-  principalNativo: string;
-  iniciador: string;
-  construtor: string;
-  veredito: 'PASSOU';
-}
-
-/** Projeta somente fatos reobtidos pela API; campos do runner entram apenas como valores esperados. */
-export function evidenciaCanonicaDoGithub(valor: unknown, esperado: { project: string; source: string; target: string;
-  head: string; context: string; execucaoId: string; construtor: string }): EvidenciaCanonicaGithubCi | null {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return null;
-  const v = valor as { check?: CheckRun; run?: { id?: number; head_sha?: string; head_branch?: string; event?: string;
-    workflow_id?: number; actor?: { id?: number }; repository?: { full_name?: string } };
-    workflow?: { id?: number; protected?: boolean }; target?: { name?: string; protected?: boolean };
-    sourceRepository?: string; targetRepository?: string };
-  const check = v.check, run = v.run;
-  if (!check || !run || !Number.isSafeInteger(check.id) || !Number.isSafeInteger(check.app?.id)
-      || check.name !== esperado.context || check.status !== 'completed' || check.conclusion !== 'success'
-      || check.head_sha !== esperado.head || !Number.isSafeInteger(run.id) || String(run.id) !== esperado.execucaoId
-      || run.head_sha !== esperado.head || run.head_branch !== esperado.source || run.event !== 'pull_request'
-      || run.repository?.full_name !== esperado.project || !Number.isSafeInteger(run.workflow_id)
-      || v.workflow?.id !== run.workflow_id || v.workflow?.protected !== true
-      || v.target?.name !== esperado.target || v.target?.protected !== true
-      || v.sourceRepository !== esperado.project || v.targetRepository !== esperado.project
-      || !Number.isSafeInteger(run.actor?.id)) return null;
-  const principalNativo = `github-app:${check.app!.id}`;
-  if (principalNativo === esperado.construtor) return null;
-  return { forja: 'github', project: esperado.project, source: esperado.source, target: esperado.target,
-    head: esperado.head, operation: 'ci.run', execucaoId: esperado.execucaoId, checkId: String(check.id),
-    workflowId: String(run.workflow_id), principalNativo, iniciador: `github-user:${run.actor!.id}`,
-    construtor: esperado.construtor, veredito: 'PASSOU' };
-}
-
 function chamar(e: Entrada, caminho: string): Resultado<unknown> {
   const r = e.executor({ repository: e.repository, sha: e.sha, context: e.context, host: e.host, caminho });
   // Sem trim aqui: quem formata o detalhe (ci.ts) apara e corta, como sempre fez.

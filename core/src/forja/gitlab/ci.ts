@@ -43,49 +43,6 @@ export const MAX_PIPELINES = 10;
 /** RM-089 F7: commit status e external status check nunca criam autorização positiva da fábrica. */
 export const statusDoGitlabAutorizaFabrica = (_fonte: 'commit-status' | 'external-status-check'): false => false;
 
-export interface EvidenciaCanonicaGitlabCi {
-  forja: 'gitlab';
-  project: string;
-  source: string;
-  target: string;
-  head: string;
-  operation: 'ci.run';
-  execucaoId: string;
-  pipelineId: string;
-  principalNativo: string;
-  iniciador: string;
-  construtor: string;
-  veredito: 'PASSOU';
-}
-
-/** Projeta os fatos reobtidos da API do GitLab; ID token e variáveis do job são somente localizadores. */
-export function evidenciaCanonicaDoGitlab(valor: unknown, esperado: { project: string; source: string; target: string;
-  head: string; context: string; execucaoId: string; construtor: string }): EvidenciaCanonicaGitlabCi | null {
-  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return null;
-  const v = valor as { job?: { id?: number; name?: string; status?: string; user?: { id?: number };
-    pipeline?: { id?: number; project_id?: number; sha?: string } }; pipeline?: { id?: number; project_id?: number;
-    sha?: string; source?: string; user?: { id?: number } }; project?: { id?: number; path_with_namespace?: string };
-    mergeRequest?: { source_branch?: string; target_branch?: string; sha?: string; source_project_id?: number;
-      target_project_id?: number }; target?: { protected?: boolean }; configuration?: { protected?: boolean } };
-  const job = v.job, pipeline = v.pipeline, project = v.project, mr = v.mergeRequest;
-  if (!job || !pipeline || !project || !mr || !Number.isSafeInteger(job.id) || String(job.id) !== esperado.execucaoId
-      || job.name !== esperado.context || job.status !== 'success' || !Number.isSafeInteger(job.user?.id)
-      || !Number.isSafeInteger(job.pipeline?.id) || job.pipeline?.id !== pipeline.id
-      || job.pipeline?.project_id !== project.id || job.pipeline?.sha !== esperado.head
-      || !Number.isSafeInteger(pipeline.id) || pipeline.project_id !== project.id || pipeline.sha !== esperado.head
-      || pipeline.source !== 'merge_request_event' || !Number.isSafeInteger(pipeline.user?.id)
-      || project.path_with_namespace !== esperado.project || mr.source_branch !== esperado.source
-      || mr.target_branch !== esperado.target || mr.sha !== esperado.head
-      || mr.source_project_id !== project.id || mr.target_project_id !== project.id
-      || v.target?.protected !== true || v.configuration?.protected !== true) return null;
-  const principalNativo = `gitlab-user:${job.user!.id}`;
-  if (principalNativo === esperado.construtor) return null;
-  return { forja: 'gitlab', project: esperado.project, source: esperado.source, target: esperado.target,
-    head: esperado.head, operation: 'ci.run', execucaoId: esperado.execucaoId, pipelineId: String(pipeline.id),
-    principalNativo, iniciador: `gitlab-user:${pipeline.user!.id}`, construtor: esperado.construtor,
-    veredito: 'PASSOU' };
-}
-
 const falha = (codigo: ErroDaForja['codigo'], detalhe: string): { ok: false; erro: ErroDaForja } => ({ ok: false, erro: { codigo, detalhe } });
 
 /** Uma lista paginada, cada item no esquema; item fora dele e `forja.resposta-invalida`. */
