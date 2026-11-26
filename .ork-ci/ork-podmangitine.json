@@ -2084,6 +2084,58 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C140",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "core/test/hitl-gates.test.ts",
+      "alegacao": "A suíte prova que human.pending e policy.violation substituem pedidos abertos ou respondidos de despacho anterior por pedido e código novos, aceitando a resposta no contexto atual.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/hitl-gates.test.js"
+      ],
+      "criadoEm": "2026-11-26T06:26:49.058Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C141",
+      "thread": "ork-podmangitine",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-068-security-scan-no-check.md",
+      "alegacao": "A RM-068 registra A59 e A60 como propostas fora do escopo e mantém o parágrafo de abertura de Estado com evidências antes da subseção de dívida do CHECK.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const s=require('node:fs').readFileSync('docs/roadmap/RM-068-security-scan-no-check.md','utf8'),a=s.indexOf('O código está na'),b=s.indexOf('### Dívida proposta pelo CHECK');if(a<0||b<0||a>b||!s.includes('A59 da rodada 8')||!s.includes('A60 da rodada 8'))process.exit(1)\""
+      ],
+      "criadoEm": "2026-11-26T06:27:21.348Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -2164,7 +2216,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "9c7fdc8abc02b21a6109d9030f7bde3248ff97d4",
-    "sha256": "6ea1c20abdae12de05458c8c46512b4303704778f56498eb135266ab114f9b28"
+    "head": "5e97b0495f077803fa816d6e211d10891f25635b",
+    "sha256": "8336a561dfd77881381ff75d752a86abba0e5bf72aecdeb5423a8e2e1b1743bd"
   }
 }
