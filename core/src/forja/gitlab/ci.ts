@@ -40,9 +40,6 @@ type Instantes = { status: string; created_at?: string | null; started_at?: stri
 /** As pipelines distintas que a leitura confere por commit (e por pedido, no resultado mesclado). */
 export const MAX_PIPELINES = 10;
 
-/** RM-089 F7: commit status e external status check nunca criam autorização positiva da fábrica. */
-export const statusDoGitlabAutorizaFabrica = (_fonte: 'commit-status' | 'external-status-check'): false => false;
-
 const falha = (codigo: ErroDaForja['codigo'], detalhe: string): { ok: false; erro: ErroDaForja } => ({ ok: false, erro: { codigo, detalhe } });
 
 /** Uma lista paginada, cada item no esquema; item fora dele e `forja.resposta-invalida`. */

@@ -98,9 +98,10 @@ The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever con
 runner requires a non-empty claim set and anchors commands and preparation to the target branch manifest's `verify`, whose
 administrative protection through `CODEOWNERS` and a required rule is outside the PR author's control alone. This proves
 the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. On the normal,
-non-exception path, the runner does not query the Orkastery ledger or compare the projection against it. This F7 does
-not provide transport for presenting an F6 exception to the factory, and the runner does not apply an exception to the
-strong result. The engine binds only an exact exception received from a port outside the runner. Neither path proves claim completeness or
+non-exception path, the runner does not query the Orkastery ledger or compare the projection against it. Without
+transport, no path delivers an F6 exception to the runner and `exigir` continues to require the F5 receipt. This F7
+does not provide that transport, and the runner does not apply an exception to the strong result. The engine binds only
+an exact exception received from an external port. Neither path proves claim completeness or
 authenticity, or authorship of the bundle, code, or workflow. It also does not trust the projected baseline. At this
 basic level, it reruns protected preparation and the anchored claims and commands on the HEAD, fails every current
 failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff

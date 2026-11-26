@@ -97,9 +97,9 @@ O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados 
 um conjunto não vazio de claims e ancora os comandos e o preparo no `verify` do manifesto da branch de destino, cuja
 proteção administrativa por `CODEOWNERS` e regra obrigatória está fora do controle isolado do PR. Isso prova que a receita
 aceita não esvaziou as claims nem trocou ou omitiu os comandos e o preparo protegidos. No caminho normal, sem exceção,
-o runner não consulta nem confere a projeção contra o ledger do Orkastery. Esta F7 não fornece transporte para
-apresentar uma exceção F6 à fábrica, e o runner não aplica exceção ao resultado forte. O motor só vincula uma exceção
-exata recebida por uma porta externa ao runner. Nenhum dos caminhos prova que as claims são completas ou
+o runner não consulta nem confere a projeção contra o ledger do Orkastery. Sem transporte, nenhum caminho entrega uma
+exceção F6 ao runner e `exigir` continua pedindo o recibo F5. Esta F7 não fornece esse transporte e o runner não aplica
+exceção ao resultado forte. O motor só vincula uma exceção exata recebida por uma porta externa. Nenhum dos caminhos prova que as claims são completas ou
 autênticas, nem prova a autoria do bundle,
 do código ou do workflow. Também não confia na baseline da projeção: reexecuta no HEAD o preparo, as claims e os comandos
 ancorados, reprova qualquer falha atual e emite o recibo do HEAD que acabou de executar.

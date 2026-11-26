@@ -18,6 +18,8 @@ test('a narrativa pública descreve os contratos v2 e os limites das forjas', ()
     assert.match(texto, /ship\.fabrica\.sha-divergente/);
     assert.match(texto, /Administration/);
     assert.match(texto, /não aplica|does not apply/);
+    assert.match(texto, /nenhum caminho entrega|no path delivers/);
+    assert.match(texto, /continua pedindo o recibo F5|continues to require the F5 receipt/);
     assert.match(texto, /\bsha\b|\bSHA\b/);
     assert.doesNotMatch(texto, /excecao-transporte|transporte_excecao|recibo-forte-assinatura\/v1|ci\.fabrica\.(?:resultado|assinatura|chave)-invalida/);
   }
@@ -27,6 +29,7 @@ test('o changelog declara os contratos e as retiradas da F7', () => {
   const changelog = ler('CHANGELOG.md');
   assert.match(changelog, /Decisão da fábrica, F7 \(RM-089\)/);
   assert.match(changelog, /motor e as portas/);
+  assert.match(changelog, /mesmo HEAD feito pela conta configurada sem criar outro merge local/);
   assert.match(changelog, /sem transporte ao runner e sem empacotamento da árvore de produção/);
 });
 

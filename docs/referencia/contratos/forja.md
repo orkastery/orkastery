@@ -199,8 +199,9 @@ Os códigos públicos são `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`
 `ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente` e `ship.fabrica.sha-divergente`. Sinal negativo da CI veta;
 sinal positivo não autoriza sozinho.
 
-Esta F7 não fornece transporte para apresentar exceção F6 à fábrica, e o runner não aplica a exceção ao resultado forte.
-O motor só vincula uma exceção exata recebida por uma porta externa ao runner. Evento com `emitidoEm` posterior a
+Sem transporte, nenhum caminho entrega exceção F6 ao runner e `exigir` continua pedindo o recibo F5. Esta F7 não
+fornece esse transporte e o runner não aplica a exceção ao resultado forte. O motor só vincula uma exceção exata
+recebida por uma porta externa. Evento com `emitidoEm` posterior a
 `recebidoEm` é recusado, sem tolerância de relógio.
 
 ## Preflight coletivo e credencial do CI

@@ -770,16 +770,18 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       : estadoDoReciboRunnerCi(replay.recibo, head)
       : estadoDoReciboCi(carregado.raiz, entrada, head, achado?.arquivo);
   const protegida = carregado.manifesto.worktree.base_branch;
-  const esperadoDaExcecao = { project: carregado.manifesto.project?.name ?? '',
-    source: branch, target: destino ?? '', head,
-    operation: 'ci.run' };
   const gerida = contexto.excecaoGerida ? executarExcecaoGerida(contexto.excecaoGerida) : null;
   const transporteDaExcecao = contexto.excecao ?? (gerida?.ok ? { prova: gerida.prova, capacidade: gerida.capacidade } : null);
   const provaDaExcecao = transporteDaExcecao
-    ? validarProvaDaExcecaoNoRunner(transporteDaExcecao.prova, transporteDaExcecao.capacidade, esperadoDaExcecao)
+    ? validarProvaDaExcecaoNoRunner(transporteDaExcecao.prova, transporteDaExcecao.capacidade, {
+      project: carregado.manifesto.project.name,
+      source: branch,
+      target: destino ?? '',
+      head,
+      operation: 'ci.run',
+    })
     : null;
-  const excecaoSanitizada = provaDaExcecao?.ok ? provaDaExcecao.exception : null;
-  const excecaoAplicada = recibo !== 'presente' && excecaoSanitizada !== null;
+  const excecaoAplicada = recibo !== 'presente' && provaDaExcecao?.ok === true;
   const degradacao = replay?.degradacao ? diagnosticoDaDegradacaoReplay(replay.degradacao) : null;
   const mensagem = excecaoAplicada ? null : degradacao ? `${degradacao.message} ${degradacao.action}` : recibo === 'presente'
     ? null : mensagemDoRecibo(recibo, branch);
@@ -815,8 +817,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       ? degradacao!
       : replay.invalida ? { code: 'ci.recibo.invalido', message: mensagemDoRecibo('invalido', branch),
         action: mensagemDoRecibo('invalido', branch) } : null;
-    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest
-      && destino === protegida && recibo !== 'presente';
+    const defeitoDoReciboReprova = nivel === 'exigir' && pullRequest && destino === protegida && recibo !== 'presente';
     // Observar e avisar não transformam sozinhos um diagnóstico de recibo em reprovação.
     const medicaoOk = replay.ok;
     return {
@@ -829,7 +830,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
       commands: replay.commands,
       ...(replay.julgamento ? { verify: replay.julgamento } : {}),
       ...(replay.recibo ? { recibo: replay.recibo } : {}),
-      ...(excecaoAplicada && excecaoSanitizada ? { exception: excecaoSanitizada } : {}),
+      ...(excecaoAplicada && provaDaExcecao?.ok ? { exception: provaDaExcecao.exception } : {}),
       branch,
       bundle: achado?.arquivo ?? null,
       policy,
@@ -840,7 +841,7 @@ function executarCiDaBranchComPolitica(carregado: ManifestoCarregado, branch: st
   const error = erroDoRecibo ?? erroDaExcecao;
   return { ...executado, ok: executado.ok && !erroDoRecibo, ...(achado ? {} : { thread: null }), branch,
     bundle: achado?.arquivo ?? null, policy,
-    ...(excecaoAplicada && excecaoSanitizada ? { exception: excecaoSanitizada } : {}),
+    ...(excecaoAplicada && provaDaExcecao?.ok ? { exception: provaDaExcecao.exception } : {}),
     ...(error ? { error } : {}) };
 }
 
