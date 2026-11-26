@@ -40,6 +40,19 @@ test('aprovação não substitui proteção, atualização, HEAD nem vínculo do
   assert.equal(avaliarGateGitlabPago(status).ok, false);
 });
 
+test('plano pago preserva as restrições da conta, do merge e do estado do MR', () => {
+  const casos = [
+    (e: EntradaGitlabPago) => { e.membros = [{ id: e.contaDaFabrica, nivel: 30 }]; },
+    (e: EntradaGitlabPago) => { e.mergeNivel = 30; },
+    (e: EntradaGitlabPago) => { e.forcePush = true; },
+    (e: EntradaGitlabPago) => { e.estado = 'closed'; },
+  ];
+  for (const mudar of casos) {
+    const e = base(); mudar(e);
+    assert.equal(avaliarGateGitlabPago(e).ok, false);
+  }
+});
+
 test('configuração ausente diagnostica em observar e avisar e bloqueia em exigir', () => {
   for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
     const e = base(); e.nivel = nivel; e.configuracaoCompleta = false;

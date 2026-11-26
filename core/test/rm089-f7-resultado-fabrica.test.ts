@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, sign } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import test from 'node:test';
-import { emitirResultadoForteDaFabrica, verificarResultadoForteDaFabrica,
+import { emitirResultadoForteDaFabrica, preImagemDoResultadoForte, verificarResultadoForteDaFabrica,
   type PoliticaDoResultadoForte, type PortaDeAssinaturaDoResultadoForte } from '../src/ci-fabrica-resultado';
 import type { ProvaDosRegistrosDaFabrica } from '../src/ci-fabrica-registros';
 
@@ -19,6 +19,15 @@ const prova = (): ProvaDosRegistrosDaFabrica => ({ forja: 'github', projeto: 'gr
     promptConferido: true, sensorResultId: 's', favoravel: true, parecerSha256: K, shaRevisado: V,
     conducaoId: 'c1', posicao: 2 }, tag: { conducaoId: 'c1', head: H, posicao: 3 }, construtores: ['autor'],
   commitsDeProduto: [V], configuracaoDoDestino: { github_app_id: 42 } });
+
+function reassinar<T extends ReturnType<typeof emitirResultadoForteDaFabrica>>(resultado: T): T {
+  resultado.assinatura = sign(null, Buffer.from(preImagemDoResultadoForte(resultado.payload)),
+    chaves.privateKey).toString('base64');
+  const corpo = { contrato: resultado.contrato, payload: resultado.payload, emissor: resultado.emissor,
+    chaveId: resultado.chaveId, algoritmo: resultado.algoritmo, assinatura: resultado.assinatura };
+  resultado.sha256 = createHash('sha256').update(JSON.stringify(corpo)).digest('hex');
+  return resultado;
+}
 
 test('C120 assina e verifica payload v2 separado com HEAD, verify, CHECK e tag', () => {
   const r = emitirResultadoForteDaFabrica(prova(), '2026-11-26T10:00:00.000Z', '2026-11-26T11:00:00.000Z', porta);
@@ -46,6 +55,32 @@ test('resultado de outro vínculo, vencido, adulterado ou com chave revogada fal
   assert.equal(verificarResultadoForteDaFabrica(r, politica,
     { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H, fork: true },
     '2026-11-26T10:30:00.000Z').ok, false);
+});
+
+test('resultado válido de outra origem ou destino não vale para o vínculo esperado', () => {
+  for (const campo of ['origem', 'destino'] as const) {
+    const p = prova(); p[campo] = campo === 'origem' ? 'outra' : 'release';
+    const r = emitirResultadoForteDaFabrica(p, '2026-11-26T10:00:00.000Z', '2026-11-26T11:00:00.000Z', porta);
+    assert.equal(verificarResultadoForteDaFabrica(r, politica,
+      { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H }, '2026-11-26T10:30:00.000Z').ok, false);
+  }
+});
+
+test('resultado assinado por emissor diferente não vale para a política', () => {
+  const outraPorta = { ...porta, emissor: 'outro' };
+  const r = emitirResultadoForteDaFabrica(prova(), '2026-11-26T10:00:00.000Z',
+    '2026-11-26T11:00:00.000Z', outraPorta);
+  assert.equal(verificarResultadoForteDaFabrica(r, politica,
+    { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H }, '2026-11-26T10:30:00.000Z').ok, false);
+});
+
+test('verificação recusa CHECK fora do commit do verify mesmo com assinatura íntegra', () => {
+  const r = emitirResultadoForteDaFabrica(prova(), '2026-11-26T10:00:00.000Z',
+    '2026-11-26T11:00:00.000Z', porta);
+  r.payload.check.shaRevisado = 'd'.repeat(40);
+  reassinar(r);
+  assert.equal(verificarResultadoForteDaFabrica(r, politica,
+    { projeto: 'grupo/projeto', origem: 'feature', destino: 'main', head: H }, '2026-11-26T10:30:00.000Z').ok, false);
 });
 
 test('exceção F6 aceita somente operation ci.run e o mesmo vínculo', () => {

@@ -61,6 +61,20 @@ test('MR atrás do destino, corrida do destino, lista truncada, fork e conta amp
   for (const mudar of casos) { const e = base(); mudar(e); assert.equal(avaliarGateGitlabFree(e).ok, false); }
 });
 
+test('proteção exige a conta da fábrica como Maintainer, merge restrito e push fechado sem force', () => {
+  const casos = [
+    (e: EntradaGitlabFree) => { e.membros = [{ id: e.contaDaFabrica, nivel: 30 }]; },
+    (e: EntradaGitlabFree) => { e.mergeNivel = 30; },
+    (e: EntradaGitlabFree) => { e.pushNivel = 30; },
+    (e: EntradaGitlabFree) => { e.forcePush = true; },
+    (e: EntradaGitlabFree) => { e.estado = 'closed'; },
+  ];
+  for (const mudar of casos) {
+    const e = base(); mudar(e);
+    assert.equal(avaliarGateGitlabFree(e).ok, false);
+  }
+});
+
 test('atraso, fork e compare_timeout usam prova ausente, não regra do destino', () => {
   for (const mudar of [(e: EntradaGitlabFree) => { e.divergencia = 1; },
     (e: EntradaGitlabFree) => { e.projetoOrigem = 2; }, (e: EntradaGitlabFree) => { e.compareTimeout = true; }]) {

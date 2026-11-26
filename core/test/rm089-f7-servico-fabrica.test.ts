@@ -46,6 +46,8 @@ test('C127 falha fechado com verde antigo, lista truncada, produto sem registro 
     (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].promptConferido = false; },
     (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].sensorResultId = ''; },
     (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].favoravel = false; },
+    (e: RegistrosParaDecisaoDaFabrica) => { (e.checks[0] as { origem: string }).origem = 'outra'; },
+    (e: RegistrosParaDecisaoDaFabrica) => { e.checks[0].parecerSha256 = 'invalido'; },
   ];
   for (const mudar of casos) { const e = base(); mudar(e); assert.equal(conferirRegistrosDaFabrica(e).ok, false); }
 });
@@ -58,6 +60,16 @@ test('A110 mede a ordem pelo ledger e considera construtor anterior', () => {
   assert.equal(conferirRegistrosDaFabrica(e).ok, false);
   e.checks[0].sessionId = 'revisor';
   e.checks[0].posicao = 8;
+  assert.equal(conferirRegistrosDaFabrica(e).ok, false);
+});
+
+test('todos os sessionId que registraram cada commit de produto são construtores', () => {
+  const e = base();
+  e.registrosDeCommit = [
+    { tipo: 'commit', commit: P, sessionId: 'primeiro-construtor', posicao: 9 },
+    { tipo: 'mcp_git_committed', commit: P, sessionId: 'ultimo-construtor', posicao: 11 },
+  ];
+  e.checks[0].sessionId = 'primeiro-construtor';
   assert.equal(conferirRegistrosDaFabrica(e).ok, false);
 });
 
@@ -122,6 +134,15 @@ test('porta ausente e erro de emissão são falha de prova em exigir', () => {
   assert.equal(processarEventoDaFabrica(evento, comum).codigo, 'ci.fabrica.prova-ausente');
   const d = processarEventoDaFabrica(evento, { ...comum, avaliarDestino: () => null,
     revalidarAntesDoEfeito: () => true, emitirResultado: () => { throw new Error('assinatura recusada'); } });
+  assert.equal(d.codigo, 'ci.fabrica.prova-ausente');
+});
+
+test('exigir recusa somente a ausência da porta de avaliação do destino', () => {
+  const evento = { id: 'evt', assinaturaValida: true, emitidoEm: '2026-11-26T10:00:00.000Z',
+    recebidoEm: '2026-11-26T10:01:00.000Z' };
+  const d = processarEventoDaFabrica(evento, { reler: base, revalidarAntesDoEfeito: () => true,
+    emitirResultado: () => ({ sha256: K }), persistir: () => undefined, publicar: () => undefined });
+  assert.equal(d.estado, 'bloqueado');
   assert.equal(d.codigo, 'ci.fabrica.prova-ausente');
 });
 

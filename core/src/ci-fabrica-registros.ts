@@ -135,13 +135,17 @@ export function conferirRegistrosDaFabrica(entrada: RegistrosParaDecisaoDaFabric
   }
 
   const produtos = entrada.comparacao.commits.filter(commitDeProduto);
-  const registros = new Map<string, RegistroDeCommitDaFabrica>();
+  const registros = new Map<string, RegistroDeCommitDaFabrica[]>();
   for (const registro of [...entrada.registrosDeCommit].sort((a, b) => a.posicao - b.posicao)) {
-    if (SHA.test(registro.commit) && registro.sessionId) registros.set(registro.commit, registro);
+    if (SHA.test(registro.commit) && registro.sessionId) {
+      const doCommit = registros.get(registro.commit) ?? [];
+      doCommit.push(registro);
+      registros.set(registro.commit, doCommit);
+    }
   }
-  const semRegistro = produtos.find((commit) => !registros.has(commit.sha));
+  const semRegistro = produtos.find((commit) => !registros.get(commit.sha)?.length);
   if (semRegistro) return falha(`commit de produto sem registro: ${semRegistro.sha}`);
-  const dosProdutos = produtos.map((commit) => registros.get(commit.sha)!);
+  const dosProdutos = produtos.flatMap((commit) => registros.get(commit.sha)!);
   const construtores = [...new Set(dosProdutos.map((registro) => registro.sessionId))];
   const posicaoDoUltimoProduto = dosProdutos.reduce((maior, registro) => Math.max(maior, registro.posicao), -1);
 
