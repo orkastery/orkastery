@@ -66,3 +66,13 @@ test('sinal positivo da CI não substitui a decisão válida da fábrica', () =>
     ci: { state: 'success' } });
   assert.equal(r.ok, false);
 });
+
+test('destino sem manifesto versionado preserva o ship sem opt-in da fábrica', () => {
+  const projeto = projetoTemporario('rm089-f7-ship-sem-manifesto');
+  const porta = criarPortaDaFabricaNoShip(projeto.carregado, { lerManifestoDestino: () => null });
+  const lido = porta({ remoto: 'origin', origem: 'feature/fabrica', destino: 'main', head: 'a'.repeat(40),
+    ci: { state: 'disabled' }, prazoMs: 1000 });
+  assert.equal(lido.ok, true);
+  assert.equal(lido.ok && lido.entrada.configurada, false);
+  projeto.limpar();
+});

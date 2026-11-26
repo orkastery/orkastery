@@ -25,7 +25,7 @@ export type ResultadoDaFabricaNoShip = { ok: true; entrada: EntradaDoShipComFabr
 export type PortaDaFabricaNoShip = (consulta: ConsultaDaFabricaNoShip) => ResultadoDaFabricaNoShip;
 
 export interface DependenciasDaFabricaNoShip {
-  lerManifestoDestino?: (destino: string) => string | null;
+  lerManifestoDestino?: (destino: string, remoto: string) => string | null;
   resolver?: (remoto: string) => ForjaResolvida | null;
   criarApi?: (forja: ForjaResolvida) => ChamadorDaApi;
   agoraMs?: () => number;
@@ -34,9 +34,10 @@ export interface DependenciasDaFabricaNoShip {
 
 const dormir = (ms: number): void => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 
-function lerManifestoDaBranch(raiz: string, destino: string): string | null {
+function lerManifestoDaBranch(raiz: string, remoto: string, destino: string): string | null {
   if (!branchValida(destino)) return null;
-  for (const ref of [`refs/remotes/origin/${destino}`, `refs/heads/${destino}`]) {
+  const nomeDoRemoto = exigirRemoto(remoto, 'ship');
+  for (const ref of [`refs/remotes/${nomeDoRemoto}/${destino}`, `refs/heads/${destino}`]) {
     for (const arquivo of [NOME_MANIFESTO, NOME_MANIFESTO_LEGADO]) {
       const r = exec('git', ['show', '--no-ext-diff', '--end-of-options', `${ref}:./${arquivo}`], raiz);
       if (r.ok) return r.stdout;
@@ -109,12 +110,16 @@ function consultarGitlab(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaD
 /** Porta instalada pelo CLI e pelo MCP. A configuração vem sempre da branch de destino. */
 export function criarPortaDaFabricaNoShip(carregado: ManifestoCarregado,
   deps: DependenciasDaFabricaNoShip = {}): PortaDaFabricaNoShip {
-  const ler = deps.lerManifestoDestino ?? ((destino) => lerManifestoDaBranch(carregado.raiz, destino));
+  const ler = deps.lerManifestoDestino ?? ((destino, remoto) => lerManifestoDaBranch(carregado.raiz, remoto, destino));
   const resolver = deps.resolver ?? ((remoto) => resolverDoProjeto(carregado, remoto));
   const criarApi = deps.criarApi ?? ((forja) => chamadorDaApi(forja));
   const agoraMs = deps.agoraMs ?? Date.now, esperar = deps.esperar ?? dormir;
   return (c) => {
-    const bruto = ler(c.destino), manifesto = bruto === null ? null : comandosDoTextoDoManifesto(bruto);
+    const bruto = ler(c.destino, c.remoto);
+    if (bruto === null) {
+      return { ok: true, entrada: { ...entradaBase(c, 'observar', 'github'), configurada: false } };
+    }
+    const manifesto = comandosDoTextoDoManifesto(bruto);
     if (!manifesto) return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
     const nivel = manifesto.politicaRecibo ?? 'observar';
     const config = manifesto.fabricaCi;
