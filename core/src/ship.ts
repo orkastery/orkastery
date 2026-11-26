@@ -46,6 +46,7 @@ import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
 import { evidenciaDoPedidoSemScan, respostaBSemScanAindaVale } from './hitl-gates';
+import { sinalDaCiParaFabrica } from './forja/produtor';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -120,7 +121,8 @@ export interface ResultadoShip {
    * O porque estavel da recusa do push, quando ha um; o motivo do gate continua `runtime.unavailable`. RM-058, integracao
    * (T1.1): a thread de um arco #Noctum recusada pela guarda, com o motivo `policy.violation`.
    */
-  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push' | MotivoDaGuarda;
+  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push' | 'ship.fabrica.push-recusado'
+    | 'ship.fabrica.merge-pendente' | 'ship.fabrica.sha-divergente' | MotivoDaGuarda;
   detalhe: string;
   correcao: string;
   thread: string;
@@ -150,6 +152,47 @@ export interface ResultadoShip {
   passos: string[];
   dryRun: boolean;
   preflightEmpresa?: ResultadoPreflightEmpresa;
+}
+
+export interface EntradaDoShipComFabrica {
+  configurada: boolean;
+  nivel: 'observar' | 'avisar' | 'exigir';
+  forja: 'github' | 'gitlab';
+  destino: string;
+  head: string;
+  resultado: { valido: boolean; destino: string; head: string; githubAppId?: number } | null;
+  github?: { appIdEsperado: number; checkVerde: boolean; pushAceito?: boolean };
+  gitlab?: { estado: 'pendente' | 'mesclado'; shaMesclado?: string };
+  ci: Pick<ResultadoCi, 'state'>;
+}
+
+export type DecisaoDoShipComFabrica = { ok: true; acao: 'fluxo-publicado' | 'mesclar-github' | 'registrar-gitlab' } |
+  { ok: false; codigo: 'ship.fabrica.push-recusado' | 'ship.fabrica.merge-pendente' | 'ship.fabrica.sha-divergente' |
+    'ci.failed' | 'ci.fabrica.prova-ausente' };
+
+/** D45, D51 e D56: a decisão da fábrica autoriza; a CI tradicional apenas acrescenta veto. */
+export function decidirShipComFabrica(e: EntradaDoShipComFabrica): DecisaoDoShipComFabrica {
+  if (!e.configurada || e.nivel !== 'exigir') return { ok: true, acao: 'fluxo-publicado' };
+  if (sinalDaCiParaFabrica(e.ci.state) === 'negativo') return { ok: false, codigo: 'ci.failed' };
+  if (!e.resultado?.valido || e.resultado.destino !== e.destino || e.resultado.head !== e.head) {
+    return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
+  }
+  if (e.forja === 'github') {
+    if (!e.github || !e.github.checkVerde || e.resultado.githubAppId !== e.github.appIdEsperado) {
+      return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
+    }
+    if (e.github.pushAceito === false) return { ok: false, codigo: 'ship.fabrica.push-recusado' };
+    return { ok: true, acao: 'mesclar-github' };
+  }
+  if (!e.gitlab || e.gitlab.estado === 'pendente') return { ok: false, codigo: 'ship.fabrica.merge-pendente' };
+  if (e.gitlab.shaMesclado !== e.head) return { ok: false, codigo: 'ship.fabrica.sha-divergente' };
+  return { ok: true, acao: 'registrar-gitlab' };
+}
+
+/** No caminho da fábrica, a recusa específica precede a orientação genérica da base protegida. */
+export function codigoDoPushRecusadoNoShip(comFabricaEmExigir: boolean):
+  'ship.fabrica.push-recusado' | 'entrega.base-protegida' {
+  return comFabricaEmExigir ? 'ship.fabrica.push-recusado' : 'entrega.base-protegida';
 }
 
 /** Garante a ordem observável: aviso primeiro, chamada de SHIP depois, com a mesma fotografia. */

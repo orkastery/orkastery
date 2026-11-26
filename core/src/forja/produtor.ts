@@ -33,3 +33,11 @@ export function produtorDeSaida(c: Pick<CheckNoCommit, 'fonte' | 'produtor'>): s
   if (!c.produtor || c.fonte !== 'commit-status') return c.produtor;
   return /^(.+)\[bot\]$/.exec(c.produtor)?.[1] ?? `status:${c.produtor}`;
 }
+
+/** RM-089 F7: a CI tradicional só veta. Verde nunca substitui a decisão da fábrica. */
+export function sinalDaCiParaFabrica(estado: 'success' | 'failure' | 'pending' | 'missing' | 'unavailable' | 'disabled'):
+  'positivo-sem-autorizacao' | 'negativo' | 'sem-sinal' {
+  if (estado === 'success') return 'positivo-sem-autorizacao';
+  if (estado === 'failure') return 'negativo';
+  return 'sem-sinal';
+}
