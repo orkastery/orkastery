@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-27T01:49:08-03:00
+atualizado_em: 2026-11-27T12:19:58-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 65cb35e
     pr: null
 sdlc:
   thread: ork-rm102securit
   modo: fast
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-102 — Security scan estável com relatório grande
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -76,7 +76,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Condução do roadmap |
 | Documentação | Em revisão | — | 2026-11-27 | Condução do roadmap |
-| Código | Branch criada | — | 2026-11-27 | Condução do roadmap |
+| Código | Mesclado | commit `65cb35e` | 2026-11-27 | Condução do roadmap |
 | Testes | Em execução | — | 2026-11-27 | Condução do roadmap |
 | Deploy | Não implantado | — | 2026-11-27 | Condução do roadmap |
 | Exposição | Flag desligada | — | 2026-11-27 | Condução do roadmap |

@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-27T07:05:25-03:00
+atualizado_em: 2026-11-27T12:19:58-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 59bab85
     pr: null
 sdlc:
   thread: ork-rm101bundled
   modo: Fast
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-101 — Commit do bundle de CI pelo MCP
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -76,7 +76,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Condução do roadmap |
 | Documentação | Em revisão | — | 2026-11-27 | Condução do roadmap |
-| Código | Branch criada | — | 2026-11-27 | Condução do roadmap |
+| Código | Mesclado | commit `59bab85` | 2026-11-27 | Condução do roadmap |
 | Testes | Em execução | — | 2026-11-27 | Condução do roadmap |
 | Deploy | Não implantado | — | 2026-11-27 | Condução do roadmap |
 | Exposição | Flag desligada | — | 2026-11-27 | Condução do roadmap |
