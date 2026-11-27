@@ -565,16 +565,18 @@ test('a round killed by SIGTERM leaves no worktree, no raw output dir and no con
     if (!saida.terminou()) try { process.kill(-child.pid!, 'SIGKILL'); } catch { /* already gone */ }
     if (!saida.terminou()) await aguardarComPrazo(saida.promise, 10_000, 'the runner did not stop during cleanup');
   });
-  const wait = async (cond: () => boolean, ms: number): Promise<boolean> => {
+  const wait = async (cond: () => boolean, ms: number, interrompida?: () => boolean): Promise<boolean> => {
     for (const end = Date.now() + ms; Date.now() < end;) {
       if (cond()) return true;
-      if (saida.terminou()) return false;
+      if (interrompida?.()) return false;
       await new Promise(res => setTimeout(res, 100));
     }
     return cond();
   };
   const sleeping = () => fake!.calls().some(c => c.args[0] === 'run' && c.args.some(a => a.includes('zricethezav/gitleaks')));
-  assert.ok(await wait(sleeping, 120_000), 'the round reached the hanging tool');
+  const iniciou = await wait(sleeping, 120_000, saida.terminou);
+  const encerramentoInicial = !iniciou && saida.terminou() ? await saida.promise : null;
+  assert.ok(iniciou, `the round reached the hanging tool; early exit ${JSON.stringify(encerramentoInicial)}`);
   const leftovers = () => fs.readdirSync(scratch).filter(n => n.startsWith('ork-security-scan-'));
   assert.ok(leftovers().some(n => n.includes('-tree-')) && leftovers().some(n => n.includes('-out-')), 'mid-round state exists');
   process.kill(-child.pid!, 'SIGTERM');
