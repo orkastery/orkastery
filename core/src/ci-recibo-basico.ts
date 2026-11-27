@@ -85,8 +85,6 @@ export interface ReciboRunnerCi {
   check: ModoDoCheck;
   resultado: { ok: boolean; motivos: string[] };
   sha256: string;
-  /** Reservado para a F7; a F5 nunca preenche nem eleva confiança. */
-  assinatura?: unknown;
 }
 
 export interface ResultadoReplayCi {
@@ -246,7 +244,7 @@ export function validarProjecaoReplayCi(valor: unknown):
   return { ok: true, projecao };
 }
 
-function corpoDoRecibo(recibo: Omit<ReciboRunnerCi, 'sha256' | 'assinatura'> | ReciboRunnerCi) {
+function corpoDoRecibo(recibo: Omit<ReciboRunnerCi, 'sha256'> | ReciboRunnerCi) {
   return {
     contrato: recibo.contrato,
     head: recibo.head,

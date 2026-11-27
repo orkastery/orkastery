@@ -12,6 +12,9 @@ No `orkastery.yaml`, escolha um nível:
 ci:
   context: ork-verify
   politica_recibo: exigir
+  fabrica:
+    github_app_id: 123
+    gitlab_user_id: 456
 ```
 
 | Nível | Resultado do check | Diagnóstico |
@@ -76,7 +79,17 @@ A porta gerida usa três contratos separados:
 
 A ordem é pedido, recibo, validação, append durável e exposição do par. Falha de append não expõe a exceção. Depois do append, a mesma chave de idempotência devolve o par sem reenviar nem criar evento. Antes do append, a porta idempotente precisa devolver o mesmo recibo. O recibo assinado prova a resposta `delivered` do emissor para o pedido exato; não prova leitura humana.
 
-O transporte protegido da execução entrega ao runner o recibo, o envelope e uma capacidade limitada ao par. Esta versão ainda não traz esse transporte de produção; ele fica para a F7 da RM-089, junto do recibo forte da fábrica. Até lá, o runner não aplica exceção, e `exigir` continua pedindo o recibo da F5. Nada disso é aceito do bundle ou do checkout do builder. O runner revalida policy, assinatura, hashes, IDs, horário, destinatário, branches e HEAD e projeta `exception` em `ork.ci-run/v1`, além da anotação e do relatório. Ele não envia a notificação e não escreve no ledger ou na forja. A exceção dispensa somente o recibo da F5: falha real de preparo, claim ou comando continua reprovando. Sem capacidade, par correspondente ou HEAD exato, `exigir` falha fechado.
+## Decisão da fábrica
+
+A F7 fornece o motor e as portas da decisão. Ela não provisiona nem opera o serviço da fábrica. O bloco `ci.fabrica` é lido somente do manifesto da branch de destino. `github_app_id` identifica o GitHub App esperado e `gitlab_user_id` identifica a conta esperada no GitLab. Segredos não pertencem ao manifesto.
+
+A decisão relê os registros do núcleo e os fatos da forja. Ela exige que o último verify seja verde e tenha executado os comandos do manifesto, além da lista completa de commits e arquivos, cada commit de produto registrado pela thread, CHECK independente posterior ao último commit de produto e ligado ao commit aceito do verify, e a tag da mesma condução. Commit de produto é um commit que não é merge e muda ao menos um arquivo fora de `.ork-ci`. Depois do verify, somente `.ork-ci/` pode mudar; outra mudança exige novo verify. O resultado forte usa `ork.ci-recibo-forte-payload/v2` e `ork.ci-recibo-forte-assinatura/v2`, separados do recibo F5. A assinatura Ed25519 liga projeto, origem, destino, HEAD, verify, CHECK, condução, validade e, quando existe, a exceção F6 exata. Evento com `emitidoEm` posterior a `recebidoEm` é recusado, sem tolerância de relógio.
+
+No GitHub, `exigir` publica no HEAD o nome `ork-fabrica/utf8-<destino-em-hex>` e requer uma regra própria da branch, atualização estrita e o App exato. `observar` e `avisar` usam `ork-fabrica-diagnostico/utf8-<destino-em-hex>` e nunca tornam o diagnóstico decisório. O sufixo é a codificação hexadecimal dos bytes UTF-8 do nome completo da branch. O App precisa de leitura para conteúdo, pull requests, regras da branch e Administration, esta última para ler a proteção clássica, além de escrita de check-runs. Fork e `merge_group` não são aceitos em `exigir` nesta etapa. A atualização estrita não prova o commit de merge criado pela própria forja; mudança própria desse merge permanece fora da garantia do verify do HEAD.
+
+No GitLab, a conta da fábrica precisa de token com escopo `api`, acesso restrito aos projetos declarados e função Maintainer. A branch de destino precisa estar protegida, sem push de Maintainer e sem force push. O MR precisa estar atualizado com o destino e toda chamada de merge usa a API com o campo `sha` igual ao HEAD relido; a operação falha se a API não confirmar esse vínculo. O diagnóstico fica no registro publicado pela fábrica e não transforma commit status ou external status check em autoridade positiva. Na edição Free, outro Maintainer efetivo produz o aviso não bloqueante `ci.fabrica.maintainer-adicional`. Owner, administrador e bypass permanecem fora da garantia. Nas edições pagas, a fábrica também exige reset de aprovações após push, regra não editável no MR, bloqueio de aprovação pelo autor e aprovações válidas. Merge train não é aceito em `exigir` nesta etapa. O merge criado pelo GitLab pode ter mudança própria que não estava no HEAD verificado; essa mudança permanece fora da garantia.
+
+Os códigos da fábrica são `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`, `ci.fabrica.prazo-excedido`, `ci.fabrica.regra-destino-invalida`, `ci.fabrica.maintainer-adicional`, `ci.fabrica.nome-colidente` e `ci.fabrica.publicacao-recusada`. No contrato do SHIP, sinal negativo da CI continua vetando e sinal positivo não autoriza sozinho. As recusas próprias são `ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente` e `ship.fabrica.sha-divergente`.
 
 ## Limite de confiança do nível básico
 
@@ -84,19 +97,17 @@ O bundle e o `sha256` da projeção vêm do próprio PR/MR e podem ser forjados 
 um conjunto não vazio de claims e ancora os comandos e o preparo no `verify` do manifesto da branch de destino, cuja
 proteção administrativa por `CODEOWNERS` e regra obrigatória está fora do controle isolado do PR. Isso prova que a receita
 aceita não esvaziou as claims nem trocou ou omitiu os comandos e o preparo protegidos. No caminho normal, sem exceção,
-o runner não consulta nem confere a projeção contra o ledger do Orkastery; quando uma exceção é apresentada pelo transporte
-protegido, ele lê somente o par exato de notificação e envelope. Nenhum dos caminhos prova que as claims são completas ou
+o runner não consulta nem confere a projeção contra o ledger do Orkastery. Sem transporte, nenhum caminho entrega uma
+exceção F6 ao runner e `exigir` continua pedindo o recibo F5. Esta F7 não fornece esse transporte e o runner não aplica
+exceção ao resultado forte. O motor só vincula uma exceção exata recebida por uma porta externa. Nenhum dos caminhos prova que as claims são completas ou
 autênticas, nem prova a autoria do bundle,
 do código ou do workflow. Também não confia na baseline da projeção: reexecuta no HEAD o preparo, as claims e os comandos
 ancorados, reprova qualquer falha atual e emite o recibo do HEAD que acabou de executar.
 Não usa ancestralidade nem diff posterior para transformar um HEAD antigo em presente. Isso detecta divergência operacional, mas não prova a autoria
 do bundle nem do código.
 
-Esta fatia não fornece recibo de verify assinado: o campo `assinatura` do recibo de saída continua reservado e ausente.
-A assinatura do recibo de **notificação** descrito acima prova apenas a resposta do emissor ao pedido exato; não prova
-autoria do bundle, do código, do workflow ou do verify. Uma capacidade futura teria de definir sua própria autoridade
-e seu próprio contrato; nenhuma entrega F7 é prometida aqui. A proteção administrativa da forja reduz quem pode alterar
-manifesto, workflow e bundle, mas não transforma o recibo básico em prova criptográfica.
+O resultado forte da fábrica é um artefato v2 separado. Ele não acrescenta o campo `assinatura` ao recibo F5 e não
+transforma o job do CI em autoridade positiva. Alteração de escopo, HEAD, evidência, emissor ou chave invalida o resultado.
 
 ## Tornar o check obrigatório
 

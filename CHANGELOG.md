@@ -10,6 +10,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Security scan estável com relatório grande (RM-102):** ingere relatórios do ESLint sem espalhar achados, mantém a impressão digital para uniões equivalentes sem colidir uniões distintas e torna o teste de `SIGTERM` determinístico. Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica precisam ser refeitas uma vez, porque a impressão digital passa a usar a forma canônica.
 
+## [0.6.12] - 2026-11-27
+
+A 0.6.12 entrega a F7 da RM-089: o motor e as portas para que só a fábrica publique o resultado que decide o merge, no GitHub e no GitLab. Com ela, as sete fatias da RM-089 estão entregues.
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
+### Adicionado
+
+- **Decisão da fábrica, F7 (RM-089):** entram o motor e as portas que conferem verify, commits registrados, CHECK independente e HEAD exato antes de emitir o resultado forte v2. GitHub recebe nomes por destino e App fixado; GitLab recebe as regras Free e pagas, merge ligado ao SHA e aviso para Maintainer adicional. O SHIP registra o merge GitLab do mesmo HEAD feito pela conta configurada sem criar outro merge local e recusa outro SHA como divergente. A F5 volta ao comportamento publicado, sem transporte ao runner e sem empacotamento da árvore de produção.
+
 ## [0.6.11] - 2026-11-26
 
 A 0.6.11 corrige o security scan e o commit do MCP com configuração Git local (#302 e #299), torna o núcleo portátil no macOS com prova no CI (#303 e #304) e entrega a F6 da RM-089.

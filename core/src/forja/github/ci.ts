@@ -3,7 +3,7 @@ import type { EntradaDoEstadoDeCi } from '../adaptador';
 import type { CheckNoCommit, ChecksDoCommit, Resultado } from '../contrato';
 
 type CheckRun = { id?: number; name?: string; status?: string; conclusion?: string | null; html_url?: string;
-  completed_at?: string | null; app?: { slug?: string } };
+  completed_at?: string | null; head_sha?: string; app?: { id?: number; slug?: string } };
 type CommitStatus = { id?: number; context?: string; state?: string; target_url?: string | null; updated_at?: string | null;
   creator?: { login?: string } | null };
 
@@ -95,4 +95,17 @@ export function estadoDeCiGithub(e: EntradaDoEstadoDeCi): Resultado<ChecksDoComm
   };
   const lido = checksNoCommitGithub({ repository: e.repo, sha: e.sha, context: e.context, executor });
   return lido.ok ? { ok: true, valor: { checks: lido.valor, mescladoSemVinculo: false } } : lido;
+}
+
+/** RM-089 F7: o check da fábrica é publicado somente no commit avaliado. */
+export interface PublicacaoDoCheckDaFabricaGithub {
+  caminho: string;
+  corpo: { name: string; head_sha: string; status: 'completed'; conclusion: 'success' | 'neutral' | 'failure' };
+}
+
+export function publicacaoDoCheckDaFabricaGithub(repo: string, head: string, nome: string,
+  conclusao: 'success' | 'neutral' | 'failure'): PublicacaoDoCheckDaFabricaGithub {
+  if (!/^[a-f0-9]{40}$/.test(head) || !nome || /[\r\n]/.test(nome)) throw new Error('ci.fabrica.publicacao-recusada');
+  return { caminho: `repos/${repo}/check-runs`, corpo: { name: nome, head_sha: head,
+    status: 'completed', conclusion: conclusao } };
 }

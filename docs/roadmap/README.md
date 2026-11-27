@@ -10,7 +10,7 @@
 
 ## Prioridade aprovada em 23/11/2026
 
-A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) F7 continua em curso sem disputar essa ordem.
+A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A RM-089 não disputa mais essa ordem: a F7 foi mesclada pelo PR #307 depois das threads das issues #302, #299, #303 e #304, nessa sequência, e sai na 0.6.12, com as sete fatias entregues.
 
 | Ordem | Frente | Itens | Resultado que libera a próxima etapa |
 | --- | --- | --- | --- |
@@ -119,7 +119,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-087](RM-087-opencode-homologado.md) | OpenCode homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-088](RM-088-versao-mais-antiga-nunca-vira-a-latest-do-npm.md) | Versão mais antiga nunca vira a latest do npm | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
-| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
+| [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em validação | Mesclado | Aprovados | Produção | 2026-11-27 |
 | [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Autorização autenticada com escopo, validade, canal e prova | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-26 |

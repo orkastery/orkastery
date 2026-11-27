@@ -421,13 +421,13 @@ test('R2 integrado: baseline do PR não mascara comando vermelho em nenhum níve
 test('exigir recusa de forma tipada projeção vazia ou com receita trocada pelo PR', () => {
   const f = fixtureDaPolitica();
   try {
-    const executar = (commands: Array<{ name: string; command: string }>) => {
+    const executar = (commands: Array<{ name: string; command: string }>, nivel: 'observar' | 'avisar' | 'exigir' = 'exigir') => {
       const entrada = projecao({ claims: [claim()], commands });
       fs.writeFileSync(path.join(f.raiz, '.ork-ci/ork-rm089f5recib.json'), JSON.stringify({
         schema: 'ork.ci-bundle/v1', thread: 'ork-rm089f5recib', branch: f.branch, base: 'main',
         claims: entrada.claims, commands, recibo: entrada,
       }));
-      return executarCiDaBranchComContexto(carregado(f.raiz, 'exigir'), f.branch, {
+      return executarCiDaBranchComContexto(carregado(f.raiz, nivel), f.branch, {
         destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD_A,
         receitaConfiavel: { commands: [{ name: 'build', command: 'npm --prefix core run build' }], check: 'agile' },
         replay: { casaEfemera: path.join(f.raiz, 'casa'), identidadeProduto: () => 'produto',
@@ -466,6 +466,12 @@ test('exigir recusa de forma tipada projeção vazia ou com receita trocada pelo
     assert.equal(trocada.ok, false);
     assert.equal(trocada.policy.receipt, 'invalido');
     assert.equal(trocada.error.code, 'ci.recibo.invalido');
+    for (const nivel of ['observar', 'avisar'] as const) {
+      const diagnostico = executar([{ name: 'build', command: 'node -e "process.exit(0)"' }], nivel);
+      assert.equal(diagnostico.ok, true, nivel);
+      assert.equal(diagnostico.policy.receipt, 'invalido', nivel);
+      assert.equal(diagnostico.error.code, 'ci.recibo.invalido', nivel);
+    }
   } finally { f.limpar(); }
 });
 
