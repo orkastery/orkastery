@@ -2005,58 +2005,6 @@
       ]
     },
     {
-      "id": "C217",
-      "thread": "ork-rm089f7recib",
-      "fase": "GO",
-      "arquivo": "core/src/ship.ts",
-      "alegacao": "No GitLab em exigir, o SHIP registra gate e entrega somente depois de provar pelo remoto o merge observado, gravando shaRemoto, pushVerificado e a fonte da prova; o dry-run não grava esses eventos.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
-      ],
-      "criadoEm": "2026-11-26T22:58:26.729Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C218",
-      "thread": "ork-rm089f7recib",
-      "fase": "GO",
-      "arquivo": "core/src/mcp-ship.ts",
-      "alegacao": "A composição usada pelo núcleo do worker MCP instala a porta decisória da fábrica, e a recusa dessa porta bloqueia o SHIP exercitado pela suíte focal.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
-      ],
-      "criadoEm": "2026-11-26T22:58:26.793Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C219",
       "thread": "ork-rm089f7recib",
       "fase": "GO",
@@ -2093,58 +2041,6 @@
         "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/forja-ci-gitlab.test.js core/dist-test/test/forja-ci-gitlab-gate.test.js"
       ],
       "criadoEm": "2026-11-26T22:58:26.905Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C221",
-      "thread": "ork-rm089f7recib",
-      "fase": "GO",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "O CHANGELOG descreve o registro do merge GitLab no mesmo HEAD e a recusa imediata do SHA divergente.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-narrativa.test.js && core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md docs/guias/politica-de-recibo-da-empresa.pt-BR.md docs/guias/politica-de-recibo-da-empresa.md docs/referencia/contratos/forja.md"
-      ],
-      "criadoEm": "2026-11-26T22:58:26.965Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C222",
-      "thread": "ork-rm089f7recib",
-      "fase": "GO",
-      "arquivo": "core/src/ship-fabrica.ts",
-      "alegacao": "A espera GitLab usa prazo útil por leitura, termina como merge pendente quando o prazo acaba, consulta uma vez no dry-run, decide pelo MR mais novo e recusa imediatamente merge final de outro autor.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
-      ],
-      "criadoEm": "2026-11-26T22:58:27.017Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -2211,6 +2107,110 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C225",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-ship.ts",
+      "alegacao": "O caminho usado por executar no worker MCP compõe a porta da fábrica antes de chamar o SHIP, e a recusa da porta bloqueia a entrega no teste focal.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
+      ],
+      "criadoEm": "2026-11-27T01:06:29.432Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C226",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "No GitLab em exigir, o SHIP registra gate e entrega somente quando a ponta lida do remoto é o merge observado ou contém esse merge, grava pontaDaBase e a fonte da prova, recusa sem registro quando a prova falha e não grava gate nem entrega no dry-run.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
+      ],
+      "criadoEm": "2026-11-27T01:15:35.880Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C227",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ship-fabrica.ts",
+      "alegacao": "A espera GitLab dá prazo útil à primeira leitura do dry-run sem entrar no laço, termina como merge pendente quando uma leitura falha no fim do prazo e preserva a escolha do MR mais novo e da conta configurada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
+      ],
+      "criadoEm": "2026-11-27T01:15:35.975Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C228",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG não publicado descreve que o SHIP registra o merge GitLab do mesmo HEAD feito pela conta configurada sem criar outro merge local.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-narrativa.test.js && core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md docs/guias/politica-de-recibo-da-empresa.pt-BR.md docs/guias/politica-de-recibo-da-empresa.md docs/referencia/contratos/forja.md"
+      ],
+      "criadoEm": "2026-11-27T01:15:36.061Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
@@ -2231,7 +2231,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "251606a482ffb823ab5cc0d57805fa7157a92c74",
-    "sha256": "860872f6289911d3926ab73cde872c8b6699e151967fa0545147c13b44dbbbf6"
+    "head": "cbe70ebeed89be06554273d3b434b0c8fb1b05a0",
+    "sha256": "592aa17aca72313d31f553af6ec9c44d33fe27857e1861ed8af8731fe5ad119d"
   }
 }
