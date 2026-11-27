@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Security scan estável com relatório grande (RM-102):** ingere relatórios do ESLint sem espalhar achados, mantém a impressão digital para uniões equivalentes sem colidir uniões distintas e torna o teste de `SIGTERM` determinístico.
+- **Security scan estável com relatório grande (RM-102):** ingere relatórios do ESLint sem espalhar achados, mantém a impressão digital para uniões equivalentes sem colidir uniões distintas e torna o teste de `SIGTERM` determinístico. Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica deixam de casar uma vez após a renovação do cache normalizado.
 
 ## [0.6.11] - 2026-11-26
 

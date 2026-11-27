@@ -44,7 +44,7 @@ sdlc:
 - **Evidências e fonte:** achado da condução de 26/11/2026. A ingestão do relatório do ESLint usa `findings.push(...)` com espalhamento e estoura com relatório grande; a impressão digital inclui uma mensagem cuja união de tipos muda de ordem entre rodadas; o caso `a round killed by SIGTERM` de `security-scan-run` é intermitente no runner hospedado e passa localmente.
 - **Objetivo/OKR:** tornar ingestão, identidade do achado e encerramento da rodada determinísticos para o mesmo conteúdo analisado.
 - **Hipótese:** se a ingestão trabalhar em lotes seguros, a impressão digital usar representação canônica e o teste controlar explicitamente o ciclo do processo, então tamanho, ordem textual equivalente e escalonamento do runner deixam de criar falhas falsas.
-- **Métrica principal / linha de base / meta / janela / fonte:** rodadas equivalentes que divergem na ingestão, na identidade dos achados ou no resultado do teste de encerramento. A linha de base é o achado da condução; a meta e a janela serão definidas na fase GOAL; a fonte será o relatório normalizado e o CI.
+- **Métrica principal / linha de base / meta / janela / fonte:** rodadas equivalentes que divergem na ingestão, na identidade dos achados ou no resultado do teste de encerramento. A linha de base é o achado da condução; o aceite exige o relatório completo nos dois modos, a impressão estável sem colisão e o encerramento observado pelo processo; a fonte é a suíte do security scan e o verify oficial.
 - **Métricas de proteção:** achados semanticamente diferentes não colidem; relatório grande não é truncado; processo realmente não encerrado continua reprovando; ferramentas e cobertura do Classic não mudam.
 
 ## Escopo e validação
@@ -57,14 +57,16 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** proposta originada na condução da versão 0.6.11; sem prioridade atribuída nesta thread. O roadmap decide a posição antes de abrir trabalho.
-- **Horizonte / alvo / previsão / confiança / marcos:** Discovery, sem previsão. Marcos: reprodução, ingestão segura, identidade canônica, teste de processo e prova no runner.
+- **Horizonte / alvo / previsão / confiança / marcos:** em desenvolvimento, sem previsão. A reprodução, a ingestão segura, a identidade canônica e o teste de processo foram implementados; a correção do CHECK aguarda novo verify oficial.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-068](RM-068-security-scan-no-check.md) para o motor do scan e [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) para manter separada a resolução de tipos; owner: Condução do roadmap; revisão quando o roadmap priorizar o item.
 - **Premissas / riscos / mitigação:** canonicalização ampla pode colidir mensagens; a transformação será restrita à estrutura comprovadamente comutativa e terá casos negativos. O teste de processo pode depender do escalonador; o harness observará eventos e estados explícitos, não uma espera incidental.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** a sessão GO `ork-achados0611` separou este item da RM-097 para não duplicar a resolução de tipos e manter juntas as falhas de estabilidade da rodada. A decisão está registrada no ledger da thread.
 
 ## Estado com evidências
 
-O item registra achados da condução. Não há código, teste, deploy ou habilitação desta capacidade.
+A implementação está na branch da thread, com prova focal para os modos Classic e Agile e com o teste de encerramento preservado. O verify oficial da correção do CHECK ainda está pendente.
+
+Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica deixam de casar uma vez após a renovação do cache normalizado.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -85,9 +87,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: futura thread do item; A: condução do roadmap; C: manutenção do security scan e revisão independente; I: mantenedores do núcleo.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO registrou a proposta e separou o escopo da RM-097; nenhuma implementação foi autorizada.
-- **Próxima ação, responsável e prazo:** priorizar ou estacionar a proposta no roadmap; responsável: condução do roadmap; sem prazo declarado.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a thread `ork-rm102securit` implementou o escopo em modo #Fast; o CHECK independente pediu correções de agregação, prova e documentação, aplicadas neste GO sem ampliar a resolução de tipos da RM-097.
+- **Próxima ação, responsável e prazo:** executar o verify oficial e devolver o HEAD corrigido ao CHECK independente; responsável: thread `ork-rm102securit`; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
+| 2026-11-27 | Thread `ork-rm102securit` aberta em modo #Fast | A condução separou a estabilidade do security scan da resolução de tipos e gravou a baseline da branch | Condução da RM-102 |
+| 2026-11-27 | Implementação entregue ao CHECK independente no commit `2b40ac63` | O verify oficial ficou verde e o CHECK confirmou a impressão digital, o teste de `SIGTERM`, o escopo e a limpeza do repositório | thread `ork-rm102securit` (#Fast) |
+| 2026-11-27 | Correções do CHECK aplicadas nos commits `deac7525` e `a4ebf235` | A agregação deixou de espalhar coleções dependentes da entrada e a prova passou a percorrer os modos Classic e Agile com cache anterior e casos negativos | thread `ork-rm102securit` (#Fast) |
 | 2026-11-26 | Proposta registrada em Discovery | Achado da condução sobre ingestão de relatório, impressão digital e teste de `SIGTERM`; a resolução de tipos permanece na RM-097 | sessão GO `ork-achados0611` (#Fast) |
