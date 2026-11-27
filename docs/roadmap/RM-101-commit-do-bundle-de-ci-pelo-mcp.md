@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-27T13:01:16-03:00
+atualizado_em: 2026-11-27T16:44:37-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-rm101bundled
   modo: Fast
-  fase: MASTER
+  fase: GO
   status: fechada
 ---
 
@@ -42,6 +42,7 @@ sdlc:
 
 - **Público e problema/oportunidade:** sessões de GO que usam o transporte MCP conseguem gerar o bundle oficial de CI, mas não conseguem registrá-lo pelo mesmo transporte. O caminho oficial fica incompleto e incentiva commit por fora do núcleo ou uma claim sem significado.
 - **Evidências e fonte:** achado da condução de 25 e 26/11/2026. O `ork_git_commit` recusou `.ork-ci/<thread>.json` com `mcp.git.claim.missing`, e a condução precisou commitar o bundle por fora em mais de uma thread. Esta mesma thread reproduziu a recusa em 26/11/2026, e a condução commitou o bundle.
+  - Em 27/11/2026, a revisão da entrega encontrou quatro sobras: a retirada de claim depois do verify não tinha prova na suíte; a resposta de commit podia trazer `commit=null`; uma falha de rollback não deixava registro no ledger; e a página não dizia que a derivação cobre ids e comandos das claims ativas. No piloto, retirar claim depois do verify precisa exigir uma nova rodada.
 - **Objetivo/OKR:** fechar o GO pelo transporte autorizado, mantendo o bundle derivado ligado à rodada verde, ao HEAD e à thread que o produziu.
 - **Hipótese:** se o núcleo reconhecer o bundle como artefato derivado com recibo próprio, então o MCP poderá commitá-lo sem claim artificial, enquanto arquivos comuns continuam exigindo claims.
 - **Métrica principal / linha de base / meta / janela / fonte:** proporção de bundles gerados pelo fluxo oficial que são commitados pelo MCP sem desvio de transporte. A linha de base é o achado da condução; a meta e a janela serão definidas na fase GOAL; a fonte será o ledger e o recibo do commit.
@@ -54,6 +55,11 @@ sdlc:
 - **Entregáveis e critérios de aceite:** depois do verify verde, `ork ci prepare <thread>` gera o bundle e o `ork_git_commit` o registra no HEAD esperado sem claim artificial; mudança no bundle, na rodada, na thread ou no HEAD recusa antes do commit; os demais paths continuam recusados sem claim; o recibo do commit identifica o artefato derivado sem declarar que ele verificou a si mesmo.
 - **Comportamento dos caminhos:** qualquer `.ork-ci/*.json` que não seja o bundle da própria thread é recusado, mesmo com claim, inclusive `.ork-ci/bundle.json`; bundle alterado é recusado mesmo com claim no próprio caminho; a remoção de um bundle rastreado também é recusada como `bundle.missing`. O bundle derivado ocupa um commit exclusivo.
 - **Piloto, medição e critérios de expansão/interrupção:** o piloto pelo MCP continua pendente até esta mudança estar no núcleo usado pela condução. Expandir quando uma thread posterior preparar e registrar o bundle pelo caminho oficial. Interromper se um arquivo arbitrário puder usar o recibo, se um bundle obsoleto for aceito ou se o objeto commitado divergir dos bytes conferidos.
+
+### Pendências de 27/11/2026, não entregues
+
+- **Incluído:** provar na suíte que a derivação cobre os ids e comandos das claims ativas; invalidar a rodada quando uma claim for retirada depois do verify; exigir novo verify antes de preparar ou commitar o bundle; devolver o commit efetivo no sucesso; registrar no ledger qualquer `rollback.failed` com causa e estado observável.
+- **Critérios de aceite:** retirar claim depois do verify impede o piloto de reutilizar a rodada; a suíte reproduz essa recusa; sucesso nunca responde `commit=null`; falha de rollback deixa evento tipado no ledger; a documentação pública usa a expressão "ids e comandos das claims ativas".
 
 ## Plano e decisões
 
@@ -96,3 +102,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-27 | Implementação iniciada na thread `ork-rm101bundled` | Contrato de derivação, guarda estreita do commit MCP e suíte dedicada na branch da thread | sessão GO (#Fast) |
 | 2026-11-27 | Correção após o primeiro CHECK independente | Commit preso ao oid conferido, limpeza do índice, hash das claims e casos de ataque incorporados à suíte | sessão GO (#Fast) |
 | 2026-11-27 | Implementação mesclada na `main` e incluída na 0.6.13 | PR #312, merge `59bab850`; seção 0.6.13 do CHANGELOG | thread `ork-rm101bundled` na entrega; thread `ork-versao0613` na versão |
+| 2026-11-27 | Pendências do piloto registradas no escopo | Revisão da RM-101 encontrou retirada posterior ao verify sem prova, `commit=null`, rollback sem ledger e descrição incompleta da derivação | sessão GO `ork-achadosdacon` (#Fast) |

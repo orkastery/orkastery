@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-27T13:01:17-03:00
+atualizado_em: 2026-11-27T16:44:37-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-rm102securit
   modo: fast
-  fase: MASTER
+  fase: GO
   status: fechada
 ---
 
@@ -42,6 +42,7 @@ sdlc:
 
 - **Público e problema/oportunidade:** quem mantém o security scan pode receber falha de ingestão, achado novo falso ou teste intermitente apesar de o relatório e o comportamento analisados não terem mudado.
 - **Evidências e fonte:** achado da condução de 26/11/2026. A ingestão do relatório do ESLint usava `findings.push(...)` com espalhamento e estourava com relatório grande; a impressão digital incluía uma mensagem cuja união de tipos mudava de ordem entre rodadas; o caso `a round killed by SIGTERM` de `security-scan-run` era intermitente no runner hospedado e passava localmente.
+  - Em 27/11/2026, a revisão das provas mostrou que a opção `--stack-size` das claims de volume não chegava ao processo do teste e que a prova do último item não conferia a seção correspondente.
 - **Objetivo/OKR:** tornar ingestão, identidade do achado e encerramento da rodada determinísticos para o mesmo conteúdo analisado.
 - **Hipótese:** se a ingestão trabalhar em lotes seguros, a impressão digital usar representação canônica e o teste controlar explicitamente o ciclo do processo, então tamanho, ordem textual equivalente e escalonamento do runner deixam de criar falhas falsas.
 - **Métrica principal / linha de base / meta / janela / fonte:** rodadas equivalentes que divergem na ingestão, na identidade dos achados ou no resultado do teste de encerramento. A linha de base é o achado da condução; o aceite exige o relatório completo nos dois modos, a impressão estável sem colisão e o encerramento observado pelo processo; a fonte é a suíte do security scan e o verify oficial.
@@ -50,9 +51,14 @@ sdlc:
 ## Escopo e validação
 
 - **Incluído:** ingestão sem espalhamento dependente do tamanho; canonicalização somente da parte instável da mensagem do ESLint; fixtures com ordens equivalentes e distintas; teste determinístico da rodada encerrada por `SIGTERM`; reprodução no runner hospedado.
-- **Fora de escopo:** resolver tipos no worktree destacado, que permanece na [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md); mudar regras do ESLint; suprimir achados; reduzir cobertura; alterar a política do laço da [RM-068](RM-068-security-scan-no-check.md); corrigir o crescimento quadrático de `classify` com achados de mesma impressão digital, que deve seguir em item futuro.
+- **Fora de escopo:** resolver tipos no worktree destacado, que permanece na [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md); mudar regras do ESLint; suprimir achados; reduzir cobertura; alterar a política do laço da [RM-068](RM-068-security-scan-no-check.md); corrigir o crescimento quadrático de `classify` com achados de mesma impressão digital, que segue na [RM-104](RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md).
 - **Entregáveis e critérios de aceite:** relatório grande é ingerido por inteiro sem exceção; mensagens equivalentes com ordem diferente na união de tipos produzem a mesma impressão digital, enquanto achados distintos permanecem distintos; o teste de `SIGTERM` passa de modo repetível no CI hospedado e falha quando o processo não encerra; a RM-097 continua responsável apenas pela resolução de tipos.
 - **Piloto, medição e critérios de expansão/interrupção:** começar pelo relatório e pelas fixtures que reproduzem os achados. Expandir quando rodadas repetidas no runner produzirem o mesmo conjunto. Interromper se a canonicalização colidir achados diferentes ou esconder falha real de processo.
+
+### Pendências de 27/11/2026, não entregues
+
+- **Incluído:** fazer a opção de limite de pilha usada pelas claims de volume chegar ao processo que executa o teste; conferir na prova de cada item a seção exata que sustenta a alegação.
+- **Critérios de aceite:** a prova falha quando a opção deixa de chegar ao processo do teste; a prova do último item falha quando a seção esperada não existe ou não contém o comportamento alegado.
 
 ## Plano e decisões
 
@@ -99,3 +105,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-27 | Rodada 2 do CHECK revisou o commit `8c61a5f8` e pediu mudanças | O bloqueador ficou no relatório Markdown; os avisos pediram controles positivos, casos negativos, prova de grupo grande e atualização desta página | thread `ork-rm102securit` (#Fast) |
 | 2026-11-27 | Correção do relatório aplicada no commit `d9ee8baa` | O relatório Markdown deixou de espalhar achados e caminhos excluídos dependentes da entrada | thread `ork-rm102securit` (#Fast) |
 | 2026-11-27 | Implementação mesclada na `main` e incluída na 0.6.13 | PR #310, merge `65cb35ef`; seção 0.6.13 do CHANGELOG | thread `ork-rm102securit` na entrega; thread `ork-versao0613` na versão |
+| 2026-11-27 | Pendências das provas de volume registradas no escopo; crescimento quadrático encaminhado à RM-104 | Revisão mostrou que o limite de pilha não chegava ao teste e que a prova final não conferia a seção correspondente | sessão GO `ork-achadosdacon` (#Fast) |

@@ -1,0 +1,395 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-achadosdacon",
+  "branch": "ork/ork-achadosdacon-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "A RM-037 exige que o mesmo erro MD022 reprove o verify local e o CI de documentação.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'o mesmo erro MD022 reprova o verify local e o CI de documentação' docs/roadmap/RM-037-verify-rapido-e-confiavel.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:29.965Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-063-fabrica-que-nao-para.md",
+      "alegacao": "A RM-063 impede oferta de merge para PR em rascunho, CI vermelho ou CHECK pedindo mudança.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'PR em rascunho, CI vermelho ou CHECK pedindo mudança nunca aparece como oferta de merge' docs/roadmap/RM-063-fabrica-que-nao-para.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:30.054Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md",
+      "alegacao": "A RM-077 inclui caminho oficial para revisão independente no modo Fast.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'caminho oficial de revisão independente' docs/roadmap/RM-077-revisao-independente-pelo-construtor-do-head.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:30.128Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-083-estado-do-roadmap-acompanha-a-entrega.md",
+      "alegacao": "A RM-083 registra o atraso documental depois dos merges das RM-101 e RM-102.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'depois dos merges das RM-101 e RM-102' docs/roadmap/RM-083-estado-do-roadmap-acompanha-a-entrega.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:30.202Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md",
+      "alegacao": "A RM-092 exige que decisão de classe 2 pendente apareça no resumo.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'decisão de classe 2 pendente aparece no resumo' docs/roadmap/RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:30.290Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A RM-102 exige que o limite de pilha das claims de volume chegue ao processo testado.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'fazer a opção de limite de pilha usada pelas claims de volume chegar ao processo' docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:30.550Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-103-leases-compativeis-com-o-commit.md",
+      "alegacao": "A RM-103 estabelece que lease vencido não barra commit.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'lease vencido não barra commit' docs/roadmap/RM-103-leases-compativeis-com-o-commit.md"
+      ],
+      "criadoEm": "2026-11-27T19:45:30.649Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "Na RM-037, o acréscimo não entregue aparece depois do histórico entregue e antes de Plano e decisões.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"node:fs\");const s=fs.readFileSync(\"docs/roadmap/RM-037-verify-rapido-e-confiavel.md\",\"utf8\");const h=s.indexOf(\"### Acréscimo de 27/11/2026, não entregue\");const hist=s.indexOf(\"**Defeitos da noite de 29/09/2026\");const plan=s.indexOf(\"## Plano e decisões\");if(!(hist<h&&h<plan))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T20:20:19.927Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "O histórico da RM-102 diz que a prova final não conferia a seção correspondente.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'a prova final não conferia a seção correspondente' docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md"
+      ],
+      "criadoEm": "2026-11-27T20:20:41.738Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md",
+      "alegacao": "A RM-104 usa o título técnico Coleções grandes sem estouro de pilha ou de memória.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'Coleções grandes sem estouro de pilha ou de memória' docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:52.800Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice aponta a RM-104 pelo novo nome de arquivo e pelo título sem linguagem figurada.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '| [RM-104](RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md) | Coleções grandes sem estouro de pilha ou de memória |' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:52.878Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A RM-102 aponta para o novo nome de arquivo da RM-104.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md' docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:52.951Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
+      "alegacao": "A RM-101 registra como pendência provar que a derivação cobre os ids e comandos das claims ativas.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'provar na suíte que a derivação cobre os ids e comandos das claims ativas' docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:53.015Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md",
+      "alegacao": "A RM-104 veda espalhamento dependente da entrada em caminho de produção.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'nenhum espalhamento dependente da entrada permanece em caminho de produção' docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:53.104Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    },
+    {
+      "name": "security_scan",
+      "command": "ORK_SECURITY_SCAN_REQUIRED=1 node core/dist/index.js security-scan"
+    }
+  ],
+  "derivacao": {
+    "contrato": "ork.ci-bundle-derivacao/v1",
+    "thread": "ork-achadosdacon",
+    "head": "f134d2ed164f0140712393dc14e85e4f3e91f718",
+    "verifyRun": "f0c583ac-f7a1-4372-9b5a-dadf35ca41d5",
+    "claimsSha256": "f64cb413dfecc41d2025d3bf52241f3075d9ff6fedef1fc97e041602db636d2a"
+  },
+  "recibo": {
+    "contrato": "ork.recibo-prova/v1",
+    "head": "f134d2ed164f0140712393dc14e85e4f3e91f718",
+    "sha256": "cdbc62fb51bbb78c08077336f4c16803067d6fc8e570f228bbda070de6b32eb5"
+  }
+}

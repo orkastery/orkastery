@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-26T09:50:38-03:00
+atualizado_em: 2026-11-27T16:45:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -47,6 +47,7 @@ sdlc:
   - Em 25/11/2026, o gate do `ork ship` e a batida aceitaram um `check.md` com `PASSOU` mais novo que o último commit de produto, embora fosse parecer de um CHECK de PLAN; a condução publicou o PR enquanto a thread ainda estava em replanejamento.
   - Na F7 da RM-089, `faseSeguinte` escolheu a próxima fase pela posição da fase despachada em `t.fases`; como o último despacho antes do GO foi um CHECK de PLAN aprovado, a recomendação saiu como SHIP, tratando CHECK de PLAN como CHECK de GO.
   - Em 26/11/2026, uma sessão de CHECK conseguiu commitar e trocar de branch na worktree; o guard recusava apenas formas parciais de escrita no Git.
+  - Em 27/11/2026, `ork phase run <thread-#Fast> CHECK` recusou a fase porque a thread aceitava somente GO. A revisão independente exigida para o merge foi feita fora do núcleo, sem parecer gravado pelo `ork_artifact_write` e sem vínculo oficial com o SHA revisado.
 - **Objetivo/OKR:** toda thread tem um revisor elegível sem edição manual de estado.
 - **Hipótese:** se a independência for medida pelo construtor do HEAD revisado, então o CHECK independente deixa de travar threads que trocaram de runtime, sem perder independência, porque quem revisa continua não sendo quem construiu o que está sendo revisado.
 - **Métrica principal / linha de base / meta / janela / fonte:** threads com CHECK barrado por `runtime.autoconferencia` sem revisor elegível. Linha de base: a medir. Meta: zero. Janela: por release. Fonte: ledger.
@@ -58,6 +59,7 @@ sdlc:
   - calcular o construtor do HEAD pelas sessões de GO cujos commits estão no intervalo desde o último CHECK aprovado, reaproveitando a lógica de autores do #Noctum;
   - aceitar como revisão de código somente parecer de CHECK de GO ou GO-FIX ligado ao SHA exato revisado; parecer de PLAN, GOAL ou outro HEAD não libera publicação nem SHIP;
   - tornar somente leitura para o Git da worktree, durante a fase CHECK, a sessão só de CHECK ou o trecho CHECK de um bloco até a próxima fase registrada pelo núcleo: troca de branch, staging, commit, reset e qualquer outra escrita são recusados;
+  - oferecer à thread `#Fast` um caminho oficial de revisão independente, mesmo quando CHECK não integra a lista de fases do bloco, com sessão nativa distinta e parecer canônico ligado ao SHA revisado;
   - um comando de exceção que grava evento tipado no ledger (quem aprovou, quando, qual runtime, motivo), honrado pelo `phase run`;
   - um `phase run` manual que já nasce vinculado como revisão.
 - **Fora de escopo:** trocar a política de quais runtimes podem revisar quais.
@@ -67,6 +69,7 @@ sdlc:
   - `PASSOU` de CHECK de PLAN, ainda que posterior ao commit de produto, não conta como revisão de código; o parecer de GO ou GO-FIX só vale para o SHA que registra;
   - SHIP só é recomendado depois de CHECK de GO ou GO-FIX aprovado no HEAD; CHECK de PLAN aprovado leva a GO. O teste usa uma thread com CHECK de PLAN aprovado e GO por fazer e confirma que ela não recebe recomendação de SHIP;
   - uma sessão autenticada como CHECK não altera branch, índice, refs ou commits da worktree por nenhum comando Git;
+  - a revisão independente de uma thread `#Fast` é despachada pelo núcleo, grava o parecer canônico pelo transporte de artefatos e só vale para o SHA que registra;
   - exceção sem quem aprovou é recusada;
   - mutante que volta a olhar todo o histórico morre.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto nas threads que tiveram rodízio de runtime por cota.
@@ -89,13 +92,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-26 | Julio |
-| Documentação | Rascunho | — | 2026-11-26 | Julio |
-| Código | Não iniciado | — | 2026-11-26 | Julio |
-| Testes | Não iniciados | — | 2026-11-26 | Julio |
-| Deploy | Não implantado | — | 2026-11-26 | Julio |
-| Exposição | Flag desligada | — | 2026-11-26 | Julio |
-| Habilitação | Pendente | — | 2026-11-26 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-27 | Julio |
+| Documentação | Rascunho | — | 2026-11-27 | Julio |
+| Código | Não iniciado | — | 2026-11-27 | Julio |
+| Testes | Não iniciados | — | 2026-11-27 | Julio |
+| Deploy | Não implantado | — | 2026-11-27 | Julio |
+| Exposição | Flag desligada | — | 2026-11-27 | Julio |
+| Habilitação | Pendente | — | 2026-11-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -110,3 +113,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-31 | Item criado em Discovery | Achados de condução em rede, conferidos contra a 0.6.2 | Julio (pedido de 31/10/2026) |
 | 2026-11-23 | Prioridade elevada e CHECK independente do `#Fast` absorvido | Realinhamento aprovado pelo dono; elegibilidade considera quem construiu o HEAD revisado | Julio |
 | 2026-11-26 | Escopo ampliado para exigir CHECK de GO ou GO-FIX no SHA revisado, encaminhar CHECK de PLAN aprovado a GO e manter somente leitura o trecho CHECK | Achados da condução de 25 e 26/11/2026: CHECK de PLAN liberou publicação e uma sessão de CHECK escreveu na worktree | sessão GO `ork-achados0611` (#Fast) |
+| 2026-11-27 | Escopo ampliado com caminho oficial para a revisão independente do `#Fast` | Em 27/11/2026, CHECK foi recusado como fase inválida e o parecer precisou ser produzido fora do núcleo | sessão GO `ork-achadosdacon` (#Fast) |
