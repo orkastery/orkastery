@@ -132,15 +132,15 @@ Um hotfix urgente pode usar uma exceção auditável autorizada pela política. 
 | F6 | `ork adotar`, aviso no terminal e exceção auditável | Uma branch externa entra em thread sem perder commits; a sessão fora de thread recebe as duas ações; a exceção autorizada aparece no ledger e no relatório, e a não autorizada não libera o merge |
 | F7 | Decisão forte da fábrica | O motor e as portas conferem registros do núcleo, fatos relidos da forja, CHECK independente e HEAD exato; o resultado v2 rejeita chave, emissor ou SHA divergente sem transportar prova ao runner nem operar o serviço |
 
-**Estado em 27/11/2026:** F1 a F4 foram publicadas na 0.6.9, F5 na 0.6.10 e F6 na 0.6.11. A F7 foi mesclada na `main` pelo PR #307 e sai na 0.6.12. As sete fatias estão entregues; a F7 fornece somente o motor e as portas da decisão.
+**Estado em 27/11/2026:** F1 a F4 foram publicadas na 0.6.9, F5 na 0.6.10 e F6 na 0.6.11. A F7 foi mesclada na `main` pelo PR #307 e saiu na 0.6.12, publicada no npm. As sete fatias estão entregues; a F7 fornece somente o motor e as portas da decisão.
 
 Pela D32, a integração da F7 ocorreu depois da conclusão das threads ligadas às issues #302, #299, #303 e #304, nessa ordem.
 
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** construção concluída em sete fatias; a última foi mesclada em 27/11/2026 pelo PR #307.
-- **Horizonte / alvo / previsão / confiança / marcos:** F1 a F6 estão publicadas; a F7 sai na 0.6.12. Meta e piloto continuam **A definir pelo dono**.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-053, RM-026, RM-047, RM-065, RM-048 e RM-090 permanecem relacionadas; não há bloqueio de código aberto para as sete fatias; owner: Julio; próxima revisão após a publicação da 0.6.12.
+- **Horizonte / alvo / previsão / confiança / marcos:** F1 a F6 estão publicadas; a F7 saiu na 0.6.12, publicada no npm. Meta e piloto continuam **A definir pelo dono**.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-053, RM-026, RM-047, RM-065, RM-048 e RM-090 permanecem relacionadas; não há bloqueio de código aberto para as sete fatias; owner: Julio; próxima revisão na definição do piloto.
 - **Premissas / riscos / mitigação:** detalhados abaixo; capacidades não cobertas pelas fontes oficiais permanecem não confirmadas.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 e D2 foram decididas pelo dono no terminal em 10/11/2026; a antiga D4 foi respondida pelo esclarecimento da mesma data.
 
@@ -208,7 +208,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: equipe Orkastery; A: Julio; C: segurança, administradores das forjas e builders inscritos; I: times da empresa.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou as duas evoluções em modo `#Fast`; o dono decidiu D1 e D2 e esclareceu o conjunto sincronizado; revisão humana ocorrerá na condução e no planejamento da construção.
-- **Próxima ação, responsável e prazo:** publicar a 0.6.12 pelo rito de release; até lá, a F7 está mesclada e ainda não publicada.
+- **Próxima ação, responsável e prazo:** definir a meta e o piloto da decisão forte; a F7 saiu na 0.6.12, publicada no npm; responsável: Julio; prazo a definir.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
