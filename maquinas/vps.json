@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.6.11",
-  "publicadoEm": "2026-11-27T08:35:07.392Z",
+  "versaoOrk": "0.6.12",
+  "publicadoEm": "2026-11-27T08:45:02.733Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -58,7 +58,7 @@
       "status": "aberta",
       "roadmap": "RM-102",
       "branch": "ork/ork-rm102securit-go",
-      "atualizadaEm": "2026-11-27T08:30:52.575Z",
+      "atualizadaEm": "2026-11-27T08:39:34.321Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -71,24 +71,6 @@
         "desdeEm": null,
         "motivo": null
       }
-    },
-    {
-      "id": "ork-versao0612",
-      "nome": "versao0612",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-versao0612-go",
-      "atualizadaEm": "2026-11-27T08:26:56.922Z",
-      "entregue": "0616945",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": null
     }
   ]
 }
