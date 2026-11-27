@@ -257,10 +257,15 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
-    return ship(c,t.id,opcoesDoShipMcpComPreflight(opcoesDoWorkerShipMcp(c,deadline,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+    return executarShipDoWorkerMcp(c,t.id,deadline,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
-      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}}),preflightEmpresa));
+      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa);
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}
+}
+/** Caminho único que o worker usa para compor as opções internas e chamar o SHIP. */
+export function executarShipDoWorkerMcp(c:ManifestoCarregado,threadId:string,deadline:number,opcoes:OpcoesShip,
+  preflightEmpresa:ResultadoPreflightEmpresa|null):ResultadoShip {
+  return ship(c,threadId,opcoesDoShipMcpComPreflight(opcoesDoWorkerShipMcp(c,deadline,{...opcoes}),preflightEmpresa));
 }
 /** A composição exercitável que o núcleo do worker entrega ao SHIP. */
 export function opcoesDoWorkerShipMcp(c:ManifestoCarregado,deadline:number,opcoes:OpcoesShip):OpcoesShip {

@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { dirThread, novaThread } from '../src/thread';
 import { decidirShipComFabrica, ship } from '../src/ship';
 import { criarPortaDaFabricaNoShip } from '../src/ship-fabrica';
-import { opcoesDaFabricaDoShipMcp, opcoesDoWorkerShipMcp } from '../src/mcp-ship';
+import { executarShipDoWorkerMcp, opcoesDaFabricaDoShipMcp } from '../src/mcp-ship';
 import { chamadorDaApi, chaveDoLogin, type ChamadorDaApi } from '../src/forja/api';
 import type { ForjaResolvida } from '../src/forja/contrato';
 import { rodarCli } from '../src/forja/executor';
@@ -374,7 +374,7 @@ test('o worker MCP compõe a porta da fábrica no ship', () => {
   projeto.limpar();
 });
 
-test('as opções do worker MCP executam o ship com a porta da fábrica recusando', () => {
+test('o caminho usado pelo worker MCP executa o ship com a porta da fábrica recusando', () => {
   const projeto = projetoTemporario('rm089-f7-mcp-worker-porta', true);
   versionarDestino(projeto, ['politica_recibo: exigir', 'fabrica:', '  github_app_id: 731']);
   const { thread } = novaThread(projeto.carregado, { nome: 'mcp worker porta', modo: 'auto', criarWorktree: true });
@@ -383,8 +383,8 @@ test('as opções do worker MCP executam o ship com a porta da fábrica recusand
     verificar: ['test -f entrega.md'] });
   const executor: ExecutorVerify = (nome, comando) => ({ nome, comando, ok: true, code: 0, resumo: '' });
   const destino = exec('git', ['rev-parse', 'main'], projeto.dir).stdout.trim();
-  const resultado = ship(projeto.carregado, thread.id,
-    opcoesDoWorkerShipMcp(projeto.carregado, Date.now() + 30_000, { para: 'main', executorVerify: executor }));
+  const resultado = executarShipDoWorkerMcp(projeto.carregado, thread.id, Date.now() + 30_000,
+    { para: 'main', executorVerify: executor }, null);
   assert.equal(resultado.ok, false);
   assert.equal(resultado.motivo, 'ci.failed');
   assert.match(resultado.detalhe, /ci\.fabrica\.prova-ausente/);
