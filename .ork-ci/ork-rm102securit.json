@@ -5,33 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm102securit",
-      "fase": "GO",
-      "arquivo": "core/src/security-scan/run.ts",
-      "alegacao": "A ingestão e a agregação dos achados normalizados percorrem o relatório inteiro sem espalhar seus itens como argumentos, e a prova usa um relatório do ESLint acima do limite que derrubava o comportamento anterior.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
-      ],
-      "criadoEm": "2026-11-27T04:43:38.429Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C2",
       "thread": "ork-rm102securit",
       "fase": "GO",
@@ -43,33 +16,6 @@
         "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
       ],
       "criadoEm": "2026-11-27T04:44:29.667Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C3",
-      "thread": "ork-rm102securit",
-      "fase": "GO",
-      "arquivo": "core/test/security-scan-normalize.test.ts",
-      "alegacao": "O teste constrói um relatório do ESLint acima do limite de argumentos da chamada e reprova se a ingestão voltar a usar espalhamento ou truncar o fim.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
-      ],
-      "criadoEm": "2026-11-27T04:44:41.716Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -327,6 +273,438 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/run.ts",
+      "alegacao": "As agregações internas de scanTool acumulam os achados de HEAD e base sem transformar o tamanho do relatório em argumentos, e runScan e runScanAgil preservam a contagem completa em um relatório acima desse limite.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T06:39:55.025Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/normalize/eslint.ts",
+      "alegacao": "A canonicalização continua restrita à união externa simples de no-unsafe-argument e preserva ordem dentro de genéricos, objetos e tipos condicionais no topo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T06:39:55.093Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O Docker falso gera sob demanda um relatório ESLint acima do limite de espalhamento para exercitar o caminho integral sem versionar uma fixture volumosa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T06:39:55.155Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-normalize.test.ts",
+      "alegacao": "A prova percorre runScan e runScanAgil com Docker falso e relatório grande, rejeita cache da semântica anterior e cobre moldura de outra regra, união aninhada e tipo condicional.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T06:39:55.232Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/compare.ts",
+      "alegacao": "A união de duas varreduras copia o maior grupo de mesma impressão digital sem espalhá-lo como argumentos, inclusive quando o grupo ultrapassa o teto observado da chamada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-compare.test.js"
+      ],
+      "criadoEm": "2026-11-27T07:56:10.848Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-normalize.test.ts",
+      "alegacao": "A prova integral percorre executarSecurityScan, writeReport, Classic e Agile com achados novos em volume várias vezes acima do teto medido, mantém o controle positivo do cache atual e cobre outra regra com mensagem completa e curta e união dentro de objeto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T07:56:10.912Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O Docker falso gera o relatório ESLint grande somente para a árvore HEAD da fixture, deixando a base vazia para que a prova integral exercite achados novos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T07:56:10.967Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-compare.test.ts",
+      "alegacao": "A prova de mergeByFingerprint usa duas listas e escolhe integralmente um grupo de mesma impressão acima do teto de argumentos, derrubando a implementação com espalhamento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-compare.test.js"
+      ],
+      "criadoEm": "2026-11-27T07:56:11.032Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog explica que dispensas antigas de no-unsafe-argument com a união fora da ordem canônica precisam ser refeitas uma vez porque a impressão digital passa a usar a forma canônica.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-27T07:56:30.705Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A página da RM-102 mantém a thread aberta, registra o verify concluído e o pedido de mudança do CHECK da rodada 2, ordena o histórico por data e encaminha o crescimento quadrático de classify como item futuro fora do escopo.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-27T07:56:30.782Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-docker-falso.ts",
+      "alegacao": "O Docker falso aceita um controle opt-in para gerar o relatório ESLint grande também na árvore base sem .fake-case, sem mudar o caso padrão que mantém a base vazia.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T08:39:14.735Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-normalize.test.ts",
+      "alegacao": "A prova Classic percorre um relatório ESLint acima do limite de argumentos tanto em HEAD quanto na base e reprova se a agregação de qualquer uma das árvores voltar a espalhar a coleção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T08:39:14.788Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/src/security-scan/report.ts",
+      "alegacao": "A prova direta de renderMarkdown põe volume acima do limite de argumentos nas seções do laço, de avisos e de caminhos excluídos, derrubando espalhamento em qualquer uma das três.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-report-volume.test.js"
+      ],
+      "criadoEm": "2026-11-27T08:39:14.846Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-report-volume.test.ts",
+      "alegacao": "O caso isolado constrói volume acima do limite de argumentos nas três coleções renderizadas e confere o último item de cada seção do Markdown.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-report-volume.test.js"
+      ],
+      "criadoEm": "2026-11-27T08:39:14.897Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-compare.test.ts",
+      "alegacao": "A prova de mergeByFingerprint mantém o grupo acima do limite de argumentos com margem menor e ainda reprova a implementação com espalhamento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-compare.test.js"
+      ],
+      "criadoEm": "2026-11-27T08:39:14.943Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A página da RM-102 descreve no passado o defeito já corrigido e registra no histórico a correção do relatório no commit d9ee8baa.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-27T08:39:34.320Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
@@ -342,7 +720,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "31cdae58b5418cc6c256c66a64b0c26201d4539c",
-    "sha256": "c825b9f6d1d2139fb92af2df570bfe0639b791332fb92faf002e9bec7e59fc7d"
+    "head": "3b8c5a423fa9e8ffc602e22a7b10d05050d1d948",
+    "sha256": "1011e4eb61211135954e6be07c14a2634393916cd3d36a215c75f11d39a6ebd2"
   }
 }
