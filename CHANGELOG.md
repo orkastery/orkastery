@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## [0.6.13] - 2026-11-27
 
-A 0.6.13 impede que o security scan estoure com relatório grande e mantém estável a impressão digital (RM-102). O MCP passa a commitar somente o bundle de CI derivado da rodada verde, sem claim artificial e preso aos bytes conferidos (RM-101).
+A 0.6.13 torna estável a impressão digital de uniões de tipos equivalentes e impede que o security scan estoure com relatório grande (RM-102). Sem claim artificial, o MCP passa a commitar somente o bundle de CI derivado da rodada verde, preso aos bytes conferidos; os demais arquivos seguem exigindo claim (RM-101).
 
 O #Noctum segue **em desenvolvimento, não anunciado**.
 
