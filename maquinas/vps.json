@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.11",
-  "publicadoEm": "2026-11-27T05:45:03.311Z",
+  "publicadoEm": "2026-11-27T05:54:44.155Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -54,23 +54,19 @@
       "id": "ork-rm089f7recib",
       "nome": "ork-rm089f7recib",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm089f7recib-full",
-      "atualizadaEm": "2026-11-27T05:05:43.845Z",
-      "entregue": null,
+      "atualizadaEm": "2026-11-27T05:54:43.758Z",
+      "entregue": "5f7280a",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max",
-      "sessao": {
-        "viva": true,
-        "desdeEm": null,
-        "motivo": null
-      }
+      "sessao": null
     },
     {
       "id": "ork-rm102securit",
@@ -80,7 +76,7 @@
       "status": "aberta",
       "roadmap": "RM-102",
       "branch": "ork/ork-rm102securit-go",
-      "atualizadaEm": "2026-11-27T05:38:19.957Z",
+      "atualizadaEm": "2026-11-27T05:53:45.342Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
