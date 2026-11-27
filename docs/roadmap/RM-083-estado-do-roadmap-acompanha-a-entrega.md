@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-23T11:18:00-03:00
+atualizado_em: 2026-11-27T16:45:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -40,6 +40,7 @@ sdlc:
 
 - **Público e problema/oportunidade:** quem entrega um item pelo fluxo oficial pode deixar a documentação da `main` incompatível com o merge, mesmo quando código e CI terminaram corretamente.
 - **Evidências e fonte:** em 07/11/2026, depois do merge da [RM-079](RM-079-claims-que-a-correcao-passa.md), o CI da `main` reprovou porque a página ainda dizia que a branch havia sido criada. A correção exigiu outro PR com `ork docs sincronizar --escrever --so RM-079`. O bloco de estado, o índice e `sdlc` ficaram atrás da entrega.
+  - Em 27/11/2026, depois dos merges das RM-101 e RM-102, o check de documentação da `main` reprovou até o PR de versão sincronizar as duas páginas.
 - **Objetivo/OKR:** a `main` já recebe a página e o índice coerentes com a entrega no mesmo merge.
 - **Hipótese:** se o PR transportar e validar o estado prospectivo que passa a ser verdadeiro no merge, então a documentação fica correta quando o commit entra na base, sem uma segunda mudança manual.
 - **Métrica principal / linha de base / meta / janela / fonte:** merges de item que deixam `docs verificar` vermelho por atraso de estado. Linha de base: o caso da RM-079. Meta: zero. Janela: por merge. Fonte: CI da base e recibo de `ship registrar-pr`.
@@ -85,13 +86,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-23 | Julio |
-| Documentação | Rascunho | — | 2026-11-23 | Julio |
-| Código | Não iniciado | — | 2026-11-23 | Julio |
-| Testes | Não iniciados | — | 2026-11-23 | Julio |
-| Deploy | Não implantado | — | 2026-11-23 | Julio |
-| Exposição | Flag desligada | — | 2026-11-23 | Julio |
-| Habilitação | Pendente | — | 2026-11-23 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-27 | Julio |
+| Documentação | Rascunho | — | 2026-11-27 | Julio |
+| Código | Não iniciado | — | 2026-11-27 | Julio |
+| Testes | Não iniciados | — | 2026-11-27 | Julio |
+| Deploy | Não implantado | — | 2026-11-27 | Julio |
+| Exposição | Flag desligada | — | 2026-11-27 | Julio |
+| Habilitação | Pendente | — | 2026-11-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -105,3 +106,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-11-07 | Item criado em Discovery | CI da `main` reprovou após a RM-079 até um PR separado executar a sincronização documental | Builder (pedido de 07/11/2026) |
 | 2026-11-23 | prioridade elevada | Realinhamento aprovado pelo dono exige que o próprio PR leve o estado pós-merge | Julio |
+| 2026-11-27 | Evidência ampliada com duas entregas que deixaram a página atrasada após o merge | RM-101 e RM-102 só voltaram a deixar a documentação da base verde quando o PR de versão sincronizou as páginas | sessão GO `ork-achadosdacon` (#Fast) |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-26T09:50:38-03:00
+atualizado_em: 2026-11-27T16:45:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -48,6 +48,7 @@ sdlc:
 - **Evidências e fonte:** o incidente do maquina-b, de 03/10 a 12/10/2026 (tabela abaixo).
   - Em 26/11/2026, lanes manuais do Codex terminaram a fase, mas deixaram árvores `codex-linux-sandbox` órfãs e testes parados; não havia encerramento da árvore nem diagnóstico correspondente no `doctor`.
   - Em 26/11/2026, o `roadmap status` recomendou o SHIP da F7 da RM-089 enquanto o GO ainda precisava ser executado.
+  - Em 26/11/2026, o resumo periódico contou um bloqueio e ofereceu ao dono mesclar um PR em rascunho com CI de documentação vermelho e CHECK pedindo mudança.
 - **Objetivo/OKR:** tempo de máquina parada sem aviso igual a zero; tempo de fábrica parada por falha de infraestrutura abaixo de 30 minutos.
 - **Hipótese:** se a batida for instalada e vigiada pelo próprio ork, se a falha de despacho virar retry automático com o prompt gravado e se as superfícies só disserem "sigo" quando há sessão viva, então nenhuma parada passa despercebida, porque cada camada que hoje falha em silêncio passa a ter dono, prazo e canal.
 - **Métrica principal / linha de base / meta / janela / fonte:** minutos entre a parada (última sessão viva ou última batida) e o aviso ao dono. Linha de base: 13.300 min (03/10 08:52 a 12/10 06:00, sem batida) e 318 min (K7 com o despacho morto). Meta: ≤ 30 min. Janela: 14 dias. Fonte: `ork ledger stats` e o `hitl.log` da varredura.
@@ -105,6 +106,11 @@ Proposta para a VPS incluir na RM-059 ou conduzir aqui, o que o dono decidir:
 - **Entregáveis e critérios de aceite:** cada frente acima, com a prova da tabela; o critério do item é o ensaio de parada: matar o daemon do runtime no meio de um GO e confirmar que o dono recebe o aviso e a fase volta a andar em até 30 minutos, sem intervenção.
 - **Piloto, medição e critérios de expansão/interrupção:** 14 dias no maquina-b e na VPS; interrompe se o canal do dono receber mais de um resumo por varredura.
 
+### Acréscimo de 27/11/2026, não entregue
+
+- **Incluído:** o resumo só oferece merge quando o PR não está em rascunho, os checks exigidos estão verdes e o CHECK aprovou o mesmo HEAD; nos demais estados, ele informa o bloqueio real sem transformar trabalho do condutor em ação do dono.
+- **Critério de aceite:** PR em rascunho, CI vermelho ou CHECK pedindo mudança nunca aparece como oferta de merge nem aumenta a contagem de decisões pendentes do dono.
+
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** P0 por pedido do dono de 12/10/2026; a fábrica parada custa todo o resto do roadmap.
@@ -123,13 +129,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
-| Documentação | Em revisão | — | 2026-11-26 | Julio |
-| Código | Mesclado | commit `adc973d` · PR #144 | 2026-11-26 | Julio |
-| Testes | Em execução | — | 2026-11-26 | Julio |
-| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-11-26 | Julio |
-| Exposição | Parcial | — | 2026-11-26 | Julio |
-| Habilitação | Em andamento | — | 2026-11-26 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Julio |
+| Documentação | Em revisão | — | 2026-11-27 | Julio |
+| Código | Mesclado | commit `adc973d` · PR #144 | 2026-11-27 | Julio |
+| Testes | Em execução | — | 2026-11-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (F4, F6, F7 e H1 a H4), @orkastery/cli no npm | 2026-11-27 | Julio |
+| Exposição | Parcial | — | 2026-11-27 | Julio |
+| Habilitação | Em andamento | — | 2026-11-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -152,3 +158,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-27 | Fatias 2 e 3 em produção na 0.6.0; exposição Parcial e habilitação Em andamento, porque os mods M1 a M5 seguem | Tag `v0.6.0`, com os merges `babe9d48` (#154) e `45ecc51a` (#163) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-11-23 | Próxima evolução da autorização durável fundida na RM-092 | Contrato único de escopo, validade, canal e prova aprovado no realinhamento | Julio |
 | 2026-11-26 | Escopo ampliado com F8 para encerramento e diagnóstico das árvores do sandbox; a causa da recomendação prematura foi domiciliada na RM-077, consumida por esta página | Achados da condução da versão 0.6.11 sobre `roadmap status` e processos `codex-linux-sandbox` órfãos | sessão GO `ork-achados0611` (#Fast) |
+| 2026-11-27 | Escopo ampliado para impedir oferta de merge antes de PR, CI e CHECK estarem aptos | Resumo de 26/11/2026 ofereceu merge de PR em rascunho com CI vermelho e CHECK pedindo mudança | sessão GO `ork-achadosdacon` (#Fast) |

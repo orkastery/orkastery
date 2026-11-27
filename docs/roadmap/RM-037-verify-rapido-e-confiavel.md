@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014, FEAT-020]
 owner: Julio
-atualizado_em: 2026-11-23T11:13:58-03:00
+atualizado_em: 2026-11-27T16:45:00-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -57,6 +57,12 @@ As fatias publicadas continuam registradas nesta página. Em 23/11/2026, as pend
 - **Linha de base:** A definir — agente da thread, no PLAN revisado.
 
 ## Escopo e validação
+
+### Acréscimo de 27/11/2026, não entregue
+
+- **Evidências e fonte:** na F7 da RM-089, em 26/11/2026, um erro MD022 só apareceu no CI de documentação porque os comandos do manifesto não executavam o markdownlint. Em 27/11/2026, `checar-changelog --base main` e `docs verificar --pr` leram uma `main` local atrasada e reprovaram uma candidata que estava em dia com `origin/main`.
+- **Incluído:** executar no verify local o mesmo markdownlint do CI de documentação; resolver a ponta atual da base para `checar-changelog` e `docs verificar --pr`; recusar com causa tipada quando a base local estiver atrás e a ponta remota não puder ser conferida. Este acréscimo trata paridade de execução e de base, não o diagnóstico já domiciliado na [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md).
+- **Critérios de aceite:** o mesmo erro MD022 reprova o verify local e o CI de documentação; uma `main` local atrasada não produz falso negativo nem falso positivo, porque a checagem usa a ponta remota conferida ou recusa com causa tipada antes de comparar.
 
 - **Já entregue:** T5 (a árvore inteira morre no estouro do teto), merge `8f02f44` de 22/09/2026.
 - **Defeitos de 27/09 a 01/10/2026 (thread `ork-rm037fatia3d`, fatia 3):** sete defeitos, cada um reproduzido com prova antes do código. Os seis que reproduziam na 0.5.0 têm teste `core/test/rm037-fatia3-*.test.ts` que reprova o código anterior:
@@ -168,13 +174,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-11-23 | Julio |
-| Documentação | Em revisão | — | 2026-11-23 | Julio |
-| Código | Mesclado | commit `aa3681f` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-11-23 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-11-23 | Julio |
-| Deploy | Produção | release: v0.6.0 (as esperas, a saída completa, os defeitos de 19 e 20/10 e os tipos do motor), v0.5.0 (PR | 2026-11-23 | Julio |
-| Exposição | Parcial | — | 2026-11-23 | Julio |
-| Habilitação | Em andamento | — | 2026-11-23 | Julio |
+| Ciclo do item | Piloto | — | 2026-11-27 | Julio |
+| Documentação | Em revisão | — | 2026-11-27 | Julio |
+| Código | Mesclado | commit `aa3681f` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-11-27 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-11-27 | Julio |
+| Deploy | Produção | release: v0.6.0 (as esperas, a saída completa, os defeitos de 19 e 20/10 e os tipos do motor), v0.5.0 (PR | 2026-11-27 | Julio |
+| Exposição | Parcial | — | 2026-11-27 | Julio |
+| Habilitação | Em andamento | — | 2026-11-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -208,3 +214,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | teste instável do lease da sucessora (B-1 de `rm037-baseline-no-despacho`, run 37096532937 no Node 22): corrida com o watcher destacado, reproduzida com atraso injetado e consertada lendo a identidade no lease depois do fim da sessão; 50 rodadas seguidas sob carga na claim | thread `ork-rm037testede`, decisões e claims no ledger | Julio |
 | 2026-10-27 | Esperas, saída completa, testes instáveis, snapshot com sha só de letras, defeitos de 19 e 20/10 e tipos do motor em produção na 0.6.0; o ciclo segue Piloto | Tag `v0.6.0`, com os merges `08cbd5ff` (#158), `927f9daf` (#170), `6abb3ba3`, `f0396f69` (#179), `69f40775` (#182), `aa3681fe` (#185) e `cca7f904` (#195) na tag; seção 0.6.0 do CHANGELOG, de 26/10/2026 | thread `ork-docsda060emp` (#Fast), pelo pedido do dono |
 | 2026-11-23 | Pendências de diagnóstico e evidência consolidadas na RM-080; entregas publicadas permanecem nesta página | Realinhamento aprovado pelo dono | Julio |
+| 2026-11-27 | Escopo ampliado para paridade do markdownlint e comparação contra a ponta atual da base | Achados da condução de 26 e 27/11/2026: MD022 só no CI e checagens contra `main` local atrasada | sessão GO `ork-achadosdacon` (#Fast) |

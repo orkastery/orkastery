@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-11-26T09:50:38-03:00
+atualizado_em: 2026-11-27T16:45:00-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
@@ -46,6 +46,7 @@ A [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) consome esse contrato 
 
 - **Público e problema/oportunidade:** diferentes superfícies provam a vontade do dono com campos e limites próprios. Isso dificulta conferir alcance, validade, revogação e autoria sem ampliar a resposta por inferência.
 - **Evidências e fonte:** incidentes B2, B6 e B7 da RM-090 mostraram nomes sem ratificação exata; a RM-063 propôs autorização durável; a RM-058 usa envelope próprio; a nota do MASTER exige prova de origem humana. O dono aprovou a consolidação em 23/11/2026. Em 26/11/2026, um verify só de claims encerrou uma autorização nominal dada pela resposta curta `b`, e a pergunta seguinte ao dono omitiu o achado anterior do mesmo SHA; a [RM-068](RM-068-security-scan-no-check.md) registra a mesma dívida como A59 e A60.
+  - Em 27/11/2026, a decisão de classe 2 sobre o nome público de um comando foi levada ao dono pelo canal da condução, sem pedido tipado no núcleo. Enquanto a decisão estava pendente, o resumo periódico informou `Esperando você: 0`.
 - **Objetivo/OKR:** uma mesma regra verificável autoriza decisão, contrato ou ação em qualquer modo e canal, sem que agente, transporte ou consumidor invente alcance.
 - **Hipótese:** se escopo, validade, canal e prova forem obrigatórios e ligados à mesma pergunta, então cada consumidor consegue aceitar somente o que o dono viu e rejeitar replay, alteração e extensão.
 - **Métrica principal / linha de base / meta / janela / fonte:** razão entre autorizações consumidas com todos os campos conferidos e tentativas de consumo. A linha de base será medida no piloto; a fonte é o recibo e o resultado de cada consumidor.
@@ -53,9 +54,9 @@ A [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) consome esse contrato 
 
 ## Escopo e validação
 
-- **Incluído:** pergunta no padrão da [RM-048](RM-048-hitl-humano-no-centro.md); escopo exato; validade temporal e condicional; canal autenticado; prova da autoria e do vínculo com a pergunta; política de uso único ou reutilização declarada; revogação; recibo de consumo; adaptação das quatro autorizações consolidadas; consumo condicionado ao efeito autorizado, de modo que verify só de claims não encerra autorização de cobertura do security scan; nova pergunta para o mesmo SHA inclui o último achado ainda relevante.
+- **Incluído:** pergunta no padrão da [RM-048](RM-048-hitl-humano-no-centro.md); escopo exato; validade temporal e condicional; canal autenticado; prova da autoria e do vínculo com a pergunta; política de uso único ou reutilização declarada; revogação; recibo de consumo; adaptação das quatro autorizações consolidadas; consumo condicionado ao efeito autorizado, de modo que verify só de claims não encerra autorização de cobertura do security scan; nova pergunta para o mesmo SHA inclui o último achado ainda relevante; toda decisão de classe 2 abre pedido tipado no núcleo, aparece como pendência do dono enquanto estiver aberta e é apresentada pela sessão condutora sem a sessão filha assumir a identidade do dono.
 - **Fora de escopo:** autorizar por argumento de ferramenta; resposta de agente; permissão genérica sem validade; inferir nomes ou parâmetros; executar a ação; decidir nesta página nomes públicos de comandos, eventos, schemas ou arquivos.
-- **Entregáveis e critérios de aceite:** os quatro casos consolidados produzem a mesma forma canônica; consumidor aceita somente escopo idêntico e validade vigente; proposta alterada, canal sem prova, replay proibido e autorização revogada são recusados com motivo; uma recusa não invalida trabalho independente; verify só de claims preserva a autorização nominal do scan; uma nova pergunta do mesmo SHA cita o achado anterior que ainda não foi superado.
+- **Entregáveis e critérios de aceite:** os quatro casos consolidados produzem a mesma forma canônica; consumidor aceita somente escopo idêntico e validade vigente; proposta alterada, canal sem prova, replay proibido e autorização revogada são recusados com motivo; uma recusa não invalida trabalho independente; verify só de claims preserva a autorização nominal do scan; uma nova pergunta do mesmo SHA cita o achado anterior que ainda não foi superado; decisão de classe 2 pendente aparece no resumo e não pode existir somente no canal da condução.
 - **Piloto, medição e critérios de expansão/interrupção:** piloto com ratificação de contrato e nota do MASTER, depois autorização durável e #Noctum. Expandir para RM-093 somente quando uso único, revogação e recibo de consumo estiverem provados. Interromper se houver extensão por inferência ou autoria inconclusiva.
 
 ### Campos do contrato único
@@ -109,13 +110,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-26 | Julio |
-| Documentação | Rascunho | — | 2026-11-26 | Julio |
-| Código | Não iniciado | — | 2026-11-26 | Julio |
-| Testes | Não iniciados | — | 2026-11-26 | Julio |
-| Deploy | Não implantado | — | 2026-11-26 | Julio |
-| Exposição | Flag desligada | — | 2026-11-26 | Julio |
-| Habilitação | Pendente | — | 2026-11-26 | Julio |
+| Ciclo do item | Discovery | — | 2026-11-27 | Julio |
+| Documentação | Rascunho | — | 2026-11-27 | Julio |
+| Código | Não iniciado | — | 2026-11-27 | Julio |
+| Testes | Não iniciados | — | 2026-11-27 | Julio |
+| Deploy | Não implantado | — | 2026-11-27 | Julio |
+| Exposição | Flag desligada | — | 2026-11-27 | Julio |
+| Habilitação | Pendente | — | 2026-11-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -130,3 +131,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-12 | RM-092 criada para ratificação autenticada de contrato público | Resposta `1a` e incidentes B2, B6 e B7 da RM-090 | Julio |
 | 2026-11-23 | Escopo consolidado em autorização única e item movido para filho da RM-048 | Realinhamento aprovado; RM-063 F7, envelope do #Noctum, ratificação e MASTER deixam de manter contratos concorrentes | Julio |
 | 2026-11-26 | Consumo da autorização fica preso ao efeito autorizado e a pergunta seguinte preserva o achado anterior do mesmo SHA | Achado da condução da versão 0.6.11 e dívidas A59 e A60 registradas na RM-068 | sessão GO `ork-achados0611` (#Fast) |
+| 2026-11-27 | Escopo ampliado para toda decisão de classe 2 nascer como pedido tipado e aparecer no resumo enquanto pendente | Pergunta sobre nome público feita fora do núcleo em 27/11/2026 deixou `Esperando você: 0` | sessão GO `ork-achadosdacon` (#Fast) |
