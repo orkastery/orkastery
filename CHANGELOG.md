@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Commit do bundle de CI pelo MCP (RM-101):** `ork ci prepare` liga o bundle à thread, ao HEAD e à rodada verde que o produziu. `ork_git_commit` aceita somente esse artefato derivado sem claim artificial, confere os bytes antes do efeito e mantém a exigência de claim para qualquer outro arquivo.
+
 ## [0.6.12] - 2026-11-27
 
 A 0.6.12 entrega a F7 da RM-089: o motor e as portas para que só a fábrica publique o resultado que decide o merge, no GitHub e no GitLab. Com ela, as sete fatias da RM-089 estão entregues.

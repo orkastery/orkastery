@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-26T09:50:38-03:00
+atualizado_em: 2026-11-27T07:05:25-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,10 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm101bundled
+  modo: Fast
+  fase: GO
+  status: aberta
 ---
 
 # RM-101 — Commit do bundle de CI pelo MCP
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -62,7 +64,7 @@ sdlc:
 
 ## Estado com evidências
 
-O item registra um achado da condução. Não há código, teste, deploy ou habilitação desta capacidade.
+A branch da thread implementa o contrato de derivação no preparo, a conferência estreita no commit MCP e as recusas antes do efeito. A suíte dedicada cobre o caminho aceito, o arquivo comum sem claim e bundles ausentes, alterados, ligados a outro HEAD, a outra thread ou a uma rodada não verde. Merge, deploy e habilitação continuam fora desta entrega.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -70,22 +72,23 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-26 | Condução do roadmap |
-| Documentação | Rascunho | — | 2026-11-26 | Condução do roadmap |
-| Código | Não iniciado | — | 2026-11-26 | Condução do roadmap |
-| Testes | Não iniciados | — | 2026-11-26 | Condução do roadmap |
-| Deploy | Não implantado | — | 2026-11-26 | Condução do roadmap |
-| Exposição | Flag desligada | — | 2026-11-26 | Condução do roadmap |
-| Habilitação | Pendente | — | 2026-11-26 | Condução do roadmap |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Condução do roadmap |
+| Documentação | Em revisão | — | 2026-11-27 | Condução do roadmap |
+| Código | Branch criada | — | 2026-11-27 | Condução do roadmap |
+| Testes | Em execução | — | 2026-11-27 | Condução do roadmap |
+| Deploy | Não implantado | — | 2026-11-27 | Condução do roadmap |
+| Exposição | Flag desligada | — | 2026-11-27 | Condução do roadmap |
+| Habilitação | Pendente | — | 2026-11-27 | Condução do roadmap |
 
 <!-- ork-docs:estado:fim -->
 
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: futura thread do item; A: condução do roadmap; C: manutenção de claims, verify, CI e MCP; I: builders que fecham GO pelo transporte MCP.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO registrou a proposta e seu critério; nenhuma implementação ou exceção de claim foi autorizada.
-- **Próxima ação, responsável e prazo:** priorizar ou estacionar a proposta no roadmap; responsável: condução do roadmap; sem prazo declarado.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO implementa a fatia em modo Fast e registra as decisões autônomas no ledger. A revisão independente não é presumida nesta fase.
+- **Próxima ação, responsável e prazo:** concluir o verify oficial e registrar o bundle pelo caminho MCP entregue; responsável: thread `ork-rm101bundled`; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-26 | Proposta registrada em Discovery | Achado da condução de 25 e 26/11/2026: o bundle oficial foi recusado pelo MCP com `mcp.git.claim.missing` | sessão GO `ork-achados0611` (#Fast) |
+| 2026-11-27 | Implementação iniciada na thread `ork-rm101bundled` | Contrato de derivação, guarda estreita do commit MCP e suíte dedicada na branch da thread | sessão GO (#Fast) |
