@@ -6,6 +6,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.6.13] - 2026-11-27
+
+A 0.6.13 torna estável a impressão digital de uniões de tipos equivalentes e impede que o security scan estoure com relatório grande (RM-102). Sem claim artificial, o MCP passa a commitar somente o bundle de CI derivado da rodada verde, preso aos bytes conferidos; os demais arquivos seguem exigindo claim (RM-101).
+
+O #Noctum segue **em desenvolvimento, não anunciado**.
+
 ### Corrigido
 
 - **Commit do bundle de CI pelo MCP (RM-101):** `ork ci prepare` liga o bundle à thread, ao HEAD e à rodada verde que o produziu. `ork_git_commit` aceita somente esse artefato derivado sem claim artificial, confere os bytes antes do efeito e mantém a exigência de claim para qualquer outro arquivo.

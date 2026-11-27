@@ -10,7 +10,7 @@
 
 ## Prioridade aprovada em 23/11/2026
 
-A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A RM-089 não disputa mais essa ordem: a F7 foi mesclada pelo PR #307 depois das threads das issues #302, #299, #303 e #304, nessa sequência, e sai na 0.6.12, com as sete fatias entregues.
+A tabela única substitui as listas anteriores e ordena o realinhamento pelas frentes A a D. As frentes A e B começam em paralelo. Dentro da frente C, a RM-071 decide a ordem entre RM-064, RM-076 e RM-077 pelo gargalo medido. A RM-089 não disputa mais essa ordem: a F7 foi mesclada pelo PR #307 depois das threads das issues #302, #299, #303 e #304, nessa sequência, e saiu na 0.6.12, publicada no npm, com as sete fatias entregues.
 
 | Ordem | Frente | Itens | Resultado que libera a próxima etapa |
 | --- | --- | --- | --- |
@@ -129,7 +129,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-096](RM-096-nucleo-portatil-no-macos.md) | Núcleo portátil no macOS | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-26 |
 | [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) | Resolução de tipos no worktree do security scan | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-25 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
-| [RM-101](RM-101-commit-do-bundle-de-ci-pelo-mcp.md) | Commit do bundle de CI pelo MCP | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-27 |
-| [RM-102](RM-102-security-scan-estavel-com-relatorio-grande.md) | Security scan estável com relatório grande | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-11-27 |
+| [RM-101](RM-101-commit-do-bundle-de-ci-pelo-mcp.md) | Commit do bundle de CI pelo MCP | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-27 |
+| [RM-102](RM-102-security-scan-estavel-com-relatorio-grande.md) | Security scan estável com relatório grande | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-27 |
 
 <!-- ork-docs:indice:fim -->

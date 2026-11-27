@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-27T01:49:08-03:00
+atualizado_em: 2026-11-27T13:01:17-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 65cb35e
+    pr: 310
 sdlc:
   thread: ork-rm102securit
   modo: fast
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-102 — Security scan estável com relatório grande
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -57,14 +57,14 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** item priorizado pela condução na versão 0.6.11 e executado pela thread aberta `ork-rm102securit`; sem pontuação registrada.
-- **Horizonte / alvo / previsão / confiança / marcos:** em desenvolvimento, sem previsão. A reprodução, a ingestão segura, a identidade canônica e o teste de processo foram implementados; o estado de validação acompanha o HEAD da thread.
+- **Horizonte / alvo / previsão / confiança / marcos:** implementação concluída, mesclada na `main` pelo PR #310 (merge `65cb35ef`) e incluída na 0.6.13. A validação foi concluída pelo verify e pelo CHECK da thread.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-068](RM-068-security-scan-no-check.md) para o motor do scan e [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) para manter separada a resolução de tipos; owner: thread `ork-rm102securit`; revisão após o verify oficial da correção.
 - **Premissas / riscos / mitigação:** canonicalização ampla pode colidir mensagens; a transformação será restrita à estrutura comprovadamente comutativa e terá casos negativos. O teste de processo pode depender do escalonador; o harness observará eventos e estados explícitos, não uma espera incidental.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** a sessão GO `ork-achados0611` separou este item da RM-097 para não duplicar a resolução de tipos e manter juntas as falhas de estabilidade da rodada. A decisão está registrada no ledger da thread.
 
 ## Estado com evidências
 
-A implementação está na branch da thread, com prova focal para os modos Classic e Agile e com o teste de encerramento preservado. O estado de validação é determinado pelo verify e pelo CHECK do HEAD da thread.
+A implementação foi mesclada na `main` pelo PR #310 (merge `65cb35ef`) e sai na 0.6.13, com prova focal para os modos Classic e Agile e com o teste de encerramento preservado. A validação foi determinada pelo verify e pelo CHECK do HEAD entregue.
 
 Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica precisam ser refeitas uma vez, porque a impressão digital passa a usar a forma canônica.
 
@@ -76,7 +76,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Condução do roadmap |
 | Documentação | Em revisão | — | 2026-11-27 | Condução do roadmap |
-| Código | Branch criada | — | 2026-11-27 | Condução do roadmap |
+| Código | Mesclado | commit `65cb35e` · PR #310 | 2026-11-27 | Condução do roadmap |
 | Testes | Em execução | — | 2026-11-27 | Condução do roadmap |
 | Deploy | Não implantado | — | 2026-11-27 | Condução do roadmap |
 | Exposição | Flag desligada | — | 2026-11-27 | Condução do roadmap |
@@ -88,7 +88,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: thread `ork-rm102securit`; A: condução do roadmap; C: manutenção do security scan e revisão independente; I: mantenedores do núcleo.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a thread `ork-rm102securit` implementou o escopo em modo #Fast; o CHECK independente pediu correções de agregação, prova e documentação, aplicadas neste GO sem ampliar a resolução de tipos da RM-097.
-- **Próxima ação, responsável e prazo:** executar o verify oficial no HEAD corrigido e devolver o resultado ao CHECK independente; responsável: thread `ork-rm102securit`; sem prazo declarado.
+- **Próxima ação, responsável e prazo:** publicar a 0.6.13; exposição e habilitação seguem pendentes; responsável: condução do roadmap; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -98,3 +98,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-27 | Correções do CHECK aplicadas nos commits `deac7525` e `a4ebf235` | A agregação deixou de espalhar coleções dependentes da entrada e a prova passou a percorrer os modos Classic e Agile com cache anterior e casos negativos | thread `ork-rm102securit` (#Fast) |
 | 2026-11-27 | Rodada 2 do CHECK revisou o commit `8c61a5f8` e pediu mudanças | O bloqueador ficou no relatório Markdown; os avisos pediram controles positivos, casos negativos, prova de grupo grande e atualização desta página | thread `ork-rm102securit` (#Fast) |
 | 2026-11-27 | Correção do relatório aplicada no commit `d9ee8baa` | O relatório Markdown deixou de espalhar achados e caminhos excluídos dependentes da entrada | thread `ork-rm102securit` (#Fast) |
+| 2026-11-27 | Implementação mesclada na `main` e incluída na 0.6.13 | PR #310, merge `65cb35ef`; seção 0.6.13 do CHANGELOG | thread `ork-rm102securit` na entrega; thread `ork-versao0613` na versão |
