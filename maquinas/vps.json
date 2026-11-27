@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.13",
-  "publicadoEm": "2026-11-27T19:18:56.447Z",
+  "publicadoEm": "2026-11-27T19:36:23.679Z",
   "threads": [
     {
       "id": "ork-achadosdacon",
@@ -14,18 +14,18 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-achadosdacon-go",
-      "atualizadaEm": "2026-11-27T19:18:52.061Z",
+      "atualizadaEm": "2026-11-27T19:36:22.946Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-27T19:18:55.959Z",
-        "motivo": "nenhuma sessão despachada na fase GO"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
