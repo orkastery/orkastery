@@ -231,9 +231,63 @@ for (const localAtualizada of [false, true]) {
     assert.ok(gate);
     assert.deepEqual(entrega && { mergeSha: entrega.mergeSha, shaRemoto: entrega.shaRemoto,
       pushVerificado: entrega.pushVerificado }, { mergeSha, shaRemoto: mergeSha, pushVerificado: true });
+    assert.match(String(entrega?.fonteDaProva), /ls-remote .* igual ao merge; GitLab API merge request 5/);
     f.projeto.limpar();
   });
 }
+
+test('ship registra quando a ponta do destino avançou e contém o merge GitLab', () => {
+  let mergeObservado = '';
+  const f = casoGitlab('destino-avancou', (branch, head) => [mr(branch, head, 'merged', 77, 5, mergeObservado)]);
+  const { mergeSha } = mesclarNoDestinoRemoto(f, true);
+  mergeObservado = mergeSha;
+  const ponta = commitar(f.projeto.dir, 'depois-do-merge.md', '# destino avançou\n', 'avança destino depois do merge');
+  assert.equal(exec('git', ['push', 'origin', 'main'], f.projeto.dir).ok, true);
+
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+
+  assert.equal(resultado.ok, true, resultado.detalhe);
+  assert.equal(resultado.mergeSha, mergeSha);
+  assert.equal(resultado.shaRemoto, ponta);
+  assert.equal(resultado.pontaDaBase, ponta);
+  const entrega = lerLedger(dirThread(f.projeto.dir, f.thread.id)).find((e) => e.tipo === 'ship_done');
+  assert.deepEqual(entrega && { mergeSha: entrega.mergeSha, shaRemoto: entrega.shaRemoto,
+    pontaDaBase: entrega.pontaDaBase, pushVerificado: entrega.pushVerificado },
+  { mergeSha, shaRemoto: ponta, pontaDaBase: ponta, pushVerificado: true });
+  assert.match(String(entrega?.fonteDaProva), new RegExp(`git merge-base --is-ancestor ${mergeSha} ${ponta}`));
+  f.projeto.limpar();
+});
+
+test('ship recusa sem registro quando a ponta remota não contém o merge informado pela API GitLab', () => {
+  const f = casoGitlab('remoto-sem-merge', (branch, head) => [mr(branch, head, 'merged', 77, 5, head)]);
+
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.motivo, 'runtime.unavailable');
+  assert.match(resultado.detalhe, /ponta não provou conter o merge GitLab/);
+  const eventos = lerLedger(dirThread(f.projeto.dir, f.thread.id));
+  assert.equal(eventos.filter((e) => e.tipo === 'gate_passed' && e.gate === 'ship').length, 0);
+  assert.equal(eventos.filter((e) => e.tipo === 'ship_done').length, 0);
+  f.projeto.limpar();
+});
+
+test('dry-run GitLab não grava gate nem entrega depois de provar o merge remoto', () => {
+  let mergeObservado = '';
+  const f = casoGitlab('dry-run-sem-registro', (branch, head) => [mr(branch, head, 'merged', 77, 5, mergeObservado)]);
+  mergeObservado = mesclarNoDestinoRemoto(f, false).mergeSha;
+
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs, dryRun: true });
+
+  assert.equal(resultado.ok, true, resultado.detalhe);
+  const eventos = lerLedger(dirThread(f.projeto.dir, f.thread.id));
+  assert.equal(eventos.filter((e) => e.tipo === 'gate_passed' && e.gate === 'ship').length, 0);
+  assert.equal(eventos.filter((e) => e.tipo === 'ship_done').length, 0);
+  f.projeto.limpar();
+});
 
 test('ship devolve SHA divergente no primeiro retrato GitLab', () => {
   const f = casoGitlab('sha-divergente', (branch) => [mr(branch, 'f'.repeat(40), 'merged')], 1500);
@@ -301,18 +355,21 @@ test('dry-run consulta o GitLab uma vez sem esperar o prazo', () => {
 
 test('API GitLab pelo rodarCli preserva prazo útil no fim da espera e no dry-run', () => {
   const casos = [
-    { nome: 'h0', estado: 'merged' as const, prazo: 3000, dryRun: false, ok: true },
-    { nome: 'h1', estado: 'opened' as const, prazo: 3000, dryRun: false, ok: false },
-    { nome: 'h2', estado: 'merged' as const, prazo: 3000, dryRun: true, ok: true },
-    { nome: 'h3', estado: 'opened' as const, prazo: 3000, dryRun: true, ok: false },
+    { nome: 'h0', estado: 'merged' as const, prazo: 3000, dryRun: false, ok: true, atraso: 150 },
+    { nome: 'h1', estado: 'opened' as const, prazo: 3000, dryRun: false, ok: false, atraso: 150 },
+    { nome: 'h2', estado: 'merged' as const, prazo: 3000, dryRun: true, ok: true, atraso: 150 },
+    { nome: 'h3', estado: 'opened' as const, prazo: 3000, dryRun: true, ok: false, atraso: 150 },
+    { nome: 'h4', estado: 'opened' as const, prazo: 3000, dryRun: false, ok: false, atraso: 1500 },
+    { nome: 'h5', estado: 'merged' as const, prazo: 3000, dryRun: true, ok: true, atraso: 1500 },
   ];
   for (const caso of casos) {
     let mergeObservado = '';
     const f = casoGitlab(`executor-${caso.nome}`, () => []);
     if (caso.estado === 'merged') mergeObservado = mesclarNoDestinoRemoto(f, false).mergeSha;
     const binario = glabFalso([mr(f.branch, f.head, caso.estado, caso.estado === 'merged' ? 77 : 0, 5,
-      mergeObservado || 'c'.repeat(40))], 150);
-    const sonda = rodarCli({ cmd: 'glab', args: [], prazoMs: 1000, maxBuffer: 1024 * 1024, binario, reduzido: true });
+      mergeObservado || 'c'.repeat(40))], caso.atraso);
+    const sonda = rodarCli({ cmd: 'glab', args: [], prazoMs: caso.atraso + 500,
+      maxBuffer: 1024 * 1024, binario, reduzido: true });
     assert.match(sonda.stdout, /^HTTP\/1\.1 200 OK/);
     const prazos: number[] = [], erros: string[] = [];
     const porta = criarPortaDaFabricaNoShip(f.projeto.carregado, { resolver: () => forjaGitlab,
@@ -334,7 +391,9 @@ test('API GitLab pelo rodarCli preserva prazo útil no fim da espera e no dry-ru
       if (!caso.ok) assert.equal(resultado.codigo, 'ship.fabrica.merge-pendente');
       assert.ok(prazos.length >= 1);
       assert.ok(prazos.every((prazo) => prazo >= 1000), prazos.join(','));
-      assert.deepEqual(erros, []);
+      if (caso.nome === 'h4') assert.ok(erros.length >= 1);
+      else assert.deepEqual(erros, []);
+      if (caso.nome === 'h5') assert.equal(prazos[0], caso.prazo);
     } finally {
       fs.rmSync(binario, { force: true });
       f.projeto.limpar();

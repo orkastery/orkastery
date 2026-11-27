@@ -18,6 +18,8 @@ export interface ConsultaDaFabricaNoShip {
   head: string;
   ci: Pick<ResultadoCi, 'state'>;
   prazoMs: number;
+  /** Prazo da primeira leitura quando a operação não deve entrar no laço, como no dry-run. */
+  prazoDaPrimeiraLeituraMs?: number;
 }
 
 export type ResultadoDaFabricaNoShip = { ok: true; entrada: EntradaDoShipComFabrica } |
@@ -98,8 +100,10 @@ function consultarGitlab(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaD
   for (;;) {
     const antesDaLeitura = agoraMs();
     if (!primeiraLeitura && antesDaLeitura >= fim) return pendente();
+    const prazoDaLeitura = primeiraLeitura && c.prazoDaPrimeiraLeituraMs !== undefined
+      ? c.prazoDaPrimeiraLeituraMs : fim - antesDaLeitura;
     const lidos = pedidosDaBranchGitlab({ repositorio: forja.repo, base: c.destino, branch: c.origem,
-      prazoMs: Math.max(PRAZO_MINIMO_DA_LEITURA_GITLAB_MS, fim - antesDaLeitura), api });
+      prazoMs: Math.max(PRAZO_MINIMO_DA_LEITURA_GITLAB_MS, prazoDaLeitura), api });
     primeiraLeitura = false;
     if (lidos.erro) {
       if (c.prazoMs > 0 && agoraMs() >= fim) return pendente();

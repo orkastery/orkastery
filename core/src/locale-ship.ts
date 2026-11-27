@@ -109,6 +109,9 @@ export const SHIP_PT_BR = {
     `ork ship registrar-pr ${thread}. O merge local na base não chegou ao remoto`,
   pushSemProva: (sha: string | null, ponta: string) => `ls-remote devolveu ${sha ?? '(nada)'} e o destino local esta em ${ponta}: o push nao ficou provado`,
   pushSemProvaCorrecao: 'rode o ship de novo e confira o remoto',
+  mergeGitlabSemProva: (sha: string | null, merge: string) =>
+    `ls-remote devolveu ${sha ?? '(nada)'} e essa ponta não provou conter o merge GitLab ${merge}`,
+  mergeGitlabSemProvaCorrecao: 'confira a ponta do remoto e a leitura do merge GitLab',
   // ci.ts: o detalhe da consulta ao CI (vai ao ledger dentro da evidencia do ship)
   ciNaoExigidoDetalhe: 'gate de CI não exigido pelo manifesto',
   ciRemotoNaoGithub: (remoto: string) => `remoto ${remoto} não é um repositório GitHub reconhecível, nem GitLab`,
@@ -446,6 +449,9 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     `ork ship registrar-pr ${thread}. The local merge on the base did not reach the remote`,
   pushSemProva: (sha, ponta) => `ls-remote returned ${sha ?? '(nothing)'} and the local target is at ${ponta}: the push was not proven`,
   pushSemProvaCorrecao: 'run ship again and check the remote',
+  mergeGitlabSemProva: (sha, merge) =>
+    `ls-remote returned ${sha ?? '(nothing)'} and that tip did not prove it contains GitLab merge ${merge}`,
+  mergeGitlabSemProvaCorrecao: 'check the remote tip and the GitLab merge reading',
   ciNaoExigidoDetalhe: 'CI gate not required by the manifest',
   ciRemotoNaoGithub: (remoto) => `remote ${remoto} is not a recognizable GitHub repository, nor a GitLab one`,
   ciHostSemLogin: (host) => `gh is not logged in to ${host}: CI on that host was not queried`,

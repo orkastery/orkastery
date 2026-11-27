@@ -438,6 +438,22 @@ function shaNoRemotoFixado(f: RemotoFixado, branch: string): string | null {
   return shaDoLsRemote(gitDoRemotoFixado(f, ['ls-remote', '--', f.url, `refs/heads/${branch}`], 120000), branch);
 }
 
+/** Busca a ponta observada sem mover refs locais e prova que ela contém o merge informado pela fábrica. */
+function pontaRemotaContemMerge(dir: string, remoto: string, ponta: string, mergeSha: string,
+  config: readonly string[]): boolean {
+  const nome = exigirRemoto(remoto, 'ship');
+  const busca = exec('git', [...configDoRemotoValida(config), 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head',
+    '--no-recurse-submodules', '--', nome, ponta], dir, 120000);
+  return busca.ok && exec('git', ['merge-base', '--is-ancestor', mergeSha, ponta], dir, 30000).ok;
+}
+
+/** A mesma prova no gitdir privado do transporte fixado. */
+function pontaRemotaFixadaContemMerge(f: RemotoFixado, ponta: string, mergeSha: string): boolean {
+  const busca = gitDoRemotoFixado(f, ['fetch', '--quiet', '--no-tags', '--no-write-fetch-head',
+    '--no-recurse-submodules', '--', f.url, ponta], 120000);
+  return busca.ok && gitDoRemotoFixado(f, ['merge-base', '--is-ancestor', mergeSha, ponta], 30000).ok;
+}
+
 function shaDoLsRemote(r: { ok: boolean; stdout: string }, branch: string): string | null {
   if (!r.ok) return null;
   // RM-059 (S1 da revisao da ork-rm059pista): o padrao do ls-remote casa por sufixo; vale so a linha da ref exata.
@@ -814,7 +830,8 @@ export function ship(
   const ci = consultarCi(carregado, shaDe, remoto, opcoes.executorCi);
   r.ci = ci;
   const lidaDaFabrica = opcoes.portaDaFabrica?.({ remoto, origem: de, destino: para, head: shaDe, ci,
-    prazoMs: r.dryRun ? 0 : opcoes.prazoFabricaMs ?? 120_000 });
+    prazoMs: r.dryRun ? 0 : opcoes.prazoFabricaMs ?? 120_000,
+    ...(r.dryRun ? { prazoDaPrimeiraLeituraMs: opcoes.prazoFabricaMs ?? 120_000 } : {}) });
   if (lidaDaFabrica && !lidaDaFabrica.ok) {
     return bloquear(
       'ci.failed',
@@ -879,31 +896,36 @@ export function ship(
     const mergeSha = prova?.mergeSha ?? prova?.shaMesclado ?? shaDe;
     const descricao = `GitLab MR ${prova?.numero ?? '(não informado)'} mesclado pela fábrica no SHA ${shaDe.slice(0, 8)}`;
     const passos = [descricao];
-    let shaRemoto: string | null;
+    let shaRemoto: string | null, pontaContemMerge = false;
     if (urlFixada) {
       const fixado: RemotoFixado = { gitdir: criarGitdirDoPush(raiz), ...urlFixada, config: configDoRemoto };
       try {
         shaRemoto = shaNoRemotoFixado(fixado, para);
+        if (shaRemoto && shaRemoto !== mergeSha) pontaContemMerge = pontaRemotaFixadaContemMerge(fixado, shaRemoto, mergeSha);
         passos.push(`git --git-dir=<gitdir privado> ${[...configDoRemoto, 'ls-remote', '--',
           '<origin fixado>', `refs/heads/${para}`].join(' ')}`);
       } finally { fs.rmSync(fixado.gitdir, { recursive: true, force: true }); }
     } else {
       shaRemoto = shaNoRemoto(raiz, remoto, para, configDoRemoto);
+      if (shaRemoto && shaRemoto !== mergeSha) pontaContemMerge = pontaRemotaContemMerge(raiz, remoto, shaRemoto, mergeSha,
+        configDoRemoto);
       passos.push(comConfig(['ls-remote', '--', remoto, `refs/heads/${para}`]));
     }
+    if (shaRemoto && shaRemoto !== mergeSha) passos.push(`git merge-base --is-ancestor ${mergeSha} ${shaRemoto}`);
     conferirDepoisDoPush(passos);
     r.mergeSha = mergeSha;
-    r.pontaDaBase = mergeSha;
+    r.pontaDaBase = shaRemoto ?? mergeSha;
     r.jaIncorporado = true;
     r.remoto = remoto;
     r.shaRemoto = shaRemoto;
     r.pushVerificado = shaRemoto !== null && shaRemoto === mergeSha;
+    if (!r.pushVerificado) r.pushVerificado = pontaContemMerge;
     r.passos = passos;
     if (!r.pushVerificado) {
       return bloquear(
         'runtime.unavailable',
-        textoDoCatalogo((m) => m.ship.pushSemProva(shaRemoto, mergeSha)),
-        textoDoCatalogo((m) => m.ship.pushSemProvaCorrecao)
+        textoDoCatalogo((m) => m.ship.mergeGitlabSemProva(shaRemoto, mergeSha)),
+        textoDoCatalogo((m) => m.ship.mergeGitlabSemProvaCorrecao)
       );
     }
     if (r.dryRun) return { ...r, ok: true, bloqueado: false };
@@ -913,9 +935,12 @@ export function ship(
       tipoDeAutorizacao: autorizacao.tipo,
     });
     registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
-      de, para, shaDe, shaParaAntes: shaPara, mergeSha, pontaDaBase: mergeSha, jaIncorporado: true,
+      de, para, shaDe, shaParaAntes: shaPara, mergeSha, pontaDaBase: shaRemoto, jaIncorporado: true,
       remoto, shaRemoto, pushVerificado: true,
-      fonteDaProva: `git ls-remote ${remoto} refs/heads/${para}; GitLab API merge request ${prova?.numero ?? '(não informado)'}`,
+      fonteDaProva: shaRemoto === mergeSha
+        ? `git ls-remote ${remoto} refs/heads/${para} igual ao merge; GitLab API merge request ${prova?.numero ?? '(não informado)'}`
+        : `git merge-base --is-ancestor ${mergeSha} ${shaRemoto} (ls-remote ${remoto} refs/heads/${para}); ` +
+          `GitLab API merge request ${prova?.numero ?? '(não informado)'}`,
       autorizadoPor: autorizacao.por, tipoDeAutorizacao: autorizacao.tipo,
       politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA, modo: thread.modo, tag: tagDoModo(thread.modo),
       evidencia: { verificadoNoCommit: verificacao.commit,
