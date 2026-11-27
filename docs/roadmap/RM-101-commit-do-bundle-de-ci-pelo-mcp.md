@@ -60,13 +60,13 @@ sdlc:
 - **Prioridade / método / pontuação / justificativa / data:** proposta originada na condução da versão 0.6.11; sem prioridade atribuída nesta thread. O roadmap decide a posição antes de abrir trabalho.
 - **Horizonte / alvo / previsão / confiança / marcos:** implementação em andamento na thread `ork-rm101bundled`, sem previsão de merge ou implantação. Marcos: contrato do recibo, guarda estreita no commit, provas de recusa e piloto posterior pelo MCP.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** contrato do bundle de CI, `ork ci prepare`, `ork_git_commit`, claims e verify; owner: Condução do roadmap; revisão quando o roadmap priorizar o item.
-- **Premissas / riscos / mitigação:** o ledger e as claims ficam fora do alcance de escrita da sessão, e essa fronteira sustenta o recibo de preparo. A exceção fica limitada ao path calculado, ao hash das claims da rodada, aos bytes produzidos e ao oid Git correspondente. O índice e o objeto commitado são conferidos. Uma rodada obsoleta, um recibo forjado fora dessa fronteira ou uma conversão de conteúdo são recusados.
+- **Premissas / riscos / mitigação:** o ledger, as claims, o índice, o gitdir e o marcador `.git` da worktree ficam fora do alcance de escrita da sessão. Essa fronteira sustenta o recibo de preparo. A exceção fica limitada ao path calculado, ao hash das claims ativas no commit, aos bytes produzidos e ao oid Git correspondente. O índice e o objeto commitado são conferidos. Uma rodada obsoleta, claims alteradas após a rodada, um recibo forjado fora dessa fronteira ou uma conversão de conteúdo são recusados.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** a sessão GO `ork-achados0611` separou o achado em item próprio porque o bundle é artefato derivado do fechamento, não uma alegação de produto. A decisão está registrada no ledger da thread.
 - **Continuação futura:** atualizar a descrição pública de `ork_git_commit`, as instruções das sessões e as referências em português e inglês de `ork ci prepare` num ciclo que possa alterar contrato público. Esta entrega Fast preserva esses textos.
 
 ## Estado com evidências
 
-A branch da thread implementa o contrato de derivação no preparo, incluindo o hash das claims da rodada. O commit MCP confere modo e oid no índice, commita o índice sem pathspec e confirma o objeto antes do recibo. A suíte dedicada cobre troca concorrente dos bytes, atributo `ident`, limpeza do índice nas recusas, caminhos Markdown sem claim, caminho de outra thread, commit misto, bundle alterado com claim e rodadas não verdes ou parciais. Merge, deploy, habilitação e piloto continuam fora desta entrega.
+A branch da thread implementa o contrato de derivação no preparo, incluindo o hash das claims da rodada. O commit MCP compara esse hash às claims ativas, confere modo e oid no índice, commita o índice sem pathspec, confirma o objeto e desfaz a ref se a confirmação divergir. A suíte dedicada cobre troca concorrente dos bytes e do modo, atributo `ident`, restauração do índice novo ou rastreado, caminhos Markdown sem claim, caminho de outra thread, commit misto, bundle alterado com claim e rodadas sem recibo, não verdes ou parciais. Merge, deploy, habilitação e piloto continuam fora desta entrega.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -87,7 +87,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: futura thread do item; A: condução do roadmap; C: manutenção de claims, verify, CI e MCP; I: builders que fecham GO pelo transporte MCP.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO implementa a fatia em modo Fast e registra as decisões autônomas no ledger. A revisão independente não é presumida nesta fase.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO implementa a fatia em modo Fast e registra as decisões autônomas no ledger. O histórico identifica separadamente as correções posteriores ao CHECK independente.
 - **Próxima ação, responsável e prazo:** concluir o verify oficial e o bundle final desta thread; o piloto funcional pelo MCP fica para uma thread posterior com o núcleo atualizado; responsável: condução do roadmap; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
