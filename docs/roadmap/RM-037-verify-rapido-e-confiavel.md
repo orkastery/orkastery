@@ -58,12 +58,6 @@ As fatias publicadas continuam registradas nesta página. Em 23/11/2026, as pend
 
 ## Escopo e validação
 
-### Acréscimo de 27/11/2026, não entregue
-
-- **Evidências e fonte:** na F7 da RM-089, em 26/11/2026, um erro MD022 só apareceu no CI de documentação porque os comandos do manifesto não executavam o markdownlint. Em 27/11/2026, `checar-changelog --base main` e `docs verificar --pr` leram uma `main` local atrasada e reprovaram uma candidata que estava em dia com `origin/main`.
-- **Incluído:** executar no verify local o mesmo markdownlint do CI de documentação; resolver a ponta atual da base para `checar-changelog` e `docs verificar --pr`; recusar com causa tipada quando a base local estiver atrás e a ponta remota não puder ser conferida. Este acréscimo trata paridade de execução e de base, não o diagnóstico já domiciliado na [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md).
-- **Critérios de aceite:** o mesmo erro MD022 reprova o verify local e o CI de documentação; uma `main` local atrasada não produz falso negativo nem falso positivo, porque a checagem usa a ponta remota conferida ou recusa com causa tipada antes de comparar.
-
 - **Já entregue:** T5 (a árvore inteira morre no estouro do teto), merge `8f02f44` de 22/09/2026.
 - **Defeitos de 27/09 a 01/10/2026 (thread `ork-rm037fatia3d`, fatia 3):** sete defeitos, cada um reproduzido com prova antes do código. Os seis que reproduziam na 0.5.0 têm teste `core/test/rm037-fatia3-*.test.ts` que reprova o código anterior:
   - o `ork docs verificar` acusa o item cuja thread já entrou na base e segue fora de `Mesclado` (`docs.paridade.merge`) e o índice que diverge do frontmatter (`docs.paridade.indice`); na `main` da 0.5.0 eram RM-031, RM-038, RM-051, RM-054 e o índice sem a RM-051. Escolha registrada: o verificador acusa no CI, em vez de o SHIP gravar, porque o merge é pelo GitHub e o `ship_done` vem do `ork ship registrar-pr`; no PR (`--pr`), as duas regras só avisam, e o push da `main` reprova;
@@ -108,6 +102,12 @@ As fatias publicadas continuam registradas nesta página. Em 23/11/2026, as pend
 - **Defeitos de condução de 29/09/2026 (thread `ork-rm037defeito`, PR #28, merge `baf065e`, na versão 0.5.0):** sete defeitos, cada um reproduzido com prova e com teste que reprova o código anterior: o despacho codex de bloco com GO grava a baseline antes de soltar a sessão, e a decisão autônoma tem a ferramenta MCP `ork_decision_record`; o modo de sessão (plano no PLAN, review nativo no CHECK) vale só para o bloco que termina na fase de entrada, nos dois runtimes; `ork phase run` respeita `max_parallel_threads` pelas sessões vivas do projeto, com `concurrency.limite` e `--esperar`; `ork decisao registrar` diz o campo e o teto reais; `ork ship registrar-pr --repo --pr` registra PR mesclado em repositório externo declarado em `ci.external_repositories`; `ork ci prepare` grava o bundle na worktree da thread; o teste D-6 deixa de depender de quem vence a corrida com o observador destacado.
 - **Entram (24/09/2026):** verify ciente do steal, nome do teste que reprovou no ledger, tempo de boot do CLI, asserções de relógio na suíte paralela, fixtures independentes de umask e a causa real em `registrarObservacao`.
 - **Defeitos da noite de 29/09/2026 (thread `ork-rm037noite`, PR #34, merge `36def09`, na versão 0.5.0):** seis defeitos de condução, cada um com teste que reprova o código anterior: bundle de CI por thread, achado pelo nome da branch; fila e leases de thread fechada soltos no fechamento e podados quando outra thread pede a região; reserva do roadmap solta ou passada adiante no fechamento, com a órfã marcada e solta por `--soltar-orfas`; runtime e modelo de cada thread no retrato da fábrica; `docs sincronizar` só no item da thread; número de FEAT reservado entre máquinas.
+
+### Acréscimo de 27/11/2026, não entregue
+
+- **Evidências e fonte:** na F7 da RM-089, em 26/11/2026, um erro MD022 só apareceu no CI de documentação porque os comandos do manifesto não executavam o markdownlint. Em 27/11/2026, `checar-changelog --base main` e `docs verificar --pr` leram uma `main` local atrasada e reprovaram uma candidata que estava em dia com `origin/main`.
+- **Incluído:** executar no verify local o mesmo markdownlint do CI de documentação; resolver a ponta atual da base para `checar-changelog` e `docs verificar --pr`; recusar com causa tipada quando a base local estiver atrás e a ponta remota não puder ser conferida. Este acréscimo trata paridade de execução e de base, não o diagnóstico já domiciliado na [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md).
+- **Critérios de aceite:** o mesmo erro MD022 reprova o verify local e o CI de documentação; uma `main` local atrasada não produz falso negativo nem falso positivo, porque a checagem usa a ponta remota conferida ou recusa com causa tipada antes de comparar.
 
 ## Plano e decisões
 
