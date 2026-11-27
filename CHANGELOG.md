@@ -8,6 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Commit do bundle de CI pelo MCP (RM-101):** `ork ci prepare` liga o bundle à thread, ao HEAD e à rodada verde que o produziu. `ork_git_commit` aceita somente esse artefato derivado sem claim artificial, confere os bytes antes do efeito e mantém a exigência de claim para qualquer outro arquivo.
 - **Security scan estável com relatório grande (RM-102):** ingere relatórios do ESLint sem espalhar achados, mantém a impressão digital para uniões equivalentes sem colidir uniões distintas e torna o teste de `SIGTERM` determinístico. Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica precisam ser refeitas uma vez, porque a impressão digital passa a usar a forma canônica.
 
 ## [0.6.12] - 2026-11-27

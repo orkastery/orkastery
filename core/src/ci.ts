@@ -40,6 +40,8 @@ import { CONTRATO_PROVA_NOTIFICACAO_EXCECAO, registrarNotificacaoAuditavel, vali
   type CapacidadeDaNotificacaoDaExcecao, type CapacidadeDoRunnerParaExcecao,
   type PortaGeridaDaNotificacaoDaExcecao, type ProvaProtegidaDaNotificacao } from './excecao-notificacao';
 import { resolverExcecaoDeRecibo, type FonteProtegidaDaExcecao } from './excecao-recibo';
+import { createHash } from 'node:crypto';
+import { CONTRATO_DERIVACAO_BUNDLE_CI, type DerivacaoDoBundleCi } from './ci-bundle-derivacao';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -93,6 +95,8 @@ export interface BundleCi {
   /** Claims that require the installation host and remain mandatory in local SHIP verify. */
   deferredClaims?: Array<{ id: string; reason: 'artifact-not-in-checkout' | 'host-runtime-required' | 'local-integration-required' }>;
   commands: { name: string; command: string }[];
+  /** RM-101: origem local do artefato. Nao e prova do produto nem recibo do runner. */
+  derivacao?: DerivacaoDoBundleCi;
   /** RM-089 F1: projeção mínima da prova vigente; ausente mantém o bundle legado válido. */
   recibo?: ReciboDoBundleCi | ProjecaoReplayCi;
 }
@@ -580,6 +584,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .filter((item) => item.reason !== null)
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
+    ...derivacaoDoUltimoVerify(carregado.raiz, threadId),
     ...(carregado.manifesto.ci.politica_recibo
       ? projecaoDoUltimoVerify(carregado, threadId, activeClaims, commands)
       : reciboDoUltimoVerify(carregado.raiz, threadId)),
@@ -590,7 +595,29 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, nomeDoArquivo);
   fs.writeFileSync(file, texto, 'utf8');
+  if (bundle.derivacao) {
+    registrar(dirThread(carregado.raiz, threadId), threadId, 'ci_bundle_prepared', {
+      arquivo: path.posix.join(DIR_DO_BUNDLE, nomeDoArquivo),
+      contrato: bundle.derivacao.contrato,
+      head: bundle.derivacao.head,
+      verifyRun: bundle.derivacao.verifyRun,
+      claimsSha256: bundle.derivacao.claimsSha256,
+      sha256: createHash('sha256').update(texto, 'utf8').digest('hex'),
+    });
+  }
   return file;
+}
+
+/** O vinculo nasce somente da rodada mais recente, integral e verde. */
+function derivacaoDoUltimoVerify(raiz: string, threadId: string): { derivacao?: DerivacaoDoBundleCi } {
+  const ultimo = lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const recibo = ultimo?.recibo as Record<string, unknown> | undefined;
+  if (ultimo?.veredito !== 'verdade sustentada' || ultimo.parcial === true ||
+      typeof ultimo.commit !== 'string' || !/^[a-f0-9]{40}$/.test(ultimo.commit) ||
+      typeof ultimo.eventId !== 'string' || !ultimo.eventId ||
+      typeof recibo?.claimsSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(recibo.claimsSha256)) return {};
+  return { derivacao: { contrato: CONTRATO_DERIVACAO_BUNDLE_CI, thread: threadId,
+    head: ultimo.commit, verifyRun: ultimo.eventId, claimsSha256: recibo.claimsSha256 } };
 }
 
 /** O último verify decide: uma reprovação ou rodada parcial posterior não reaproveita um verde antigo. */
