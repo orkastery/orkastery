@@ -158,7 +158,7 @@ function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args
   if (!recorded) { process.stderr.write(`no recording for ${file}\n`); return 9; }
   let body = fs.readFileSync(recorded, 'utf8');
   const tamanhoDoEslint = Number(process.env.ORK_FAKE_ESLINT_REPORT_SIZE);
-  if (tool.name === 'eslint' && Number.isInteger(tamanhoDoEslint) && tamanhoDoEslint > 0) {
+  if (tool.name === 'eslint' && original !== 'empty' && Number.isInteger(tamanhoDoEslint) && tamanhoDoEslint > 0) {
     body = JSON.stringify([{ filePath: '/src/src/large.ts', messages: Array.from({ length: tamanhoDoEslint }, (_, i) => ({
       ruleId: `rule-${i}`, severity: 2, message: `finding-${i}`, line: i + 1,
     })) }]);

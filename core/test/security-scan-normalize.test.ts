@@ -3,10 +3,10 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
-import { runScanAgil } from '../src/security-scan/agil';
+import { executarSecurityScan } from '../src/security-scan/cli';
 import { NORMALIZERS, partialOf } from '../src/security-scan/normalize';
 import { loadAgileTools, loadTools } from '../src/security-scan/tools';
-import type { RawFinding } from '../src/security-scan/types';
+import type { RawFinding, ScanReport } from '../src/security-scan/types';
 import { fingerprintOf } from '../src/security-scan/compare';
 import { defaultsDir } from '../src/security-scan/executor';
 import { cacheRoot, runScan, SCAN_CACHE_VERSION } from '../src/security-scan/run';
@@ -143,8 +143,8 @@ test('eslint: severity 2 medium, absolute container path made repo-relative', ()
   assert.ok(r.every(f => f.category === 'quality' && f.severity === 'medium' && f.file === 'src/util.ts' && f.stack === 'js'));
 });
 
-test('eslint: Classic and Agile ingest a report above the call argument limit completely', () => {
-  const amount = 130_000;
+test('eslint: Classic and Agile write a report of new findings several times above the measured call argument limit', () => {
+  const amount = 400_000;
   const repo = repositorioSecurityScan('normalize-large-report');
   const fake = installFakeTools(['docker']);
   const cache = dirTemporario('normalize-large-report-cache');
@@ -152,15 +152,23 @@ test('eslint: Classic and Agile ingest a report above the call argument limit co
   process.env.XDG_CACHE_HOME = cache;
   process.env.ORK_FAKE_ESLINT_REPORT_SIZE = String(amount);
   try {
-    const eslint = loadTools().find(t => t.name === 'eslint')!;
-    const opts = { root: repo.dir, stateRoot: repo.dir, base: repo.base, tools: [eslint] };
-    const reports = [runScan(opts), runScanAgil(opts)];
-    for (const report of reports) {
+    for (const mode of ['classic', 'agile'] as const) {
+      const out: string[] = [];
+      const code = executarSecurityScan(['--base', repo.base, '--check', mode],
+        { raiz: repo.dir, estado: repo.dir, escrever: text => out.push(text) });
+      const markdown = out.at(-1)!;
+      const report = JSON.parse(fs.readFileSync(path.join(path.dirname(markdown), 'report.json'), 'utf8')) as ScanReport;
       const tool = report.tools.find(t => t.name === 'eslint')!;
       assert.equal(tool.state, 'ran', tool.reason);
-      assert.equal(report.findings.length, amount);
-      assert.equal(report.findings.at(-1)?.rule, `rule-${amount - 1}`);
-      assert.equal(tool.counts.existing.medium, amount);
+      const eslintFindings = report.findings.filter(f => f.tool === 'eslint');
+      assert.equal(eslintFindings.length, amount);
+      assert.ok(eslintFindings.every(f => f.status === 'new'));
+      assert.equal(eslintFindings.at(-1)?.rule, `rule-${amount - 1}`);
+      assert.equal(tool.counts.new.medium, amount);
+      assert.equal(tool.counts.existing.medium, 0);
+      assert.equal(code, 1, 'os demais achados novos da fixture permanecem no laço');
+      assert.match(fs.readFileSync(markdown, 'utf8'), new RegExp(`rule-${amount - 1}\\b`));
+      fs.rmSync(path.dirname(markdown), { recursive: true, force: true });
     }
   } finally {
     fake.restore();
@@ -189,19 +197,31 @@ test('eslint: findings cached with the previous fingerprint semantics are not co
     const eslint = loadTools().find(t => t.name === 'eslint')!;
     const unit = { stack: 'js', dir: '.' };
     const config = fs.readFileSync(path.join(defaultsDir(), 'eslint.config.mjs'), 'utf8');
-    const key = crypto.createHash('sha256').update(JSON.stringify({
-      version: SCAN_CACHE_VERSION - 1, tool: eslint, executor: 'docker', nativeVersion: '', unit, config,
+    assert.equal(SCAN_CACHE_VERSION, 2, 'the canonical fingerprint cache has its own fixed version');
+    const keyFor = (version: number) => crypto.createHash('sha256').update(JSON.stringify({
+      version, tool: eslint, executor: 'docker', nativeVersion: '', unit, config,
     })).digest('hex');
     const id = eslint.image.split('@sha256:')[1].slice(0, 12);
     const arquivo = path.join(cacheRoot(), repo.base, `eslint-${id}-js-root.json`);
     fs.mkdirSync(path.dirname(arquivo), { recursive: true });
-    fs.writeFileSync(arquivo, JSON.stringify({ key, findings: [run('eslint', 'eslint.union-equivalent.json')[0]] }));
+    const cached = [run('eslint', 'eslint.union-equivalent.json')[0]];
+    fs.writeFileSync(arquivo, JSON.stringify({ key: keyFor(SCAN_CACHE_VERSION), findings: cached }));
 
+    const beforeCurrent = fake.calls().length;
+    const current = runScan({ root: repo.dir, stateRoot: repo.dir, base: repo.base, tools: [eslint] });
+    assert.equal(current.tools[0].state, 'ran', current.tools[0].reason);
+    assert.deepEqual(current.findings.map(f => f.status).sort(), ['existing', 'new']);
+    assert.equal(fake.calls().slice(beforeCurrent).filter(c => c.as === 'docker' && c.args[0] === 'run').length, 1,
+      'a chave da versão atual reaproveita a base');
+
+    fs.writeFileSync(arquivo, JSON.stringify({ key: keyFor(1), findings: cached }));
+
+    const beforePrevious = fake.calls().length;
     const report = runScan({ root: repo.dir, stateRoot: repo.dir, base: repo.base, tools: [eslint] });
     assert.equal(report.tools[0].state, 'ran', report.tools[0].reason);
     assert.equal(report.findings.length, 2);
     assert.ok(report.findings.every(f => f.status === 'new'), 'a base da semântica anterior não participa da comparação');
-    const runs = fake.calls().filter(c => c.as === 'docker' && c.args[0] === 'run');
+    const runs = fake.calls().slice(beforePrevious).filter(c => c.as === 'docker' && c.args[0] === 'run');
     assert.equal(runs.length, 2, 'HEAD e base são varridos quando a versão do cache não coincide');
   } finally {
     fake.restore();
@@ -220,9 +240,14 @@ test('eslint: union order remains significant outside no-unsafe-argument', () =>
   const report = (message: string) => JSON.stringify([{ filePath: '/src/src/union.ts', messages: [{
     ruleId: 'other-rule', severity: 2, message, line: 1,
   }] }]);
-  const a = NORMALIZERS.eslint(report(mensagemArgumentoInseguro('A | B')), ROOT_CTX)[0];
-  const b = NORMALIZERS.eslint(report(mensagemArgumentoInseguro('B | A')), ROOT_CTX)[0];
-  assert.notEqual(fingerprintOf(a), fingerprintOf(b));
+  for (const [left, right] of [
+    [mensagemArgumentoInseguro('A | B'), mensagemArgumentoInseguro('B | A')],
+    ['A | B', 'B | A'],
+  ]) {
+    const a = NORMALIZERS.eslint(report(left), ROOT_CTX)[0];
+    const b = NORMALIZERS.eslint(report(right), ROOT_CTX)[0];
+    assert.notEqual(fingerprintOf(a), fingerprintOf(b));
+  }
 });
 
 test('eslint: union order remains significant inside a generic', () => {
@@ -231,6 +256,15 @@ test('eslint: union order remains significant inside a generic', () => {
   }] }]);
   const a = NORMALIZERS.eslint(report('Array<A | B>'), ROOT_CTX)[0];
   const b = NORMALIZERS.eslint(report('Array<B | A>'), ROOT_CTX)[0];
+  assert.notEqual(fingerprintOf(a), fingerprintOf(b));
+});
+
+test('eslint: union order remains significant inside an object', () => {
+  const report = (tipo: string) => JSON.stringify([{ filePath: '/src/src/union.ts', messages: [{
+    ruleId: '@typescript-eslint/no-unsafe-argument', severity: 2, message: mensagemArgumentoInseguro(tipo), line: 1,
+  }] }]);
+  const a = NORMALIZERS.eslint(report('{ a: A | B }'), ROOT_CTX)[0];
+  const b = NORMALIZERS.eslint(report('{ a: B | A }'), ROOT_CTX)[0];
   assert.notEqual(fingerprintOf(a), fingerprintOf(b));
 });
 

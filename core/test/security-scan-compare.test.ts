@@ -127,6 +127,15 @@ test('mergeByFingerprint: max of the counts, dir entries preferred, no double co
   assert.deepEqual(mergeByFingerprint([[], [secret(4, 'h2')]]).map(x => x.line), [4]);
 });
 
+test('mergeByFingerprint: a group above the call argument limit is copied without spreading it', () => {
+  const amount = 200_000;
+  const larger = Array.from({ length: amount }, (_, i) => secret(i + 1));
+  const merged = mergeByFingerprint([[secret(amount + 1)], larger]);
+  assert.equal(merged.length, amount);
+  assert.equal(merged[0].line, 1);
+  assert.equal(merged.at(-1)?.line, amount);
+});
+
 test('secret in base dir, HEAD dir and HEAD git: one existing, none new; new secret seen twice: exactly one new', () => {
   const existing = classify(mergeByFingerprint([[secret(10)], [secret(3)]]), [secret(8)], [], []);
   assert.deepEqual(existing.findings.map(x => x.status), ['existing']);
