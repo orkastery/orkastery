@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-27T12:19:58-03:00
+atualizado_em: 2026-11-27T13:01:16-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -18,11 +18,11 @@ estado:
 evidencias:
   codigo:
     commit: 59bab85
-    pr: null
+    pr: 312
 sdlc:
   thread: ork-rm101bundled
   modo: Fast
-  fase: GO
+  fase: MASTER
   status: fechada
 ---
 
@@ -58,7 +58,7 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** proposta originada na condução da versão 0.6.11; sem prioridade atribuída nesta thread. O roadmap decide a posição antes de abrir trabalho.
-- **Horizonte / alvo / previsão / confiança / marcos:** implementação em andamento na thread `ork-rm101bundled`, sem previsão de merge ou implantação. Marcos: contrato do recibo, guarda estreita no commit, provas de recusa e piloto posterior pelo MCP.
+- **Horizonte / alvo / previsão / confiança / marcos:** implementação mesclada na `main` pelo PR #312 (merge `59bab850`) e incluída na 0.6.13. O piloto funcional pelo MCP e a habilitação continuam pendentes.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** contrato do bundle de CI, `ork ci prepare`, `ork_git_commit`, claims e verify; owner: Condução do roadmap; revisão quando o roadmap priorizar o item.
 - **Premissas / riscos / mitigação:** o ledger, as claims, o índice, o gitdir e o marcador `.git` da worktree ficam fora do alcance de escrita da sessão. Essa fronteira sustenta o recibo de preparo. A exceção fica limitada ao path calculado, ao hash das claims ativas no commit, aos bytes produzidos e ao oid Git correspondente. O índice e o objeto commitado são conferidos. Uma rodada obsoleta, claims alteradas após a rodada, um recibo forjado fora dessa fronteira ou uma conversão de conteúdo são recusados.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** a sessão GO `ork-achados0611` separou o achado em item próprio porque o bundle é artefato derivado do fechamento, não uma alegação de produto. A decisão está registrada no ledger da thread.
@@ -66,7 +66,7 @@ sdlc:
 
 ## Estado com evidências
 
-A branch da thread implementa o contrato de derivação no preparo, incluindo o hash das claims da rodada. O commit MCP compara esse hash às claims ativas, confere modo e oid no índice, commita o índice sem pathspec, confirma o objeto e desfaz a ref se a confirmação divergir. A suíte dedicada cobre troca concorrente dos bytes e do modo, atributo `ident`, restauração do índice novo ou rastreado, caminhos Markdown sem claim, caminho de outra thread, commit misto, bundle alterado com claim e rodadas sem recibo, não verdes ou parciais. Merge, deploy, habilitação e piloto continuam fora desta entrega.
+A implementação foi mesclada na `main` pelo PR #312 (merge `59bab850`) e sai na 0.6.13. O contrato de derivação no preparo inclui o hash das claims da rodada. O commit MCP compara esse hash às claims ativas, confere modo e oid no índice, commita o índice sem pathspec, confirma o objeto e desfaz a ref se a confirmação divergir. A suíte dedicada cobre troca concorrente dos bytes e do modo, atributo `ident`, restauração do índice novo ou rastreado, caminhos Markdown sem claim, caminho de outra thread, commit misto, bundle alterado com claim e rodadas sem recibo, não verdes ou parciais. Deploy, habilitação e piloto continuam pendentes.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -76,7 +76,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Condução do roadmap |
 | Documentação | Em revisão | — | 2026-11-27 | Condução do roadmap |
-| Código | Mesclado | commit `59bab85` | 2026-11-27 | Condução do roadmap |
+| Código | Mesclado | commit `59bab85` · PR #312 | 2026-11-27 | Condução do roadmap |
 | Testes | Em execução | — | 2026-11-27 | Condução do roadmap |
 | Deploy | Não implantado | — | 2026-11-27 | Condução do roadmap |
 | Exposição | Flag desligada | — | 2026-11-27 | Condução do roadmap |
@@ -88,10 +88,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: futura thread do item; A: condução do roadmap; C: manutenção de claims, verify, CI e MCP; I: builders que fecham GO pelo transporte MCP.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO implementa a fatia em modo Fast e registra as decisões autônomas no ledger. O histórico identifica separadamente as correções posteriores ao CHECK independente.
-- **Próxima ação, responsável e prazo:** concluir o verify oficial e o bundle final desta thread; o piloto funcional pelo MCP fica para uma thread posterior com o núcleo atualizado; responsável: condução do roadmap; sem prazo declarado.
+- **Próxima ação, responsável e prazo:** publicar a 0.6.13; depois, executar o piloto funcional pelo MCP com o núcleo atualizado; responsável: condução do roadmap; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-26 | Proposta registrada em Discovery | Achado da condução de 25 e 26/11/2026: o bundle oficial foi recusado pelo MCP com `mcp.git.claim.missing` | sessão GO `ork-achados0611` (#Fast) |
 | 2026-11-27 | Implementação iniciada na thread `ork-rm101bundled` | Contrato de derivação, guarda estreita do commit MCP e suíte dedicada na branch da thread | sessão GO (#Fast) |
 | 2026-11-27 | Correção após o primeiro CHECK independente | Commit preso ao oid conferido, limpeza do índice, hash das claims e casos de ataque incorporados à suíte | sessão GO (#Fast) |
+| 2026-11-27 | Implementação mesclada na `main` e incluída na 0.6.13 | PR #312, merge `59bab850`; seção 0.6.13 do CHANGELOG | thread `ork-rm101bundled` na entrega; thread `ork-versao0613` na versão |
