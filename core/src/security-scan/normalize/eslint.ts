@@ -13,6 +13,7 @@ function uniaoExternaCanonica(tipo: string): string {
   let inicio = 0;
   let aspas: '"' | "'" | null = null;
   let escapado = false;
+  let setaNoTopo = false;
   const fechamento: Record<string, string> = { '(': ')', '[': ']', '{': '}', '<': '>' };
   for (let i = 0; i < tipo.length; i++) {
     const caractere = tipo[i];
@@ -24,8 +25,9 @@ function uniaoExternaCanonica(tipo: string): string {
     }
     if (caractere === '"' || caractere === "'") { aspas = caractere; continue; }
     if (fechamento[caractere]) { fechamentos.push(fechamento[caractere]); continue; }
+    if (caractere === '>' && tipo[i - 1] === '=') { if (fechamentos.length === 0) setaNoTopo = true; continue; }
     if (caractere === fechamentos.at(-1)) { fechamentos.pop(); continue; }
-    if (caractere === '|' && fechamentos.length === 0 && tipo[i - 1] === ' ' && tipo[i + 1] === ' ') {
+    if (caractere === '|' && fechamentos.length === 0 && !setaNoTopo && tipo[i - 1] === ' ' && tipo[i + 1] === ' ') {
       partes.push(tipo.slice(inicio, i).trim());
       inicio = i + 1;
     }

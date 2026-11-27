@@ -60,7 +60,7 @@ export interface RunScanOptions {
 }
 
 /** Version of the normalized cache content; bump when a normalizer or the RawFinding shape changes. */
-export const SCAN_CACHE_VERSION = 1;
+export const SCAN_CACHE_VERSION = 2;
 
 /** `reason` on `ran` is the tolerated partial coverage (`partial-timeout: 2`), see `expect.tolerate`. */
 type Outcome = { kind: 'ran'; findings: RawFinding[]; reason?: string } | { kind: 'failed' | 'unavailable'; reason: string };

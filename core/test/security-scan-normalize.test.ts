@@ -6,7 +6,7 @@ import { NORMALIZERS, partialOf } from '../src/security-scan/normalize';
 import { loadAgileTools, loadTools } from '../src/security-scan/tools';
 import type { RawFinding } from '../src/security-scan/types';
 import { fingerprintOf } from '../src/security-scan/compare';
-import { appendAll } from '../src/security-scan/run';
+import { appendAll, SCAN_CACHE_VERSION } from '../src/security-scan/run';
 
 // dist-test/test -> core/test/fixtures (recorded real output of Task 5), and the fixture sources for the fake secret.
 const FIX = path.resolve(__dirname, '..', '..', 'test', 'fixtures', 'security-scan');
@@ -150,6 +150,10 @@ test('eslint: equivalent top-level union orders have the same fingerprint', () =
   const findings = run('eslint', 'eslint.union-equivalent.json');
   assert.notEqual(findings[0].message, findings[1].message, 'the report keeps the original messages');
   assert.equal(fingerprintOf(findings[0]), fingerprintOf(findings[1]));
+});
+
+test('eslint: the normalized cache is renewed with the fingerprint semantics', () => {
+  assert.equal(SCAN_CACHE_VERSION, 2);
 });
 
 test('eslint: genuinely different unions keep different fingerprints', () => {
