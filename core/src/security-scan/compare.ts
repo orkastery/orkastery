@@ -48,7 +48,10 @@ export function mergeByFingerprint(lists: RawFinding[][]): RawFinding[] {
     }
   }
   const out: RawFinding[] = [];
-  for (const per of groups.values()) out.push(...per.reduce((best, cur) => cur.length > best.length ? cur : best));
+  for (const per of groups.values()) {
+    const maior = per.reduce((best, cur) => cur.length > best.length ? cur : best);
+    for (const finding of maior) out.push(finding);
+  }
   return out;
 }
 

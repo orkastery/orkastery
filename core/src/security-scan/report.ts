@@ -105,9 +105,16 @@ export function renderMarkdown(report: ScanReport): string {
   const loop = news.filter(f => f.loop).sort(bySeverity);
   const warn = news.filter(f => !f.loop).sort(bySeverity);
   out.push('', `## ${m.countsHeading}`, '', m.counts(t.new, t.existing, t.dismissed, t.loop), '',
-    `## ${m.newLoopHeading}`, '', ...(loop.length ? loop.map(findingLine) : [m.none]), '',
-    `## ${m.newWarnHeading}`, '', ...(warn.length ? warn.map(findingLine) : [m.none]), '',
-    m.existingTotal(t.existing), '', m.dismissedTotal(t.dismissed));
-  if (report.excluded.length) out.push('', `## ${m.excludedHeading}`, '', ...report.excluded.map(e => `- ${e}`));
+    `## ${m.newLoopHeading}`, '');
+  if (loop.length) for (const finding of loop) out.push(findingLine(finding));
+  else out.push(m.none);
+  out.push('', `## ${m.newWarnHeading}`, '');
+  if (warn.length) for (const finding of warn) out.push(findingLine(finding));
+  else out.push(m.none);
+  out.push('', m.existingTotal(t.existing), '', m.dismissedTotal(t.dismissed));
+  if (report.excluded.length) {
+    out.push('', `## ${m.excludedHeading}`, '');
+    for (const excluded of report.excluded) out.push(`- ${excluded}`);
+  }
   return `${out.join('\n')}\n`;
 }
