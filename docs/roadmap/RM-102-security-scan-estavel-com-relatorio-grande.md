@@ -57,14 +57,14 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** item priorizado pela condução na versão 0.6.11 e executado pela thread aberta `ork-rm102securit`; sem pontuação registrada.
-- **Horizonte / alvo / previsão / confiança / marcos:** em desenvolvimento, sem previsão. A reprodução, a ingestão segura, a identidade canônica e o teste de processo foram implementados; o verify do commit `8c61a5f8` foi concluído e a correção pedida pelo CHECK da rodada 2 aguarda novo verify oficial.
+- **Horizonte / alvo / previsão / confiança / marcos:** em desenvolvimento, sem previsão. A reprodução, a ingestão segura, a identidade canônica e o teste de processo foram implementados; o estado de validação acompanha o HEAD da thread.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-068](RM-068-security-scan-no-check.md) para o motor do scan e [RM-097](RM-097-resolucao-de-tipos-no-security-scan.md) para manter separada a resolução de tipos; owner: thread `ork-rm102securit`; revisão após o verify oficial da correção.
 - **Premissas / riscos / mitigação:** canonicalização ampla pode colidir mensagens; a transformação será restrita à estrutura comprovadamente comutativa e terá casos negativos. O teste de processo pode depender do escalonador; o harness observará eventos e estados explícitos, não uma espera incidental.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** a sessão GO `ork-achados0611` separou este item da RM-097 para não duplicar a resolução de tipos e manter juntas as falhas de estabilidade da rodada. A decisão está registrada no ledger da thread.
 
 ## Estado com evidências
 
-A implementação está na branch da thread, com prova focal para os modos Classic e Agile e com o teste de encerramento preservado. O verify oficial do commit `8c61a5f8` foi concluído; o CHECK independente da rodada 2 pediu mudanças e a correção desta rodada GO aguarda novo verify oficial.
+A implementação está na branch da thread, com prova focal para os modos Classic e Agile e com o teste de encerramento preservado. O estado de validação é determinado pelo verify e pelo CHECK do HEAD da thread.
 
 Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica precisam ser refeitas uma vez, porque a impressão digital passa a usar a forma canônica.
 
