@@ -1,12 +1,18 @@
 import { strict as assert } from 'node:assert';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
+import { runScanAgil } from '../src/security-scan/agil';
 import { NORMALIZERS, partialOf } from '../src/security-scan/normalize';
 import { loadAgileTools, loadTools } from '../src/security-scan/tools';
 import type { RawFinding } from '../src/security-scan/types';
 import { fingerprintOf } from '../src/security-scan/compare';
-import { appendAll, SCAN_CACHE_VERSION } from '../src/security-scan/run';
+import { defaultsDir } from '../src/security-scan/executor';
+import { cacheRoot, runScan, SCAN_CACHE_VERSION } from '../src/security-scan/run';
+import { dirTemporario } from './apoio';
+import { installFakeTools } from './security-scan-docker-falso';
+import { repositorioSecurityScan } from './security-scan-repo-fixture';
 
 // dist-test/test -> core/test/fixtures (recorded real output of Task 5), and the fixture sources for the fake secret.
 const FIX = path.resolve(__dirname, '..', '..', 'test', 'fixtures', 'security-scan');
@@ -14,6 +20,8 @@ const SRC = path.resolve(__dirname, '..', '..', '..', 'eval', 'fixtures', 'secur
 const ROOT_CTX = { root: '/src', stackDir: '.' };
 const read = (f: string): string => fs.readFileSync(path.join(FIX, f), 'utf8');
 const run = (tool: string, file: string, ctx = ROOT_CTX): RawFinding[] => NORMALIZERS[tool](read(file), ctx);
+const mensagemArgumentoInseguro = (tipo: string): string =>
+  `Unsafe argument of type \`any\` assigned to a parameter of type \`${tipo}\`.`;
 const count = (fs_: RawFinding[], key: 'severity' | 'category' | 'rule'): Record<string, number> => {
   const out: Record<string, number> = {};
   for (const f of fs_) out[f[key]] = (out[f[key]] ?? 0) + 1;
@@ -135,15 +143,33 @@ test('eslint: severity 2 medium, absolute container path made repo-relative', ()
   assert.ok(r.every(f => f.category === 'quality' && f.severity === 'medium' && f.file === 'src/util.ts' && f.stack === 'js'));
 });
 
-test('eslint: a report above the call argument limit is ingested completely', () => {
+test('eslint: Classic and Agile ingest a report above the call argument limit completely', () => {
   const amount = 130_000;
-  const report = JSON.stringify([{ filePath: '/src/src/large.ts', messages: Array.from({ length: amount }, (_, i) => ({
-    ruleId: `rule-${i}`, severity: 2, message: `finding-${i}`, line: i + 1,
-  })) }]);
-  const findings: RawFinding[] = [];
-  appendAll(findings, NORMALIZERS.eslint(report, ROOT_CTX));
-  assert.equal(findings.length, amount);
-  assert.equal(findings.at(-1)?.rule, `rule-${amount - 1}`);
+  const repo = repositorioSecurityScan('normalize-large-report');
+  const fake = installFakeTools(['docker']);
+  const cache = dirTemporario('normalize-large-report-cache');
+  const anterior = { cache: process.env.XDG_CACHE_HOME, tamanho: process.env.ORK_FAKE_ESLINT_REPORT_SIZE };
+  process.env.XDG_CACHE_HOME = cache;
+  process.env.ORK_FAKE_ESLINT_REPORT_SIZE = String(amount);
+  try {
+    const eslint = loadTools().find(t => t.name === 'eslint')!;
+    const opts = { root: repo.dir, stateRoot: repo.dir, base: repo.base, tools: [eslint] };
+    const reports = [runScan(opts), runScanAgil(opts)];
+    for (const report of reports) {
+      const tool = report.tools.find(t => t.name === 'eslint')!;
+      assert.equal(tool.state, 'ran', tool.reason);
+      assert.equal(report.findings.length, amount);
+      assert.equal(report.findings.at(-1)?.rule, `rule-${amount - 1}`);
+      assert.equal(tool.counts.existing.medium, amount);
+    }
+  } finally {
+    fake.restore();
+    repo.cleanup();
+    fs.rmSync(cache, { recursive: true, force: true });
+    if (anterior.cache === undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME = anterior.cache;
+    if (anterior.tamanho === undefined) delete process.env.ORK_FAKE_ESLINT_REPORT_SIZE;
+    else process.env.ORK_FAKE_ESLINT_REPORT_SIZE = anterior.tamanho;
+  }
 });
 
 test('eslint: equivalent top-level union orders have the same fingerprint', () => {
@@ -152,8 +178,37 @@ test('eslint: equivalent top-level union orders have the same fingerprint', () =
   assert.equal(fingerprintOf(findings[0]), fingerprintOf(findings[1]));
 });
 
-test('eslint: the normalized cache is renewed with the fingerprint semantics', () => {
-  assert.equal(SCAN_CACHE_VERSION, 2);
+test('eslint: findings cached with the previous fingerprint semantics are not compared', () => {
+  const repo = repositorioSecurityScan('normalize-old-cache');
+  repo.commit!('.fake-case', 'union-equivalent\n');
+  const fake = installFakeTools(['docker']);
+  const cache = dirTemporario('normalize-old-cache-root');
+  const anterior = process.env.XDG_CACHE_HOME;
+  process.env.XDG_CACHE_HOME = cache;
+  try {
+    const eslint = loadTools().find(t => t.name === 'eslint')!;
+    const unit = { stack: 'js', dir: '.' };
+    const config = fs.readFileSync(path.join(defaultsDir(), 'eslint.config.mjs'), 'utf8');
+    const key = crypto.createHash('sha256').update(JSON.stringify({
+      version: SCAN_CACHE_VERSION - 1, tool: eslint, executor: 'docker', nativeVersion: '', unit, config,
+    })).digest('hex');
+    const id = eslint.image.split('@sha256:')[1].slice(0, 12);
+    const arquivo = path.join(cacheRoot(), repo.base, `eslint-${id}-js-root.json`);
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    fs.writeFileSync(arquivo, JSON.stringify({ key, findings: [run('eslint', 'eslint.union-equivalent.json')[0]] }));
+
+    const report = runScan({ root: repo.dir, stateRoot: repo.dir, base: repo.base, tools: [eslint] });
+    assert.equal(report.tools[0].state, 'ran', report.tools[0].reason);
+    assert.equal(report.findings.length, 2);
+    assert.ok(report.findings.every(f => f.status === 'new'), 'a base da semântica anterior não participa da comparação');
+    const runs = fake.calls().filter(c => c.as === 'docker' && c.args[0] === 'run');
+    assert.equal(runs.length, 2, 'HEAD e base são varridos quando a versão do cache não coincide');
+  } finally {
+    fake.restore();
+    repo.cleanup();
+    fs.rmSync(cache, { recursive: true, force: true });
+    if (anterior === undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME = anterior;
+  }
 });
 
 test('eslint: genuinely different unions keep different fingerprints', () => {
@@ -165,8 +220,26 @@ test('eslint: union order remains significant outside no-unsafe-argument', () =>
   const report = (message: string) => JSON.stringify([{ filePath: '/src/src/union.ts', messages: [{
     ruleId: 'other-rule', severity: 2, message, line: 1,
   }] }]);
-  const a = NORMALIZERS.eslint(report('A | B'), ROOT_CTX)[0];
-  const b = NORMALIZERS.eslint(report('B | A'), ROOT_CTX)[0];
+  const a = NORMALIZERS.eslint(report(mensagemArgumentoInseguro('A | B')), ROOT_CTX)[0];
+  const b = NORMALIZERS.eslint(report(mensagemArgumentoInseguro('B | A')), ROOT_CTX)[0];
+  assert.notEqual(fingerprintOf(a), fingerprintOf(b));
+});
+
+test('eslint: union order remains significant inside a generic', () => {
+  const report = (tipo: string) => JSON.stringify([{ filePath: '/src/src/union.ts', messages: [{
+    ruleId: '@typescript-eslint/no-unsafe-argument', severity: 2, message: mensagemArgumentoInseguro(tipo), line: 1,
+  }] }]);
+  const a = NORMALIZERS.eslint(report('Array<A | B>'), ROOT_CTX)[0];
+  const b = NORMALIZERS.eslint(report('Array<B | A>'), ROOT_CTX)[0];
+  assert.notEqual(fingerprintOf(a), fingerprintOf(b));
+});
+
+test('eslint: a top-level conditional type is not canonicalized', () => {
+  const report = (tipo: string) => JSON.stringify([{ filePath: '/src/src/union.ts', messages: [{
+    ruleId: '@typescript-eslint/no-unsafe-argument', severity: 2, message: mensagemArgumentoInseguro(tipo), line: 1,
+  }] }]);
+  const a = NORMALIZERS.eslint(report('Z | A extends B ? C : D'), ROOT_CTX)[0];
+  const b = NORMALIZERS.eslint(report('A extends B ? C : D | Z'), ROOT_CTX)[0];
   assert.notEqual(fingerprintOf(a), fingerprintOf(b));
 });
 
