@@ -4,8 +4,30 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.13",
-  "publicadoEm": "2026-11-27T19:00:04.696Z",
+  "publicadoEm": "2026-11-27T19:18:56.447Z",
   "threads": [
+    {
+      "id": "ork-achadosdacon",
+      "nome": "achados0613",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-achadosdacon-go",
+      "atualizadaEm": "2026-11-27T19:18:52.061Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-27T19:18:55.959Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
+      }
+    },
     {
       "id": "ork-orkauditestr",
       "nome": "ork-auditestrategv2",
