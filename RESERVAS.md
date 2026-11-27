@@ -9,7 +9,6 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-068 | Paschoal | note | — | 20/10 14:12 | security scan no CHECK (forja/security-scan) |
 | RM-071 | Julio Pessoa | vps | ork-rm071f1esper | 27/11 00:23 | — |
 | RM-101 | conducao ork-achados0611 | vps | ork-achados0611 | 26/11 10:20 | commit do bundle de CI pelo MCP |
-| RM-102 | conducao ork-achados0611 | vps | ork-achados0611 | 26/11 10:20 | security scan estavel com relatorio grande |
 
 ## Números de FEAT reservados
 
