@@ -22,6 +22,7 @@
  *                                   (`semgrep@empty` fails on the clean base and runs on the fixture HEAD)
  *   ORK_FAKE_DOCKER_GARBAGE         catalog tool name whose report file is not JSON
  *   ORK_FAKE_ESLINT_REPORT_SIZE     quantidade de mensagens de um relatorio ESLint gerado no caminho integral
+ *   ORK_FAKE_ESLINT_REPORT_ON_EMPTY `1` gera o relatorio grande tambem para a arvore base sem `.fake-case`
  *   ORK_FAKE_DOCKER_ZERO_COMMITS=1  Gitleaks `git` reports 0 commits scanned whatever the range holds
  *   ORK_FAKE_DOCKER_BUILD=fails     `docker build` exits 1 (RM-072: the Agile lint image cannot be built)
  *   ORK_FAKE_DOCKER_BUILD_STDERR    a ultima linha do stderr do build que falha, no lugar do erro de rede do npm (RM-074
@@ -158,7 +159,8 @@ function emulate(tool: ToolSpec, file: string, outHost: string | undefined, args
   if (!recorded) { process.stderr.write(`no recording for ${file}\n`); return 9; }
   let body = fs.readFileSync(recorded, 'utf8');
   const tamanhoDoEslint = Number(process.env.ORK_FAKE_ESLINT_REPORT_SIZE);
-  if (tool.name === 'eslint' && original !== 'empty' && Number.isInteger(tamanhoDoEslint) && tamanhoDoEslint > 0) {
+  const gerarEslintGrande = original !== 'empty' || process.env.ORK_FAKE_ESLINT_REPORT_ON_EMPTY === '1';
+  if (tool.name === 'eslint' && gerarEslintGrande && Number.isInteger(tamanhoDoEslint) && tamanhoDoEslint > 0) {
     body = JSON.stringify([{ filePath: '/src/src/large.ts', messages: Array.from({ length: tamanhoDoEslint }, (_, i) => ({
       ruleId: `rule-${i}`, severity: 2, message: `finding-${i}`, line: i + 1,
     })) }]);

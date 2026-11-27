@@ -180,6 +180,42 @@ test('eslint: Classic and Agile write a report of new findings several times abo
   }
 });
 
+test('eslint: Classic aggregates a large report from both HEAD and base without spreading either list', () => {
+  const amount = 130_000;
+  const repo = repositorioSecurityScan('normalize-large-report-both-trees');
+  const fake = installFakeTools(['docker']);
+  const cache = dirTemporario('normalize-large-report-both-trees-cache');
+  const anterior = {
+    cache: process.env.XDG_CACHE_HOME,
+    tamanho: process.env.ORK_FAKE_ESLINT_REPORT_SIZE,
+    base: process.env.ORK_FAKE_ESLINT_REPORT_ON_EMPTY,
+  };
+  process.env.XDG_CACHE_HOME = cache;
+  process.env.ORK_FAKE_ESLINT_REPORT_SIZE = String(amount);
+  process.env.ORK_FAKE_ESLINT_REPORT_ON_EMPTY = '1';
+  try {
+    const eslint = loadTools().find(t => t.name === 'eslint')!;
+    const report = runScan({ root: repo.dir, stateRoot: repo.dir, base: repo.base, tools: [eslint] });
+    const tool = report.tools.find(t => t.name === 'eslint')!;
+    const findings = report.findings.filter(f => f.tool === 'eslint');
+    assert.equal(tool.state, 'ran', tool.reason);
+    assert.equal(findings.length, amount);
+    assert.ok(findings.every(f => f.status === 'existing'));
+    assert.equal(findings.at(-1)?.rule, `rule-${amount - 1}`);
+    assert.equal(tool.counts.existing.medium, amount);
+    assert.equal(tool.counts.new.medium, 0);
+  } finally {
+    fake.restore();
+    repo.cleanup();
+    fs.rmSync(cache, { recursive: true, force: true });
+    if (anterior.cache === undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME = anterior.cache;
+    if (anterior.tamanho === undefined) delete process.env.ORK_FAKE_ESLINT_REPORT_SIZE;
+    else process.env.ORK_FAKE_ESLINT_REPORT_SIZE = anterior.tamanho;
+    if (anterior.base === undefined) delete process.env.ORK_FAKE_ESLINT_REPORT_ON_EMPTY;
+    else process.env.ORK_FAKE_ESLINT_REPORT_ON_EMPTY = anterior.base;
+  }
+});
+
 test('eslint: equivalent top-level union orders have the same fingerprint', () => {
   const findings = run('eslint', 'eslint.union-equivalent.json');
   assert.notEqual(findings[0].message, findings[1].message, 'the report keeps the original messages');
