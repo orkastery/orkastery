@@ -114,8 +114,6 @@ function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHe
   const derivacao=bundle!.derivacao as Record<string,unknown>|undefined;
   if(!derivacao || derivacao.contrato!==CONTRATO_DERIVACAO_BUNDLE_CI)falha('bundle.receipt.missing');
   if(bundle!.thread!==threadId || derivacao.thread!==threadId)falha('bundle.thread.invalid');
-  const claimsSha256Atual=createHash('sha256').update(JSON.stringify(materialDasClaims(claims).claims)).digest('hex');
-  if(derivacao.claimsSha256!==claimsSha256Atual)falha('bundle.claims.stale');
   if(derivacao.head!==expectedHead || ultimoVerify.commit!==expectedHead)falha('bundle.head.stale');
   if(typeof derivacao.verifyRun!=='string' || derivacao.verifyRun!==ultimoVerify.eventId)
     falha('bundle.verify.invalid');
@@ -133,6 +131,8 @@ function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHe
   if(preparo.claimsSha256!==derivacao.claimsSha256)falha('bundle.verify.invalid');
   const sha256=createHash('sha256').update(bytes).digest('hex');
   if(preparo.sha256!==sha256)falha('bundle.changed');
+  const claimsSha256Atual=createHash('sha256').update(JSON.stringify(materialDasClaims(claims).claims)).digest('hex');
+  if(derivacao.claimsSha256!==claimsSha256Atual)falha('bundle.claims.stale');
   const oid=createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
   return {arquivo:esperado,contrato:CONTRATO_DERIVACAO_BUNDLE_CI,thread:threadId,head:expectedHead,
     verifyRun:derivacao.verifyRun,claimsSha256:derivacao.claimsSha256 as string,sha256,oid};
