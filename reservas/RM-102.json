@@ -3,9 +3,9 @@
   "item": "RM-102",
   "por": "Julio Pessoa",
   "maquina": "vps",
-  "thread": null,
+  "thread": "ork-rm102securit",
   "nota": null,
   "desdeEm": "2026-11-27T04:18:44.230Z",
-  "atualizadaEm": "2026-11-27T04:18:44.230Z",
+  "atualizadaEm": "2026-11-27T04:18:50.879Z",
   "operationId": "op-df131dcf-7ee6-45fe-9b6e-53953c4d7fea"
 }
