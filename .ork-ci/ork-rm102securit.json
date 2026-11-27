@@ -653,17 +653,17 @@
       ]
     },
     {
-      "id": "C30",
+      "id": "C31",
       "thread": "ork-rm102securit",
       "fase": "GO",
-      "arquivo": "core/test/security-scan-compare.test.ts",
-      "alegacao": "A prova de mergeByFingerprint mantém o grupo acima do limite de argumentos com margem menor e ainda reprova a implementação com espalhamento.",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A página da RM-102 descreve no passado o defeito já corrigido e registra no histórico a correção do relatório no commit d9ee8baa.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test",
-        "node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-compare.test.js"
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+        "node core/dist/index.js docs verificar --pr"
       ],
-      "criadoEm": "2026-11-27T08:39:14.943Z",
+      "criadoEm": "2026-11-27T08:39:34.320Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -680,17 +680,98 @@
       ]
     },
     {
-      "id": "C31",
+      "id": "C32",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-compare.test.ts",
+      "alegacao": "A prova de mergeByFingerprint usa um grupo de 400 mil achados, várias vezes acima do teto de argumentos medido, e preserva o primeiro e o último item sem espalhar o grupo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --stack-size=1100 core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-compare.test.js"
+      ],
+      "criadoEm": "2026-11-27T10:31:26.587Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-normalize.test.ts",
+      "alegacao": "A prova Classic percorre 400 mil achados tanto em HEAD quanto na base, várias vezes acima do teto de argumentos medido, e preserva a contagem integral.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --stack-size=1100 core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-normalize.test.js"
+      ],
+      "criadoEm": "2026-11-27T10:31:26.649Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm102securit",
+      "fase": "GO",
+      "arquivo": "core/test/security-scan-report-volume.test.ts",
+      "alegacao": "A prova do relatório Markdown usa 400 mil itens em cada coleção de laço, avisos e caminhos excluídos, várias vezes acima do teto de argumentos medido, e preserva o último item de cada seção.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --stack-size=1100 core/scripts/casa-temporaria.cjs node --test core/dist-test/test/security-scan-report-volume.test.js"
+      ],
+      "criadoEm": "2026-11-27T10:31:26.702Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C35",
       "thread": "ork-rm102securit",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
-      "alegacao": "A página da RM-102 descreve no passado o defeito já corrigido e registra no histórico a correção do relatório no commit d9ee8baa.",
+      "alegacao": "A página da RM-102 descreve o estado de validação pelo HEAD da thread sem fixar como pendente um verify específico.",
       "negativa": false,
       "verificar": [
         "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
         "node core/dist/index.js docs verificar --pr"
       ],
-      "criadoEm": "2026-11-27T08:39:34.320Z",
+      "criadoEm": "2026-11-27T10:31:26.757Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -720,7 +801,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "3b8c5a423fa9e8ffc602e22a7b10d05050d1d948",
-    "sha256": "1011e4eb61211135954e6be07c14a2634393916cd3d36a215c75f11d39a6ebd2"
+    "head": "1e4d96161a58b491bb4b329c701be04c1ae45066",
+    "sha256": "9daa755e56ffe0f88996c259f7102683eab96677237004b8f62ec02703621abc"
   }
 }
