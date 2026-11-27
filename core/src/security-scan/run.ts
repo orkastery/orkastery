@@ -80,6 +80,11 @@ export function emptyCounts(): ToolRun['counts'] {
   return Object.fromEntries(STATUSES.map(s => [s, Object.fromEntries(SEVERITIES.map(v => [v, 0]))])) as ToolRun['counts'];
 }
 
+/** Acrescenta uma coleção inteira sem transformar seu tamanho em argumentos de uma chamada. */
+export function appendAll<T>(target: T[], source: readonly T[]): void {
+  for (const item of source) target.push(item);
+}
+
 /** Base sha: `--base`, else merge-base with `<remote>/<base_branch>`, else with the local branch; null when unresolved. */
 export function resolveBase(root: string, stateRoot: string, ref: string | undefined): string | null {
   const commit = (r: string): string | null => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]);
@@ -225,7 +230,7 @@ function scanTree(t: ToolSpec, executor: Executor, tree: string, unit: Unit, ctx
         const nctx = { root: executor === 'docker' ? '/src' : tree, stackDir: unit.dir };
         try {
           const content = fs.readFileSync(f, 'utf8');
-          findings.push(...NORMALIZERS[t.name](content, nctx));
+          appendAll(findings, NORMALIZERS[t.name](content, nctx));
           const p = partialOf(t.name, content);
           if (p) partial.push(p);
         } catch (e) {
@@ -391,7 +396,7 @@ export function runScan(opts: RunScanOptions): ScanReport {
       if (r.run.state === 'ran') {
         const c = classify(r.head, r.base, dismissals, config.exclude);
         for (const f of c.findings) r.run.counts[f.status][f.severity]++;
-        report.findings.push(...c.findings);
+        appendAll(report.findings, c.findings);
         c.excluded.forEach(e => excluded.add(e));
       }
       report.tools.push(r.run);

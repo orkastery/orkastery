@@ -6,6 +6,7 @@ import { NORMALIZERS, partialOf } from '../src/security-scan/normalize';
 import { loadAgileTools, loadTools } from '../src/security-scan/tools';
 import type { RawFinding } from '../src/security-scan/types';
 import { fingerprintOf } from '../src/security-scan/compare';
+import { appendAll } from '../src/security-scan/run';
 
 // dist-test/test -> core/test/fixtures (recorded real output of Task 5), and the fixture sources for the fake secret.
 const FIX = path.resolve(__dirname, '..', '..', 'test', 'fixtures', 'security-scan');
@@ -132,6 +133,17 @@ test('eslint: severity 2 medium, absolute container path made repo-relative', ()
   const r = run('eslint', 'eslint.js.json');
   assert.equal(r.length, 4);
   assert.ok(r.every(f => f.category === 'quality' && f.severity === 'medium' && f.file === 'src/util.ts' && f.stack === 'js'));
+});
+
+test('eslint: a report above the call argument limit is ingested completely', () => {
+  const amount = 130_000;
+  const report = JSON.stringify([{ filePath: '/src/src/large.ts', messages: Array.from({ length: amount }, (_, i) => ({
+    ruleId: `rule-${i}`, severity: 2, message: `finding-${i}`, line: i + 1,
+  })) }]);
+  const findings: RawFinding[] = [];
+  appendAll(findings, NORMALIZERS.eslint(report, ROOT_CTX));
+  assert.equal(findings.length, amount);
+  assert.equal(findings.at(-1)?.rule, `rule-${amount - 1}`);
 });
 
 test('ruff: low quality findings', () => {
