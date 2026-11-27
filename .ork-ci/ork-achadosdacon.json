@@ -135,32 +135,6 @@
       ]
     },
     {
-      "id": "C6",
-      "thread": "ork-achadosdacon",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
-      "alegacao": "A RM-101 declara que a derivação cobre ids e comandos das claims ativas.",
-      "negativa": false,
-      "verificar": [
-        "grep -F 'ids e comandos das claims ativas' docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md"
-      ],
-      "criadoEm": "2026-11-27T19:45:30.412Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C7",
       "thread": "ork-achadosdacon",
       "fase": "GO",
@@ -213,16 +187,16 @@
       ]
     },
     {
-      "id": "C9",
+      "id": "C11",
       "thread": "ork-achadosdacon",
       "fase": "GO",
-      "arquivo": "docs/roadmap/RM-104-colecoes-grandes-sem-explosao.md",
-      "alegacao": "A RM-104 veda espalhamento dependente da entrada em caminho de produção.",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "Na RM-037, o acréscimo não entregue aparece depois do histórico entregue e antes de Plano e decisões.",
       "negativa": false,
       "verificar": [
-        "grep -F 'nenhum espalhamento dependente da entrada permanece em caminho de produção' docs/roadmap/RM-104-colecoes-grandes-sem-explosao.md"
+        "node -e 'const fs=require(\"node:fs\");const s=fs.readFileSync(\"docs/roadmap/RM-037-verify-rapido-e-confiavel.md\",\"utf8\");const h=s.indexOf(\"### Acréscimo de 27/11/2026, não entregue\");const hist=s.indexOf(\"**Defeitos da noite de 29/09/2026\");const plan=s.indexOf(\"## Plano e decisões\");if(!(hist<h&&h<plan))process.exit(1)'"
       ],
-      "criadoEm": "2026-11-27T19:45:30.723Z",
+      "criadoEm": "2026-11-27T20:20:19.927Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -239,16 +213,146 @@
       ]
     },
     {
-      "id": "C10",
+      "id": "C12",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "O histórico da RM-102 diz que a prova final não conferia a seção correspondente.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'a prova final não conferia a seção correspondente' docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md"
+      ],
+      "criadoEm": "2026-11-27T20:20:41.738Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md",
+      "alegacao": "A RM-104 usa o título técnico Coleções grandes sem estouro de pilha ou de memória.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'Coleções grandes sem estouro de pilha ou de memória' docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:52.800Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C14",
       "thread": "ork-achadosdacon",
       "fase": "GO",
       "arquivo": "docs/roadmap/README.md",
-      "alegacao": "O índice do roadmap lista a RM-104 sobre coleções grandes.",
+      "alegacao": "O índice aponta a RM-104 pelo novo nome de arquivo e pelo título sem linguagem figurada.",
       "negativa": false,
       "verificar": [
-        "grep -F 'Coleções grandes sem explosão de pilha ou memória' docs/roadmap/README.md"
+        "grep -F '| [RM-104](RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md) | Coleções grandes sem estouro de pilha ou de memória |' docs/roadmap/README.md"
       ],
-      "criadoEm": "2026-11-27T19:45:30.797Z",
+      "criadoEm": "2026-11-27T20:21:52.878Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A RM-102 aponta para o novo nome de arquivo da RM-104.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md' docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:52.951Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
+      "alegacao": "A RM-101 registra como pendência provar que a derivação cobre os ids e comandos das claims ativas.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'provar na suíte que a derivação cobre os ids e comandos das claims ativas' docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:53.015Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-achadosdacon",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md",
+      "alegacao": "A RM-104 veda espalhamento dependente da entrada em caminho de produção.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'nenhum espalhamento dependente da entrada permanece em caminho de produção' docs/roadmap/RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md"
+      ],
+      "criadoEm": "2026-11-27T20:21:53.104Z",
       "estado": "verificado",
       "lint": [],
       "regrasDoLint": [
@@ -279,13 +383,13 @@
   "derivacao": {
     "contrato": "ork.ci-bundle-derivacao/v1",
     "thread": "ork-achadosdacon",
-    "head": "07935b50e24bd28d1c829d32f71f53cfc0e96f9e",
-    "verifyRun": "4dad0e6e-baeb-4511-8fff-773fe57a1cd3",
-    "claimsSha256": "0f92fcf0030cf96797da1f8f2e1c05d77787d8e05ac50a08e4a73ab16e9c5f72"
+    "head": "f134d2ed164f0140712393dc14e85e4f3e91f718",
+    "verifyRun": "f0c583ac-f7a1-4372-9b5a-dadf35ca41d5",
+    "claimsSha256": "f64cb413dfecc41d2025d3bf52241f3075d9ff6fedef1fc97e041602db636d2a"
   },
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "07935b50e24bd28d1c829d32f71f53cfc0e96f9e",
-    "sha256": "9d77240510c523ca28e340e1d617a8a55ef94a062cbf2103f19ef02140b68eb7"
+    "head": "f134d2ed164f0140712393dc14e85e4f3e91f718",
+    "sha256": "cdbc62fb51bbb78c08077336f4c16803067d6fc8e570f228bbda070de6b32eb5"
   }
 }
