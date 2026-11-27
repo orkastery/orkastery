@@ -239,32 +239,6 @@
       ]
     },
     {
-      "id": "C12",
-      "thread": "ork-rm101bundled",
-      "fase": "GO",
-      "arquivo": "core/src/mcp-git.ts",
-      "alegacao": "A exceção de claim fica restrita ao bundle derivado em `core/src/mcp-git.ts`, e a descrição pública de `ork_git_commit` permanece inalterada nesta fase; o mutante que amplia a dispensa ou muda a descrição esperada falha.",
-      "negativa": false,
-      "verificar": [
-        "node -e 'const fs=require(\"node:fs\");const g=fs.readFileSync(\"core/src/mcp-git.ts\",\"utf8\");const s=fs.readFileSync(\"core/src/mcp-server.ts\",\"utf8\");if(!g.includes(\"function conferirBundleDerivado\")||!g.includes(\"else if(!claims.some\"))process.exit(1);const descricao=\"Commita somente paths com claims e HEAD esperado na worktree da thread. Recusa hooks/filtros ativos; preserva configuracao. Commit local nao e SHIP.\";if(!s.includes(\"registrarTool(\\u0027ork_git_commit\\u0027,{description:\\u0027\"+descricao+\"\\u0027\"))process.exit(1)'"
-      ],
-      "criadoEm": "2026-11-27T10:01:26.364Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C13",
       "thread": "ork-rm101bundled",
       "fase": "GO",
@@ -497,6 +471,136 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-git.ts",
+      "alegacao": "O ork_git_commit compara o claimsSha256 com as claims ativas, exige modo 100644 e oid conferido, restaura o índice nas recusas e desfaz a ref se o oid pós-commit divergir.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T12:44:38.646Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/test/rm101-bundle-mcp.test.ts",
+      "alegacao": "A suíte RM-101 cobre claims posteriores ao verify, modos 100755 e 120000, oid pós-commit, bundle rastreado com ident e rodada verde sem recibo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T12:44:38.745Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O preparo não deriva bundle nem grava ci_bundle_prepared para rodada verde sem recibo de claims válido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T12:44:38.853Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-git.ts",
+      "alegacao": "A dispensa de claim permanece restrita ao bundle derivado da própria thread; arquivos comuns e Markdown continuam exigindo claim.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T12:44:38.951Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
+      "alegacao": "A página RM-101 descreve o vínculo com as claims ativas, a restauração pós-commit, a fronteira do índice e do gitdir e o histórico do CHECK independente.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-27T12:44:39.036Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
@@ -512,7 +616,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "57ad28577f9a38dc5d19ae8474121661afc0435b",
-    "sha256": "05cfb385f2db0f7175b24a37256e4f1a49265056356e02222ce5ac794508e6d4"
+    "head": "315c9fec88fa33b35886f93a2492f670723f5aa0",
+    "sha256": "304f3ca7d86e3d470ea6944fa9ef08ae07c84ccecd6c9b8b12c9356acf1ca736"
   }
 }
