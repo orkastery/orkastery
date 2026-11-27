@@ -128,7 +128,7 @@ test('mergeByFingerprint: max of the counts, dir entries preferred, no double co
 });
 
 test('mergeByFingerprint: a group above the call argument limit is copied without spreading it', () => {
-  const amount = 130_000;
+  const amount = 400_000;
   const larger = Array.from({ length: amount }, (_, i) => secret(i + 1));
   const merged = mergeByFingerprint([[secret(amount + 1)], larger]);
   assert.equal(merged.length, amount);

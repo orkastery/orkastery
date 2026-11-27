@@ -14,7 +14,7 @@ const report = (findings: Finding[], excluded: string[]): ScanReport => ({
 });
 
 test('report.md: loop, warn and excluded sections handle collections above the call argument limit', () => {
-  const amount = 130_000;
+  const amount = 400_000;
   const loop = Array.from({ length: amount }, (_, i) => finding({ rule: `loop-${i}`, line: i + 1, fingerprint: `l${i}` }));
   const warn = Array.from({ length: amount }, (_, i) => finding({
     rule: `warn-${i}`, category: 'quality', severity: 'medium', line: i + 1, fingerprint: `w${i}`, loop: false,

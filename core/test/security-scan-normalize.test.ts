@@ -181,7 +181,7 @@ test('eslint: Classic and Agile write a report of new findings several times abo
 });
 
 test('eslint: Classic aggregates a large report from both HEAD and base without spreading either list', () => {
-  const amount = 130_000;
+  const amount = 400_000;
   const repo = repositorioSecurityScan('normalize-large-report-both-trees');
   const fake = installFakeTools(['docker']);
   const cache = dirTemporario('normalize-large-report-both-trees-cache');
