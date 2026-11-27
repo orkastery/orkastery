@@ -146,6 +146,26 @@ test('eslint: a report above the call argument limit is ingested completely', ()
   assert.equal(findings.at(-1)?.rule, `rule-${amount - 1}`);
 });
 
+test('eslint: equivalent top-level union orders have the same fingerprint', () => {
+  const findings = run('eslint', 'eslint.union-equivalent.json');
+  assert.notEqual(findings[0].message, findings[1].message, 'the report keeps the original messages');
+  assert.equal(fingerprintOf(findings[0]), fingerprintOf(findings[1]));
+});
+
+test('eslint: genuinely different unions keep different fingerprints', () => {
+  const findings = run('eslint', 'eslint.union-different.json');
+  assert.notEqual(fingerprintOf(findings[0]), fingerprintOf(findings[1]));
+});
+
+test('eslint: union order remains significant outside no-unsafe-argument', () => {
+  const report = (message: string) => JSON.stringify([{ filePath: '/src/src/union.ts', messages: [{
+    ruleId: 'other-rule', severity: 2, message, line: 1,
+  }] }]);
+  const a = NORMALIZERS.eslint(report('A | B'), ROOT_CTX)[0];
+  const b = NORMALIZERS.eslint(report('B | A'), ROOT_CTX)[0];
+  assert.notEqual(fingerprintOf(a), fingerprintOf(b));
+});
+
 test('ruff: low quality findings', () => {
   const r = run('ruff', 'ruff.python.json');
   assert.equal(r.length, 3);
