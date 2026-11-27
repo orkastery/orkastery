@@ -2109,58 +2109,6 @@
       ]
     },
     {
-      "id": "C225",
-      "thread": "ork-rm089f7recib",
-      "fase": "GO",
-      "arquivo": "core/src/mcp-ship.ts",
-      "alegacao": "O caminho usado por executar no worker MCP compõe a porta da fábrica antes de chamar o SHIP, e a recusa da porta bloqueia a entrega no teste focal.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
-      ],
-      "criadoEm": "2026-11-27T01:06:29.432Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
-      "id": "C226",
-      "thread": "ork-rm089f7recib",
-      "fase": "GO",
-      "arquivo": "core/src/ship.ts",
-      "alegacao": "No GitLab em exigir, o SHIP registra gate e entrega somente quando a ponta lida do remoto é o merge observado ou contém esse merge, grava pontaDaBase e a fonte da prova, recusa sem registro quando a prova falha e não grava gate nem entrega no dry-run.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
-      ],
-      "criadoEm": "2026-11-27T01:15:35.880Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C227",
       "thread": "ork-rm089f7recib",
       "fase": "GO",
@@ -2211,12 +2159,98 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C229",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "No GitLab em exigir, o SHIP prova e busca a ponta remota antes de registrar a entrega tanto no transporte do projeto quanto no transporte fixado, aceitando a ponta igual ou descendente do merge e recusando sem gate nem entrega quando o merge fica fora da ponta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js core/dist-test/test/mcp-ship-fixado.test.js"
+      ],
+      "criadoEm": "2026-11-27T03:42:55.881Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C231",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/src/ship-fabrica.ts",
+      "alegacao": "O dry-run GitHub consulta o check decisório com prazo útil na primeira leitura.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/rm089-f7-ship-fabrica.test.js"
+      ],
+      "criadoEm": "2026-11-27T03:42:55.996Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C232",
+      "thread": "ork-rm089f7recib",
+      "fase": "GO",
+      "arquivo": "core/test/mcp-ship-fixado.test.ts",
+      "alegacao": "A suíte do transporte fixado cobre o registro GitLab em exigir com ponta igual ao merge, ponta descendente criada só no remoto e merge fora da ponta, exigindo recusa sem gate nem entrega no último caso.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node core/scripts/casa-temporaria.cjs node --test core/dist-test/test/mcp-ship-fixado.test.js"
+      ],
+      "criadoEm": "2026-11-27T03:43:23.040Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [
     {
       "id": "C161",
       "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C230",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C233",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
@@ -2231,7 +2265,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "cbe70ebeed89be06554273d3b434b0c8fb1b05a0",
-    "sha256": "592aa17aca72313d31f553af6ec9c44d33fe27857e1861ed8af8731fe5ad119d"
+    "head": "b955d93fa983514388351faae1e49505ea680250",
+    "sha256": "b8f841efa0ee8b5eca7ee8cf017cf040786f44f3bdf1d6e6dd0a8bc4f4a5eadb"
   }
 }
