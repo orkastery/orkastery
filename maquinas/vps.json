@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.11",
-  "publicadoEm": "2026-11-27T07:45:03.564Z",
+  "publicadoEm": "2026-11-27T07:45:11.401Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -32,11 +32,11 @@
       "id": "ork-rm071f1esper",
       "nome": "rm071f1esper",
       "modo": "#Auto",
-      "fase": "PLAN",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": "RM-071",
       "branch": "ork/ork-rm071f1esper-full",
-      "atualizadaEm": "2026-11-27T07:37:45.697Z",
+      "atualizadaEm": "2026-11-27T07:45:10.748Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -45,9 +45,9 @@
       "modelo": "opus",
       "esforco": "max",
       "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-27T07:45:11.796Z",
-        "motivo": "sessão a9ece32e sem processo (fantasma)"
+        "viva": true,
+        "desdeEm": null,
+        "motivo": null
       }
     },
     {
