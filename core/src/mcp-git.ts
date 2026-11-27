@@ -16,6 +16,7 @@ import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { Lease } from './types';
 import { CONTRATO_DERIVACAO_BUNDLE_CI } from './ci-bundle-derivacao';
+import { materialDasClaims } from './recibo-prova';
 
 export interface PedidoCommitMcp { threadId: string; expectedHead: string; paths: string[]; mensagem: string }
 export interface ArtefatoDerivadoCommitMcp {
@@ -89,7 +90,8 @@ function ambiente(env:NodeJS.ProcessEnv=process.env): NodeJS.ProcessEnv {
 }
 
 /** A dispensa de claim vale somente para os bytes que o nucleo acabou de derivar da ultima rodada verde. */
-function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHead:string,arquivo:string):ArtefatoDerivadoCommitMcp|null {
+function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHead:string,arquivo:string,
+  claims:ReturnType<typeof lerClaims>):ArtefatoDerivadoCommitMcp|null {
   const esperado=path.posix.join(DIR_DO_BUNDLE,`${threadId}.json`);
   if(arquivo.startsWith(DIR_DO_BUNDLE+'/') && arquivo.endsWith('.json') && arquivo!==esperado)
     falha('bundle.thread.invalid');
@@ -112,6 +114,8 @@ function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHe
   const derivacao=bundle!.derivacao as Record<string,unknown>|undefined;
   if(!derivacao || derivacao.contrato!==CONTRATO_DERIVACAO_BUNDLE_CI)falha('bundle.receipt.missing');
   if(bundle!.thread!==threadId || derivacao.thread!==threadId)falha('bundle.thread.invalid');
+  const claimsSha256Atual=createHash('sha256').update(JSON.stringify(materialDasClaims(claims).claims)).digest('hex');
+  if(derivacao.claimsSha256!==claimsSha256Atual)falha('bundle.claims.stale');
   if(derivacao.head!==expectedHead || ultimoVerify.commit!==expectedHead)falha('bundle.head.stale');
   if(typeof derivacao.verifyRun!=='string' || derivacao.verifyRun!==ultimoVerify.eventId)
     falha('bundle.verify.invalid');
@@ -140,6 +144,18 @@ function conferirDerivadosNoIndice(wt:string,derivados:ArtefatoDerivadoCommitMcp
     const entrada=git(wt,['ls-files','-s','-z','--',derivado.arquivo]);
     if(entrada!==`100644 ${derivado.oid} 0\t${derivado.arquivo}\0`)falha('bundle.changed');
   }
+}
+/** Se a segunda leitura do objeto divergir, a ref volta ao pai esperado e o indice volta ao estado anterior. */
+export function conferirDerivadosNoCommit(wt:string,expectedHead:string,commit:string,
+  derivados:ArtefatoDerivadoCommitMcp[]):void {
+  const divergente=derivados.some(derivado=>
+    git(wt,['rev-parse','--verify',`${commit}:${derivado.arquivo}`]).trim()!==derivado.oid);
+  if(!divergente)return;
+  try {
+    git(wt,['update-ref','-m','ork_git_commit: desfaz objeto divergente','HEAD',expectedHead,commit]);
+    git(wt,['reset','-q',expectedHead,'--',...derivados.map(x=>x.arquivo)]);
+  } catch {falha('bundle.commit.rollback.failed');}
+  falha('bundle.commit.mismatch');
 }
 /**
  * Fatia 2 do ensaio da 0.5.0 (P8): como o git saiu, sem o stderr, que pode citar caminho e conteudo.
@@ -409,7 +425,7 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
       const derivados:ArtefatoDerivadoCommitMcp[]=[];
       for(const f of p.paths) {
         fisico(wt,path.join(wt,f),true);
-        const derivado=conferirBundleDerivado(raiz,t.id,wt,p.expectedHead,f);
+        const derivado=conferirBundleDerivado(raiz,t.id,wt,p.expectedHead,f,claims);
         if(derivado)derivados.push(derivado);
         else if(!claims.some(c=>c.estado!=='retirada' && c.arquivo===f && c.verificar.length>0)) falha('claim.missing');
       }
@@ -461,9 +477,11 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
     if(!commit || git(wt,['rev-parse','HEAD^']).trim()!==p.expectedHead) falha('commit.parent-invalid');
     const alterados=git(wt,['diff-tree','--no-commit-id','--name-only','-r','-z',commit]).split('\0').filter(Boolean);
     if(!alterados.length || alterados.some(f=>!p.paths.includes(f))) falha('commit.paths-invalid');
-    for(const derivado of artefatosDerivados)
-      if(git(wt,['rev-parse','--verify',`${commit}:${derivado.arquivo}`]).trim()!==derivado.oid)
-        falha('bundle.commit.mismatch');
+    try {conferirDerivadosNoCommit(wt,p.expectedHead,commit,artefatosDerivados);}
+    catch(e) {
+      if((e as Error).message==='mcp.git.bundle.commit.mismatch')commit=null;
+      throw e;
+    }
     registrar(dirThread(raiz,t.id),t.id,'mcp_git_committed',{commit,paths:alterados,origem:'mcp.git',estadoAuditado,
       ...(artefatosDerivados.length?{artefatosDerivados}:{}),...vinculo});
     return {ok:true,commit,erro:null,estadoAuditado,...(artefatosDerivados.length?{artefatosDerivados}:{})};

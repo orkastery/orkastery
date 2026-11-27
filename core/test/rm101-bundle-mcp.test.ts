@@ -9,7 +9,7 @@ import { projetoTemporario, isolarConfiguracaoGlobalDoGit } from './apoio';
 import { novaThread, gravarThread, dirThread } from '../src/thread';
 import { adicionarClaim } from '../src/claims';
 import { prepararBundleCi } from '../src/ci';
-import { commitMcp, type PedidoCommitMcp } from '../src/mcp-git';
+import { commitMcp, conferirDerivadosNoCommit, type PedidoCommitMcp } from '../src/mcp-git';
 import { chaveDoReciboDeProva } from '../src/recibo-prova';
 import { exec } from '../src/util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO, type MetadadosDoNovoEvento } from '../src/ledger';
@@ -67,8 +67,8 @@ async function fixture(fn: (f: Fixture) => Promise<void>): Promise<void> {
   }
 }
 
-function semEfeito(f: Fixture): void {
-  assert.equal(f.git(['rev-parse', 'HEAD']).trim(), f.head);
+function semEfeito(f: Fixture, head = f.head): void {
+  assert.equal(f.git(['rev-parse', 'HEAD']).trim(), head);
   assert.equal(f.git(['diff', '--cached', '--name-only']).trim(), '');
 }
 
@@ -175,6 +175,16 @@ test('claimsSha256 adulterado na derivacao e recusado', async () => fixture(asyn
   semEfeito(f);
 }));
 
+test('claim ativa posterior ao verify invalida o bundle antes do commit', async () => fixture(async (f) => {
+  f.verify();
+  f.preparar();
+  const rastreado = f.git(['ls-files']).split('\n').filter(Boolean)[0];
+  f.claim(rastreado, 'claim registrada depois da rodada verde');
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.erro, 'mcp.git.bundle.claims.stale');
+  semEfeito(f);
+}));
+
 test('bundle derivado nao pode dividir o commit com caminho que tem claim', async () => fixture(async (f) => {
   const produto = 'produto.txt';
   fs.writeFileSync(path.join(f.wt, produto), 'com claim\n');
@@ -197,14 +207,69 @@ test('atributo ident nao muda o blob conferido e a recusa limpa o indice', async
   semEfeito(f);
 }));
 
+test('modo executavel no indice e recusado e o indice fica limpo', async () => fixture(async (f) => {
+  f.verify();
+  const arquivo = f.preparar();
+  fs.chmodSync(arquivo, 0o755);
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.erro, 'mcp.git.bundle.changed');
+  semEfeito(f);
+}));
+
+test('bundle rastreado com ident restaura a entrada anterior do indice', async () => fixture(async (f) => {
+  f.verify();
+  f.preparar();
+  const primeiro = await commitMcp(f.raiz, f.pedido);
+  assert.equal(primeiro.ok, true, primeiro.erro ?? '');
+  const head = primeiro.commit!;
+  fs.writeFileSync(path.join(f.wt, '.gitattributes'), '.ork-ci/*.json ident\n');
+  const rastreado = f.git(['ls-files']).split('\n').find(x => x && !x.startsWith('.ork-ci/'))!;
+  f.claim(rastreado, 'claim com $Id: valor $ no bundle rastreado');
+  f.verify({ commit: head });
+  const arquivo = f.preparar();
+  assert.match(fs.readFileSync(arquivo, 'utf8'), /\$Id: valor \$/);
+  const antes = f.git(['ls-files', '-s', '--', f.bundle]);
+  const r = await commitMcp(f.raiz, { ...f.pedido, expectedHead: head });
+  assert.equal(r.erro, 'mcp.git.bundle.changed');
+  assert.equal(f.git(['ls-files', '-s', '--', f.bundle]), antes);
+  semEfeito(f, head);
+}));
+
+test('rodada verde sem recibo nao deriva bundle nem grava recibo de preparo', async () => fixture(async (f) => {
+  registrar(dirThread(f.raiz, f.id), f.id, TIPOS_DE_EVENTO.verificacao, {
+    commit: f.head, veredito: 'verdade sustentada', parcial: false,
+    check: { modo: 'agile', origem: 'manifesto' },
+  });
+  const arquivo = f.preparar();
+  assert.equal(JSON.parse(fs.readFileSync(arquivo, 'utf8')).derivacao, undefined);
+  assert.equal(lerLedger(dirThread(f.raiz, f.id)).some(e => e.tipo === 'ci_bundle_prepared'), false);
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.erro, 'mcp.git.bundle.verify.invalid');
+  semEfeito(f);
+}));
+
+test('divergencia do oid depois do commit desfaz a ref e restaura o indice', async () => fixture(async (f) => {
+  f.verify();
+  f.preparar();
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.ok, true, r.erro ?? '');
+  const derivado = { ...r.artefatosDerivados![0], oid: '0'.repeat(40) };
+  assert.throws(() => conferirDerivadosNoCommit(f.wt, f.head, r.commit!, [derivado]),
+    /mcp\.git\.bundle\.commit\.mismatch/);
+  semEfeito(f);
+}));
+
 const TROCADOR = `
 const fs=require('node:fs');
-const [alvo,original,forjado]=process.argv.slice(1);
+const [alvo,original,forjado,modo='bytes',burst='4',periodo='12']=process.argv.slice(1);
 const O=fs.readFileSync(original),M=fs.readFileSync(forjado);
 const espera=(ms)=>{const fim=Date.now()+ms;while(Date.now()<fim){}};
 for(;;){
-  fs.writeFileSync(alvo+'.troca',M);fs.renameSync(alvo+'.troca',alvo);espera(4);
-  fs.writeFileSync(alvo+'.troca',O);fs.renameSync(alvo+'.troca',alvo);espera(12);
+  try{fs.unlinkSync(alvo+'.troca');}catch{}
+  if(modo==='linkjson')fs.symlinkSync(O.toString('utf8'),alvo+'.troca');
+  else fs.writeFileSync(alvo+'.troca',M);
+  fs.renameSync(alvo+'.troca',alvo);espera(+burst);
+  fs.writeFileSync(alvo+'.troca',O);fs.renameSync(alvo+'.troca',alvo);espera(Math.random()*(+periodo));
 }`;
 
 test('troca concorrente nunca entra no commit e toda recusa posterior ao add limpa o indice', { timeout: 180000 }, async () =>
@@ -222,7 +287,7 @@ test('troca concorrente nunca entra no commit e toda recusa posterior ao add lim
     const originalPath = path.join(apoio, 'original'), forjadoPath = path.join(apoio, 'forjado');
     fs.writeFileSync(originalPath, original);
     fs.writeFileSync(forjadoPath, forjado);
-    let filho: ChildProcess | null = spawn(process.execPath, ['-e', TROCADOR, arquivo, originalPath, forjadoPath],
+    let filho: ChildProcess | null = spawn(process.execPath, ['-e', TROCADOR, arquivo, originalPath, forjadoPath, 'bytes'],
       { stdio: 'ignore' });
     let recusas = 0, sucessos = 0;
     try {
@@ -247,5 +312,44 @@ test('troca concorrente nunca entra no commit e toda recusa posterior ao add lim
     }
     assert.equal(recusas + sucessos, 40);
     assert.ok(sucessos > 0);
+    semEfeito(f);
+  }));
+
+test('troca por link simbolico com o mesmo oid nunca commita modo 120000', { timeout: 360000 }, async () =>
+  fixture(async (f) => {
+    f.verify();
+    const arquivo = f.preparar();
+    const original = fs.readFileSync(arquivo);
+    const apoio = fs.mkdtempSync(path.join(path.dirname(f.raiz), 'rm101-linkjson-'));
+    const originalPath = path.join(apoio, 'original'), forjadoPath = path.join(apoio, 'forjado');
+    fs.writeFileSync(originalPath, original);
+    fs.writeFileSync(forjadoPath, original);
+    let filho: ChildProcess | null = null;
+    let recusasDeModo = 0;
+    try {
+      for (const [burst, periodo] of [[2, 25], [4, 12], [1, 5]]) {
+        filho = spawn(process.execPath,
+          ['-e', TROCADOR, arquivo, originalPath, forjadoPath, 'linkjson', String(burst), String(periodo)],
+          { stdio: 'ignore' });
+        for (let tentativa = 0; tentativa < 50; tentativa++) {
+          const r = await commitMcp(f.raiz, f.pedido);
+          if (!r.ok) {
+            if (r.erro === 'mcp.git.bundle.changed') recusasDeModo++;
+            semEfeito(f);
+            continue;
+          }
+          assert.equal(f.git(['ls-tree', r.commit!, '--', f.bundle]).split(' ')[0], '100644');
+          f.git(['reset', '-q', f.head]);
+        }
+        filho.kill('SIGKILL');
+        filho = null;
+        fs.writeFileSync(arquivo + '.original', original);
+        fs.renameSync(arquivo + '.original', arquivo);
+      }
+    } finally {
+      filho?.kill('SIGKILL');
+      fs.rmSync(apoio, { recursive: true, force: true });
+    }
+    assert.ok(recusasDeModo > 0);
     semEfeito(f);
   }));
