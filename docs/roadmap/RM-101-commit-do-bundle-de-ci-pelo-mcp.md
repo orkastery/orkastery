@@ -52,19 +52,21 @@ sdlc:
 - **Incluído:** recibo do `ork ci prepare`; vínculo entre bundle, thread, HEAD e rodada verde; exceção estreita no `ork_git_commit` para o bundle derivado; commit com HEAD esperado; resposta tipada para bundle ausente, alterado, obsoleto ou de outra thread.
 - **Fora de escopo:** dispensar claims de arquivos de produto ou documentação; aceitar bundle editado pela sessão; commitar por shell; executar o CI; autorizar SHIP, push, PR ou merge.
 - **Entregáveis e critérios de aceite:** depois do verify verde, `ork ci prepare <thread>` gera o bundle e o `ork_git_commit` o registra no HEAD esperado sem claim artificial; mudança no bundle, na rodada, na thread ou no HEAD recusa antes do commit; os demais paths continuam recusados sem claim; o recibo do commit identifica o artefato derivado sem declarar que ele verificou a si mesmo.
-- **Piloto, medição e critérios de expansão/interrupção:** piloto numa thread de documentação pelo MCP. Expandir quando o caminho oficial fechar sem exceção genérica. Interromper se um arquivo arbitrário puder usar o recibo do bundle ou se um bundle obsoleto for aceito.
+- **Comportamento dos caminhos:** qualquer `.ork-ci/*.json` que não seja o bundle da própria thread é recusado, mesmo com claim, inclusive `.ork-ci/bundle.json`; bundle alterado é recusado mesmo com claim no próprio caminho; a remoção de um bundle rastreado também é recusada como `bundle.missing`. O bundle derivado ocupa um commit exclusivo.
+- **Piloto, medição e critérios de expansão/interrupção:** o piloto pelo MCP continua pendente até esta mudança estar no núcleo usado pela condução. Expandir quando uma thread posterior preparar e registrar o bundle pelo caminho oficial. Interromper se um arquivo arbitrário puder usar o recibo, se um bundle obsoleto for aceito ou se o objeto commitado divergir dos bytes conferidos.
 
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** proposta originada na condução da versão 0.6.11; sem prioridade atribuída nesta thread. O roadmap decide a posição antes de abrir trabalho.
-- **Horizonte / alvo / previsão / confiança / marcos:** Discovery, sem previsão. Marcos: contrato do recibo, guarda estreita no commit, provas de recusa e piloto pelo MCP.
+- **Horizonte / alvo / previsão / confiança / marcos:** implementação em andamento na thread `ork-rm101bundled`, sem previsão de merge ou implantação. Marcos: contrato do recibo, guarda estreita no commit, provas de recusa e piloto posterior pelo MCP.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** contrato do bundle de CI, `ork ci prepare`, `ork_git_commit`, claims e verify; owner: Condução do roadmap; revisão quando o roadmap priorizar o item.
-- **Premissas / riscos / mitigação:** a exceção pode virar um bypass de claims; ela será limitada ao path calculado pelo núcleo e à impressão do conteúdo produzido. Uma rodada pode ficar obsoleta entre preparo e commit; o HEAD e o recibo serão relidos imediatamente antes do efeito.
+- **Premissas / riscos / mitigação:** o ledger e as claims ficam fora do alcance de escrita da sessão, e essa fronteira sustenta o recibo de preparo. A exceção fica limitada ao path calculado, ao hash das claims da rodada, aos bytes produzidos e ao oid Git correspondente. O índice e o objeto commitado são conferidos. Uma rodada obsoleta, um recibo forjado fora dessa fronteira ou uma conversão de conteúdo são recusados.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** a sessão GO `ork-achados0611` separou o achado em item próprio porque o bundle é artefato derivado do fechamento, não uma alegação de produto. A decisão está registrada no ledger da thread.
+- **Continuação futura:** atualizar a descrição pública de `ork_git_commit`, as instruções das sessões e as referências em português e inglês de `ork ci prepare` num ciclo que possa alterar contrato público. Esta entrega Fast preserva esses textos.
 
 ## Estado com evidências
 
-A branch da thread implementa o contrato de derivação no preparo, a conferência estreita no commit MCP e as recusas antes do efeito. A suíte dedicada cobre o caminho aceito, o arquivo comum sem claim e bundles ausentes, alterados, ligados a outro HEAD, a outra thread ou a uma rodada não verde. Merge, deploy e habilitação continuam fora desta entrega.
+A branch da thread implementa o contrato de derivação no preparo, incluindo o hash das claims da rodada. O commit MCP confere modo e oid no índice, commita o índice sem pathspec e confirma o objeto antes do recibo. A suíte dedicada cobre troca concorrente dos bytes, atributo `ident`, limpeza do índice nas recusas, caminhos Markdown sem claim, caminho de outra thread, commit misto, bundle alterado com claim e rodadas não verdes ou parciais. Merge, deploy, habilitação e piloto continuam fora desta entrega.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -86,9 +88,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: futura thread do item; A: condução do roadmap; C: manutenção de claims, verify, CI e MCP; I: builders que fecham GO pelo transporte MCP.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO implementa a fatia em modo Fast e registra as decisões autônomas no ledger. A revisão independente não é presumida nesta fase.
-- **Próxima ação, responsável e prazo:** concluir o verify oficial e registrar o bundle pelo caminho MCP entregue; responsável: thread `ork-rm101bundled`; sem prazo declarado.
+- **Próxima ação, responsável e prazo:** concluir o verify oficial e o bundle final desta thread; o piloto funcional pelo MCP fica para uma thread posterior com o núcleo atualizado; responsável: condução do roadmap; sem prazo declarado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-11-26 | Proposta registrada em Discovery | Achado da condução de 25 e 26/11/2026: o bundle oficial foi recusado pelo MCP com `mcp.git.claim.missing` | sessão GO `ork-achados0611` (#Fast) |
 | 2026-11-27 | Implementação iniciada na thread `ork-rm101bundled` | Contrato de derivação, guarda estreita do commit MCP e suíte dedicada na branch da thread | sessão GO (#Fast) |
+| 2026-11-27 | Correção após o primeiro CHECK independente | Commit preso ao oid conferido, limpeza do índice, hash das claims e casos de ataque incorporados à suíte | sessão GO (#Fast) |
