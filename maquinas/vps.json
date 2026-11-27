@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.11",
-  "publicadoEm": "2026-11-27T04:34:55.722Z",
+  "publicadoEm": "2026-11-27T04:45:03.013Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -80,7 +80,7 @@
       "status": "aberta",
       "roadmap": "RM-102",
       "branch": "ork/ork-rm102securit-go",
-      "atualizadaEm": "2026-11-27T04:33:47.531Z",
+      "atualizadaEm": "2026-11-27T04:44:41.716Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
