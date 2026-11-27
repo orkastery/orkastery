@@ -341,6 +341,136 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C14",
+      "thread": "ork-versao0613",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A abertura da 0.6.13 descreve a impressão digital das uniões equivalentes, o relatório grande e a exceção estreita do bundle sem retirar claims dos demais arquivos.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),t=fs.readFileSync(\"CHANGELOG.md\",\"utf8\"),e=\"A 0.6.13 torna estável a impressão digital de uniões de tipos equivalentes e impede que o security scan estoure com relatório grande (RM-102). Sem claim artificial, o MCP passa a commitar somente o bundle de CI derivado da rodada verde, preso aos bytes conferidos; os demais arquivos seguem exigindo claim (RM-101).\";if(!t.includes(e))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T15:59:59.186Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C15",
+      "thread": "ork-versao0613",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
+      "alegacao": "A RM-101 registra PR #312, merge 59bab850, fase MASTER, saída na 0.6.13 e próxima ação posterior ao merge.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),t=fs.readFileSync(\"docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md\",\"utf8\");for(const s of[\"pr: 312\",\"fase: MASTER\",\"PR #312 (merge `59bab850`)\",\"sai na 0.6.13\",\"publicar a 0.6.13\",\"Implementação mesclada na `main` e incluída na 0.6.13\"])if(!t.includes(s))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T16:01:45.392Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-versao0613",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md",
+      "alegacao": "A RM-102 registra PR #310, merge 65cb35ef, fase MASTER, saída na 0.6.13 e próxima ação posterior ao merge.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),t=fs.readFileSync(\"docs/roadmap/RM-102-security-scan-estavel-com-relatorio-grande.md\",\"utf8\");for(const s of[\"pr: 310\",\"fase: MASTER\",\"PR #310 (merge `65cb35ef`)\",\"sai na 0.6.13\",\"publicar a 0.6.13\",\"Implementação mesclada na `main` e incluída na 0.6.13\"])if(!t.includes(s))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T16:01:45.476Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-versao0613",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md",
+      "alegacao": "A RM-089 registra que a F7 saiu na 0.6.12 publicada no npm e direciona a próxima ação para meta e piloto.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),t=fs.readFileSync(\"docs/roadmap/RM-089-orkastery-network-coletiva-da-empresa.md\",\"utf8\"),m=t.match(/saiu na 0\\.6\\.12, publicada no npm/g)||[];if(m.length<3||t.includes(\"publicar a 0.6.12\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T16:02:58.011Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-versao0613",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap registra que a F7 saiu na 0.6.12 publicada no npm.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"fs\"),t=fs.readFileSync(\"docs/roadmap/README.md\",\"utf8\");if(!t.includes(\"a F7 foi mesclada pelo PR #307\")||!t.includes(\"saiu na 0.6.12, publicada no npm\"))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T16:02:58.083Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
@@ -356,7 +486,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "4c912e1889d253aad7727b7f38f93cd691841145",
-    "sha256": "a1cec870129c701d784943dea4516265679412966bf73a08b7d00d92a7248572"
+    "head": "37b2a7190f93a83cad4ed0ba0695824e14563b2c",
+    "sha256": "cf2a8759e2198458e0ae863dd100217179e254b2e4f19731d460c06b05eb355a"
   }
 }
