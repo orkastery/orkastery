@@ -8,7 +8,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## [0.6.12] - 2026-11-27
 
-A 0.6.12 entrega a F7 da RM-089: só a fábrica publica o resultado que decide o merge no GitHub e no GitLab. Com ela, as sete fatias da RM-089 estão entregues.
+A 0.6.12 entrega a F7 da RM-089: o motor e as portas para que só a fábrica publique o resultado que decide o merge, no GitHub e no GitLab. Com ela, as sete fatias da RM-089 estão entregues.
 
 O #Noctum segue **em desenvolvimento, não anunciado**.
 
