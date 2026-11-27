@@ -4,6 +4,7 @@ import type { EntradaDoEstadoDeCi } from '../src/forja/adaptador';
 import { chamadorDaApi, paginarPelaApi, type ChamadorDaApi } from '../src/forja/api';
 import { produtorAceito } from '../src/forja/produtor';
 import { adaptadorDaForja, exigirCapacidade } from '../src/forja/registro';
+import * as ciGitlab from '../src/forja/gitlab/ci';
 import { api, apiEm, cliFalsa, gravado, http, login, ok, respostaGravada, type Regra } from './forja-cli-falsa';
 
 const GL = { tipo: 'gitlab' as const, host: 'gitlab.empresa.com', porta: null, caminhoBase: '', ca: null };
@@ -17,6 +18,10 @@ const PROJETO = 'projects/root%2Fmatriz';
 type Item = Record<string, unknown>;
 const corpo = (caso: string) => gravado(`gitlab/${caso}`) as Item[];
 const SEM_LIMITE = { restante: null, total: null, reiniciaEm: null };
+
+test('a leitura GitLab não exporta helper de autorização do gate', () => {
+  assert.deepEqual(Object.keys(ciGitlab).sort(), ['MAX_PIPELINES', 'estadoDeCiGitlab']);
+});
 
 function ler(regras: Regra[], o: Partial<EntradaDoEstadoDeCi> = {}) {
   const cli = cliFalsa([{ quando: login, responde: ok('') }, ...regras]);

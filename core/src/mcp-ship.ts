@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
-import {exigirManifesto} from './manifest';
+import {exigirManifesto,ManifestoCarregado} from './manifest';
 import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
@@ -14,7 +14,8 @@ import {originUnicoMcp,URL_GITHUB_SSH,lerFixacao,conferirFixacao,configDeRede,co
   ambienteDoWorkerShip,ambienteDoWorkerDoTransporte} from './mcp-ship-transporte';
 import {ehTransporteFixado,TransporteShipMcp} from './mcp-transportes';
 import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
-import {ship,ResultadoShip,arvoreComBranch} from './ship';
+import {ship,ResultadoShip,OpcoesShip,arvoreComBranch} from './ship';
+import {criarPortaDaFabricaNoShip} from './ship-fabrica';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
 import {lerClaims} from './claims';
 import {criarExecutorSandbox} from './verify-sandbox';
@@ -256,10 +257,27 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
       try{return sandbox.executar(nomeComando,comando,cwd);}finally{sandbox.fechar();}
     };
     // RM-058 N2 (B1 do CHECK): a fila pesada espera so o que cabe no prazo do worker, para o finally soltar as leases.
-    return ship(c,t.id,opcoesDoShipMcpComPreflight({de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
+    return executarShipDoWorkerMcp(c,t.id,deadline,{de,para,remoto:'origin',configDoRemoto:f.rede,...(f.pino?{conferirDepoisDoPush:depoisDoPush(f),urlFixada:f.pino.fixacao.url}:{}),executorVerify:executor,ttlLeaseMs:PRAZO+RESERVA,retomarLeaseVencido:false,
       esperarFilaPesadaMs:Math.max(0,Math.min(20000,deadline-Date.now()-RESERVA)),
-      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa));
+      revalidarGit:(etapa,dir)=>{if(!leasesIntactas())erro('lease.changed');guard(etapa,dir);}},preflightEmpresa);
   } finally {for(const l of proprias.reverse())if(JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l))liberar(raiz,l.nome,t.id);}
+}
+/** Caminho único que o worker usa para compor as opções internas e chamar o SHIP. */
+export function executarShipDoWorkerMcp(c:ManifestoCarregado,threadId:string,deadline:number,opcoes:OpcoesShip,
+  preflightEmpresa:ResultadoPreflightEmpresa|null):ResultadoShip {
+  return ship(c,threadId,opcoesDoShipMcpComPreflight(opcoesDoWorkerShipMcp(c,deadline,{...opcoes}),preflightEmpresa));
+}
+/** A composição exercitável que o núcleo do worker entrega ao SHIP. */
+export function opcoesDoWorkerShipMcp(c:ManifestoCarregado,deadline:number,opcoes:OpcoesShip):OpcoesShip {
+  return {...opcoes,
+    ...opcoesDaFabricaDoShipMcp(c,deadline),
+  };
+}
+/** Composição única da porta da fábrica usada pelo worker MCP. */
+export function opcoesDaFabricaDoShipMcp(c:ManifestoCarregado,deadline:number) {
+  return {
+    portaDaFabrica:criarPortaDaFabricaNoShip(c),prazoFabricaMs:Math.max(0,deadline-Date.now()-RESERVA),
+  };
 }
 export type RespostaShipMcp={ok:boolean;resultado?:ResultadoShip;erro?:string;cleanupConfirmado?:boolean};
 /** Perfil não pode ser fabricado por argumentos JSON. Retorno interrompido exige reconciliação. */

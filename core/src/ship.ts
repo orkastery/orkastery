@@ -46,6 +46,8 @@ import { CONTRATO_DO_RECIBO_DE_PROVA } from './recibo-prova';
 import type { ResultadoPreflightEmpresa } from './rede-empresa-preflight';
 import { motivoDoPedido, PedidoHitlQualquer, validarPedidoHitl } from './hitl-contract';
 import { evidenciaDoPedidoSemScan, respostaBSemScanAindaVale } from './hitl-gates';
+import { sinalDaCiParaFabrica } from './forja/produtor';
+import type { PortaDaFabricaNoShip } from './ship-fabrica';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -70,6 +72,15 @@ export interface OpcoesShip {
   allowUnscanned?: string;
   /** Executor interno confiável da consulta ao provedor de CI. */
   executorCi?: ExecutorCi;
+  /**
+   * Resultado confiável da fábrica, relido pela superfície que chama o SHIP. Destino, HEAD e sinal da CI são
+   * preenchidos pelo próprio `ship`, para a porta não poder autorizar outro commit. Não é opção de CLI nem argumento MCP.
+   */
+  fabrica?: Omit<EntradaDoShipComFabrica, 'destino' | 'head' | 'ci'>;
+  /** Porta confiável instalada pelo CLI ou MCP; lê a configuração da branch de destino e consulta a forja. */
+  portaDaFabrica?: PortaDaFabricaNoShip;
+  /** Prazo restante da operação para a espera do merge da fábrica no GitLab. */
+  prazoFabricaMs?: number;
   /**
    * Pares `-c chave=valor` que o transporte fixado do MCP leva so ao `ls-remote` e ao `push` da base (o ssh com a
    * chave fixada, o helper da forja, a CA). Interno e confiavel, como o `executorVerify`: a CLI nunca o recebe.
@@ -120,7 +131,8 @@ export interface ResultadoShip {
    * O porque estavel da recusa do push, quando ha um; o motivo do gate continua `runtime.unavailable`. RM-058, integracao
    * (T1.1): a thread de um arco #Noctum recusada pela guarda, com o motivo `policy.violation`.
    */
-  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push' | MotivoDaGuarda;
+  codigo?: 'entrega.base-protegida' | 'transport.mudou-no-push' | 'ship.fabrica.push-recusado'
+    | 'ship.fabrica.merge-pendente' | 'ship.fabrica.sha-divergente' | MotivoDaGuarda;
   detalhe: string;
   correcao: string;
   thread: string;
@@ -150,6 +162,48 @@ export interface ResultadoShip {
   passos: string[];
   dryRun: boolean;
   preflightEmpresa?: ResultadoPreflightEmpresa;
+}
+
+export interface EntradaDoShipComFabrica {
+  configurada: boolean;
+  nivel: 'observar' | 'avisar' | 'exigir';
+  forja: 'github' | 'gitlab';
+  destino: string;
+  head: string;
+  resultado: { valido: boolean; destino: string; head: string; githubAppId?: number } | null;
+  github?: { appIdEsperado: number; checkVerde: boolean; pushAceito?: boolean };
+  gitlab?: { estado: 'pendente' | 'mesclado'; shaMesclado?: string; mergeSha?: string;
+    numero?: number; mescladoPorId?: number };
+  ci: Pick<ResultadoCi, 'state'>;
+}
+
+export type DecisaoDoShipComFabrica = { ok: true; acao: 'fluxo-publicado' | 'mesclar-github' | 'registrar-gitlab' } |
+  { ok: false; codigo: 'ship.fabrica.push-recusado' | 'ship.fabrica.merge-pendente' | 'ship.fabrica.sha-divergente' |
+    'ci.failed' | 'ci.fabrica.prova-ausente' };
+
+/** D45, D51 e D56: a decisão da fábrica autoriza; a CI tradicional apenas acrescenta veto. */
+export function decidirShipComFabrica(e: EntradaDoShipComFabrica): DecisaoDoShipComFabrica {
+  if (!e.configurada || e.nivel !== 'exigir') return { ok: true, acao: 'fluxo-publicado' };
+  if (sinalDaCiParaFabrica(e.ci.state) === 'negativo') return { ok: false, codigo: 'ci.failed' };
+  if (!e.resultado?.valido || e.resultado.destino !== e.destino || e.resultado.head !== e.head) {
+    return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
+  }
+  if (e.forja === 'github') {
+    if (!e.github || !e.github.checkVerde || e.resultado.githubAppId !== e.github.appIdEsperado) {
+      return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
+    }
+    if (e.github.pushAceito === false) return { ok: false, codigo: 'ship.fabrica.push-recusado' };
+    return { ok: true, acao: 'mesclar-github' };
+  }
+  if (!e.gitlab || e.gitlab.estado === 'pendente') return { ok: false, codigo: 'ship.fabrica.merge-pendente' };
+  if (e.gitlab.shaMesclado !== e.head) return { ok: false, codigo: 'ship.fabrica.sha-divergente' };
+  return { ok: true, acao: 'registrar-gitlab' };
+}
+
+/** No caminho da fábrica, a recusa específica precede a orientação genérica da base protegida. */
+export function codigoDoPushRecusadoNoShip(comFabricaEmExigir: boolean):
+  'ship.fabrica.push-recusado' | 'entrega.base-protegida' {
+  return comFabricaEmExigir ? 'ship.fabrica.push-recusado' : 'entrega.base-protegida';
 }
 
 /** Garante a ordem observável: aviso primeiro, chamada de SHIP depois, com a mesma fotografia. */
@@ -382,6 +436,22 @@ function gitDoRemotoFixado(f: RemotoFixado, args: readonly string[], timeoutMs: 
 
 function shaNoRemotoFixado(f: RemotoFixado, branch: string): string | null {
   return shaDoLsRemote(gitDoRemotoFixado(f, ['ls-remote', '--', f.url, `refs/heads/${branch}`], 120000), branch);
+}
+
+/** Busca a ponta observada sem mover refs locais e prova que ela contém o merge informado pela fábrica. */
+function pontaRemotaContemMerge(dir: string, remoto: string, ponta: string, mergeSha: string,
+  config: readonly string[]): boolean {
+  const nome = exigirRemoto(remoto, 'ship');
+  const busca = exec('git', [...configDoRemotoValida(config), 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head',
+    '--no-recurse-submodules', '--', nome, ponta], dir, 120000);
+  return busca.ok && exec('git', ['merge-base', '--is-ancestor', mergeSha, ponta], dir, 30000).ok;
+}
+
+/** A mesma prova no gitdir privado do transporte fixado. */
+function pontaRemotaFixadaContemMerge(f: RemotoFixado, ponta: string, mergeSha: string): boolean {
+  const busca = gitDoRemotoFixado(f, ['fetch', '--quiet', '--no-tags', '--no-write-fetch-head',
+    '--no-recurse-submodules', '--', f.url, ponta], 120000);
+  return busca.ok && gitDoRemotoFixado(f, ['merge-base', '--is-ancestor', mergeSha, ponta], 30000).ok;
 }
 
 function shaDoLsRemote(r: { ok: boolean; stdout: string }, branch: string): string | null {
@@ -759,14 +829,45 @@ export function ship(
   // verde ou status de outro commit não libera a entrega.
   const ci = consultarCi(carregado, shaDe, remoto, opcoes.executorCi);
   r.ci = ci;
-  if (!ci.ok) {
+  const lidaDaFabrica = opcoes.portaDaFabrica?.({ remoto, origem: de, destino: para, head: shaDe, ci,
+    prazoMs: r.dryRun ? 0 : opcoes.prazoFabricaMs ?? 120_000,
+    ...(r.dryRun ? { prazoDaPrimeiraLeituraMs: opcoes.prazoFabricaMs ?? 120_000 } : {}) });
+  if (lidaDaFabrica && !lidaDaFabrica.ok) {
+    return bloquear(
+      'ci.failed',
+      textoDoCatalogo((m) => m.ship.fabricaRecusou(lidaDaFabrica.codigo, shaDe)),
+      textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, lidaDaFabrica.codigo)),
+    );
+  }
+  const entradaDaFabrica: EntradaDoShipComFabrica | null = lidaDaFabrica?.entrada
+    ?? (opcoes.fabrica ? { ...opcoes.fabrica, destino: para, head: shaDe, ci } : null);
+  const fabricaEmExigir = entradaDaFabrica?.configurada === true && entradaDaFabrica.nivel === 'exigir';
+  const decisaoDaFabrica = entradaDaFabrica ? decidirShipComFabrica(entradaDaFabrica)
+    : ({ ok: true, acao: 'fluxo-publicado' } as const);
+  if (!fabricaEmExigir && !ci.ok) {
     return bloquear(
       'ci.failed',
       textoDoCatalogo((m) => m.ship.ciReprovou(remontar(ci.detail), shaDe, ci.context)),
       textoDoCatalogo((m) => m.ship.ciReprovouCorrecao(ci.context)),
     );
   }
-
+  if (!decisaoDaFabrica.ok) {
+    const codigo = decisaoDaFabrica.codigo;
+    if (codigo === 'ci.failed') {
+      return bloquear(
+        'ci.failed',
+        textoDoCatalogo((m) => m.ship.ciReprovou(remontar(ci.detail), shaDe, ci.context)),
+        textoDoCatalogo((m) => m.ship.ciReprovouCorrecao(ci.context)),
+      );
+    }
+    const codigoDoShip = codigo.startsWith('ship.fabrica.') ? codigo as ResultadoShip['codigo'] : undefined;
+    return bloquear(
+      'ci.failed',
+      textoDoCatalogo((m) => m.ship.fabricaRecusou(codigo, shaDe)),
+      textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, codigo)),
+      codigoDoShip,
+    );
+  }
   // Security scan (spec 11.2): com `verify.security_scan` e sem o scan no bundle do CI, categoria do laco sem varredura
   // no SHA da candidata pede autorizacao humana, antes de qualquer push.
   const naoVarridas = unscannedCategories(carregado, shaDe);
@@ -786,6 +887,71 @@ export function ship(
     if (r.dryRun) autorizariaSemScan = textoDoCatalogo((m) => m.ship.passoAutorizariaSemScan(quem, naoVarridas.join(', '), shaDe));
     else registrar(dir, threadId, TIPOS_DE_EVENTO.entregaSemScanAutorizada, { por: quem, categorias: naoVarridas, sha: shaDe,
       ...(pelaFlag ? { origem: 'flag' } : { pedidoId: respondida!.pedidoId, origem: 'resposta-b' }) });
+  }
+
+  // No GitLab em exigir, a fábrica já fez o merge. A leitura do MR, do SHA e do autor é a prova da entrega externa;
+  // criar outro merge local devolveria a autoridade ao SHIP e dependeria de uma main local potencialmente atrasada.
+  if (decisaoDaFabrica.acao === 'registrar-gitlab') {
+    const prova = entradaDaFabrica?.gitlab;
+    const mergeSha = prova?.mergeSha ?? prova?.shaMesclado ?? shaDe;
+    const descricao = `GitLab MR ${prova?.numero ?? '(não informado)'} mesclado pela fábrica no SHA ${shaDe.slice(0, 8)}`;
+    const passos = [descricao];
+    let shaRemoto: string | null, pontaContemMerge = false;
+    if (urlFixada) {
+      const fixado: RemotoFixado = { gitdir: criarGitdirDoPush(raiz), ...urlFixada, config: configDoRemoto };
+      try {
+        shaRemoto = shaNoRemotoFixado(fixado, para);
+        if (shaRemoto && shaRemoto !== mergeSha) pontaContemMerge = pontaRemotaFixadaContemMerge(fixado, shaRemoto, mergeSha);
+        passos.push(`git --git-dir=<gitdir privado> ${[...configDoRemoto, 'ls-remote', '--',
+          '<origin fixado>', `refs/heads/${para}`].join(' ')}`);
+      } finally { fs.rmSync(fixado.gitdir, { recursive: true, force: true }); }
+    } else {
+      shaRemoto = shaNoRemoto(raiz, remoto, para, configDoRemoto);
+      if (shaRemoto && shaRemoto !== mergeSha) pontaContemMerge = pontaRemotaContemMerge(raiz, remoto, shaRemoto, mergeSha,
+        configDoRemoto);
+      passos.push(comConfig(['ls-remote', '--', remoto, `refs/heads/${para}`]));
+    }
+    if (shaRemoto && shaRemoto !== mergeSha) passos.push(`git merge-base --is-ancestor ${mergeSha} ${shaRemoto}`);
+    conferirDepoisDoPush(passos);
+    r.mergeSha = mergeSha;
+    r.pontaDaBase = shaRemoto ?? mergeSha;
+    r.jaIncorporado = true;
+    r.remoto = remoto;
+    r.shaRemoto = shaRemoto;
+    r.pushVerificado = shaRemoto !== null && shaRemoto === mergeSha;
+    if (!r.pushVerificado) r.pushVerificado = pontaContemMerge;
+    r.passos = passos;
+    if (!r.pushVerificado) {
+      return bloquear(
+        'runtime.unavailable',
+        textoDoCatalogo((m) => m.ship.mergeGitlabSemProva(shaRemoto, mergeSha)),
+        textoDoCatalogo((m) => m.ship.mergeGitlabSemProvaCorrecao)
+      );
+    }
+    if (r.dryRun) return { ...r, ok: true, bloqueado: false };
+    registrarGateLiberado(dir, threadId, {
+      gate: 'ship', modo: thread.modo, autorizadoPor: autorizacao.por,
+      evidencia: `${descricao}; autor GitLab ${prova?.mescladoPorId ?? '(não informado)'}; ls-remote ${shaRemoto}`,
+      tipoDeAutorizacao: autorizacao.tipo,
+    });
+    registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
+      de, para, shaDe, shaParaAntes: shaPara, mergeSha, pontaDaBase: shaRemoto, jaIncorporado: true,
+      remoto, shaRemoto, pushVerificado: true,
+      fonteDaProva: shaRemoto === mergeSha
+        ? `git ls-remote ${remoto} refs/heads/${para} igual ao merge; GitLab API merge request ${prova?.numero ?? '(não informado)'}`
+        : `git merge-base --is-ancestor ${mergeSha} ${shaRemoto} (ls-remote ${remoto} refs/heads/${para}); ` +
+          `GitLab API merge request ${prova?.numero ?? '(não informado)'}`,
+      autorizadoPor: autorizacao.por, tipoDeAutorizacao: autorizacao.tipo,
+      politicaReciboVersao: CONTRATO_DO_RECIBO_DE_PROVA, modo: thread.modo, tag: tagDoModo(thread.modo),
+      evidencia: { verificadoNoCommit: verificacao.commit,
+        claimsVerificadas: verificacao.claims.filter((c) => c.verificado).map((c) => c.claim.id),
+        comandos: verificacao.comandos.map(comandoNoLedger), ci, passos: r.passos },
+    });
+    if (!urlFixada) publicarEmSegundoPlano(raiz);
+    const atualizada = lerThread(raiz, threadId);
+    if (!atualizada.fases?.length || atualizada.fases.includes('SHIP')) atualizada.faseAtual = 'SHIP';
+    gravarThread(raiz, atualizada);
+    return { ...r, ok: true, bloqueado: false };
   }
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.
@@ -964,11 +1130,16 @@ export function ship(
           r.passos = passos;
           const erro = detalheDoPush(push.stderr || push.stdout);
           if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+            const codigo = codigoDoPushRecusadoNoShip(fabricaEmExigir);
             return bloquear(
               'runtime.unavailable',
-              textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
-              textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
-              'entrega.base-protegida'
+              fabricaEmExigir
+                ? textoDoCatalogo((m) => m.ship.fabricaRecusou(codigo, shaDe))
+                : textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+              fabricaEmExigir
+                ? textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, codigo))
+                : textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+              codigo,
             );
           }
           return bloquear(
@@ -1008,11 +1179,16 @@ export function ship(
         const erro = detalheDoPush(push.stderr || push.stdout);
         // A protecao da base recusou: a entrega e por PR/MR e o registro dele. O motivo do gate nao muda, so a orientacao.
         if (pushRecusadoPelaProtecao(`${push.stderr}\n${push.stdout}`)) {
+          const codigo = codigoDoPushRecusadoNoShip(fabricaEmExigir);
           return bloquear(
             'runtime.unavailable',
-            textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
-            textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
-            'entrega.base-protegida'
+            fabricaEmExigir
+              ? textoDoCatalogo((m) => m.ship.fabricaRecusou(codigo, shaDe))
+              : textoDoCatalogo((m) => m.ship.pushBaseProtegida(remoto, para, erro)),
+            fabricaEmExigir
+              ? textoDoCatalogo((m) => m.ship.fabricaRecusouCorrecao(threadId, codigo))
+              : textoDoCatalogo((m) => m.ship.pushBaseProtegidaCorrecao(threadId)),
+            codigo,
           );
         }
         return bloquear(

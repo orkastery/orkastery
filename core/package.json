@@ -59,6 +59,7 @@
     "test:ci": "npm run build && npm run build:test && node scripts/test-ci.js",
     "test:hermetica": "node scripts/test-lanes.cjs hermetica",
     "test:integracao": "node scripts/test-lanes.cjs integracao",
+    "test:rm089-f7-mutacoes": "npm run build:test && node scripts/rm089-f7-mutacoes.mjs",
     "preparo:tsgo": "node scripts/preparo-tsgo.cjs",
     "ork": "node dist/index.js",
     "prepack": "npm run build && node scripts/preparar-pacote.js",

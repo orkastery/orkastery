@@ -12,6 +12,9 @@ Choose a level in `orkastery.yaml`:
 ci:
   context: ork-verify
   politica_recibo: exigir
+  fabrica:
+    github_app_id: 123
+    gitlab_user_id: 456
 ```
 
 | Level | Check result | Diagnostic |
@@ -77,7 +80,17 @@ The managed port uses three separate contracts:
 
 The order is request, receipt, validation, durable append, then exposure of the pair. An append failure does not expose the exception. After append, the same idempotency key returns the pair without sending again or creating an event. Before append, the idempotent port must return the same receipt. The signed receipt proves the issuer's `delivered` response for that exact request; it does not prove that a person read it.
 
-Protected execution transport gives the runner the receipt, envelope, and a capability limited to that exact pair. This version does not yet ship that production transport; it is left for RM-089 F7, together with the strong factory receipt. Until then, the runner applies no exception, and `exigir` still requires the F5 receipt. None is accepted from the builder's bundle or checkout. The runner revalidates policy, signature, hashes, identifiers, timestamp, recipient, branches, and HEAD and projects `exception` into `ork.ci-run/v1`, its annotation, and its report. It does not send the notification or write to the ledger or forge. The exception waives only the F5 receipt: a real preparation, claim, or command failure still fails. Without the capability, matching pair, or exact HEAD, `exigir` fails closed.
+## Factory decision
+
+F7 provides the decision engine and ports. It does not provision or operate the factory service. The `ci.fabrica` block is read only from the target branch manifest. `github_app_id` identifies the expected GitHub App and `gitlab_user_id` identifies the expected GitLab account. Secrets do not belong in the manifest.
+
+The decision re-reads core records and forge facts. It requires the last verify to be green and to have run the manifest commands, complete commit and file lists, a thread record for every product commit, an independent CHECK after the latest product commit and bound to the accepted verify commit, and the tag from the same conduction. A product commit is a non-merge commit that changes at least one file outside `.ork-ci`. After verify, only `.ork-ci/` may change; any other change requires another verify. The strong result uses `ork.ci-recibo-forte-payload/v2` and `ork.ci-recibo-forte-assinatura/v2`, separate from the F5 receipt. The Ed25519 signature binds project, source, target, HEAD, verify, CHECK, conduction, validity, and the exact F6 exception when one exists. An event whose `emitidoEm` is later than `recebidoEm` is rejected with no clock tolerance.
+
+On GitHub, `exigir` publishes `ork-fabrica/utf8-<target-in-hex>` on the HEAD and requires a rule dedicated to the branch, strict updating, and the exact App. `observar` and `avisar` use `ork-fabrica-diagnostico/utf8-<target-in-hex>` and never make the diagnostic decisive. The suffix is the hexadecimal encoding of the full branch name's UTF-8 bytes. The App needs read access to contents, pull requests, branch rules, and Administration, the latter to read classic branch protection, plus write access for check-runs. Forks and `merge_group` are not accepted under `exigir` at this stage. Strict updating does not prove the merge commit created by the forge; changes introduced by that merge remain outside the HEAD verify guarantee.
+
+On GitLab, the factory account needs a token with `api` scope, access restricted to declared projects, and the Maintainer role. The target branch must be protected, with no Maintainer push and no force push. The MR must be up to date with the target, and every merge API call sends the `sha` field equal to the re-read HEAD; the operation fails unless the API confirms that binding. The diagnostic stays in the factory's published decision record and does not turn a commit status or external status check into positive authority. On Free, another effective Maintainer produces the non-blocking `ci.fabrica.maintainer-adicional` warning. Owner, administrator, and bypass remain outside the guarantee. On paid editions, the factory also requires approval reset after push, a rule that cannot be edited in the MR, author approval prevention, and valid approvals. Merge trains are not accepted under `exigir` at this stage. A GitLab-created merge may contain its own change that was not in the verified HEAD; that change remains outside the guarantee.
+
+Factory codes are `ci.fabrica.prova-ausente`, `ci.fabrica.indisponivel`, `ci.fabrica.prazo-excedido`, `ci.fabrica.regra-destino-invalida`, `ci.fabrica.maintainer-adicional`, `ci.fabrica.nome-colidente`, and `ci.fabrica.publicacao-recusada`. In the SHIP contract, a negative CI signal still vetoes and a positive signal does not authorize by itself. Factory-specific refusals are `ship.fabrica.push-recusado`, `ship.fabrica.merge-pendente`, and `ship.fabrica.sha-divergente`.
 
 ## Basic-level trust boundary
 
@@ -85,18 +98,17 @@ The bundle and the receipt's `sha256` come from the PR/MR itself, so whoever con
 runner requires a non-empty claim set and anchors commands and preparation to the target branch manifest's `verify`, whose
 administrative protection through `CODEOWNERS` and a required rule is outside the PR author's control alone. This proves
 the accepted recipe neither emptied the claims nor replaced or omitted protected commands or preparation. On the normal,
-non-exception path, the runner does not query the Orkastery ledger or compare the projection against it; when protected
-transport presents an exception, it reads only the exact notification receipt and envelope pair. Neither path proves claim completeness or
+non-exception path, the runner does not query the Orkastery ledger or compare the projection against it. Without
+transport, no path delivers an F6 exception to the runner and `exigir` continues to require the F5 receipt. This F7
+does not provide that transport, and the runner does not apply an exception to the strong result. The engine binds only
+an exact exception received from an external port. Neither path proves claim completeness or
 authenticity, or authorship of the bundle, code, or workflow. It also does not trust the projected baseline. At this
 basic level, it reruns protected preparation and the anchored claims and commands on the HEAD, fails every current
 failure, then emits a receipt for the HEAD it just executed. It does not use ancestry or a later diff
 to turn an older HEAD into a present receipt. This detects operational divergence, but it does not prove who authored the bundle or code.
 
-This slice does not provide a signed verify receipt: the output receipt's `assinatura` field remains reserved and absent.
-The **notification** receipt signature described above proves only the issuer's response to the exact request; it does
-not prove authorship of the bundle, code, workflow, or verify. A future capability would need its own authority and
-contract; no F7 delivery is promised here. Forge administration limits who can change the manifest, workflow, and
-bundle, but it does not turn the basic receipt into cryptographic proof.
+The factory strong result is a separate v2 artifact. It does not add an `assinatura` field to the F5 receipt and does
+not turn the CI job into positive authority. Changing scope, HEAD, evidence, issuer, or key invalidates the result.
 
 ## Make the check mandatory
 

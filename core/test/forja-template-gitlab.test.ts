@@ -22,6 +22,7 @@ test('modelo: job ork-verify, histórico inteiro, a branch do MR ou do push, ver
   assert.doesNotMatch(c, /^workflow:/m, 'workflow:rules fica no .gitlab-ci.yml do projeto, não num include');
   assert.match(t, /^#\s+workflow:$/m);
   assert.match(t, /CI_OPEN_MERGE_REQUESTS/);
+  assert.doesNotMatch(t, /transporte|ORK_FABRICA_ID_TOKEN|id_tokens/);
   for (const p of PROIBIDOS) assert.doesNotMatch(c, p);
 });
 
@@ -30,7 +31,9 @@ test('componente: spec com as entradas, o mesmo job e a mesma versão do modelo'
   const [cabecalho, corpo] = t.split(/^---$/m);
   assert.ok(corpo, 'o componente separa o spec do job por ---');
   assert.match(cabecalho, /^spec:\n {2}inputs:$/m);
-  for (const entrada of ['contexto', 'stage', 'imagem', 'versao_do_ork']) assert.match(cabecalho, new RegExp(`^ {4}${entrada}:$`, 'm'));
+  for (const entrada of ['contexto', 'stage', 'imagem', 'versao_do_ork']) {
+    assert.match(cabecalho, new RegExp(`^ {4}${entrada}:$`, 'm'));
+  }
   assert.match(cabecalho, /default: ork-verify/);
   const versaoDoModelo = /ORK_VERSAO: "(\d+\.\d+\.\d+)"/.exec(fs.readFileSync(MODELO, 'utf8'))![1];
   assert.match(cabecalho, new RegExp(`default: "${versaoDoModelo.replace(/\./g, '\\.')}"`));
@@ -39,6 +42,7 @@ test('componente: spec com as entradas, o mesmo job e a mesma versão do modelo'
   assert.ok(c.includes(`- ${RODAR}`));
   assert.match(c, /"@orkastery\/cli@\$\[\[ inputs\.versao_do_ork \]\]"/);
   assert.doesNotMatch(c, /^workflow:/m);
+  assert.doesNotMatch(t, /transporte|ORK_FABRICA_ID_TOKEN|id_tokens/);
   for (const p of PROIBIDOS) assert.doesNotMatch(c, p);
 });
 

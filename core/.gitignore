@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-test/
+dist-test-mutante-*/
 
 # copias efemeras que o prepack monta para o tarball do npm
 /skills/

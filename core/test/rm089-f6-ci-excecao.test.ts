@@ -34,6 +34,7 @@ import {
 } from '../src/excecao-recibo';
 import type { ManifestoCarregado } from '../src/manifest';
 import type { Manifesto } from '../src/types';
+import { CONTRATO_PROJECAO_REPLAY_CI } from '../src/ci-recibo-basico';
 
 const NOW = '2026-11-13T03:00:00.000Z';
 const ISSUED = '2026-11-13T02:00:00.000Z';
@@ -221,12 +222,12 @@ test('par recusa recibo sem evento, troca de id/horário, hash errado e chave di
   assert.equal(validarProvaDaExcecaoNoRunner({ ...proof, policy: divergentPolicy }, capability, expected, NOW).ok, false);
 });
 
-function carregado(raiz: string): ManifestoCarregado {
+function carregado(raiz: string, nivel: 'observar' | 'avisar' | 'exigir' = 'exigir'): ManifestoCarregado {
   return { raiz, caminho: path.join(raiz, 'orkastery.yaml'), legado: false, bytes: 0, erros: [], avisos: [], manifesto: {
     project: { name: 'fixture', abbrev: 'fix', stage: 'nascente' },
     worktree: { base_branch: 'main', dir: '.worktrees', por_thread: true },
     verify: { timeout_ms: 1000, timeout_ms_por_comando: {} },
-    ci: { required_for_ship: false, context: 'ork-verify', external_repositories: {}, politica_recibo: 'exigir' },
+    ci: { required_for_ship: false, context: 'ork-verify', external_repositories: {}, politica_recibo: nivel },
   } as unknown as Manifesto };
 }
 
@@ -255,6 +256,24 @@ test('F5 aceita só a prova protegida do HEAD exato e projeta JSON e relatório'
     publicarAvisoDaPolitica(output, { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'org/repo' }, (line) => lines.push(line));
     assert.ok(lines.some((line) => line.startsWith('::notice') && line.includes(proof.event.ledgerEventId)));
   } finally { f.close(); }
+});
+
+test('replay inválido com exceção F6 preserva diagnóstico e reprova somente em exigir', () => {
+  const r = recorded();
+  const proof = proofOf(r.result, r.f.policy), capability = runnerCapability(proof);
+  for (const nivel of ['observar', 'avisar', 'exigir'] as const) {
+    const f = ciFixture({ recibo: { contrato: CONTRATO_PROJECAO_REPLAY_CI } });
+    try {
+      const output = executarCiDaBranchComContexto(carregado(f.raiz, nivel), BRANCH, {
+        destino: 'main', pullRequest: true, preflightEmpresa: null, head: HEAD, receitaConfiavel: null,
+        excecao: { prova: proof, capacidade: capability },
+      }) as { ok: boolean; policy: { receipt: string; exception?: string }; error?: { code: string } };
+      assert.equal(output.policy.receipt, 'invalido');
+      assert.equal(output.policy.exception, 'applied');
+      assert.equal(output.ok, nivel !== 'exigir');
+      assert.equal(output.error?.code, 'ci.recibo.invalido');
+    } finally { f.close(); }
+  }
 });
 
 test('operação pública resolve, notifica, anexa e entrega a exceção protegida ao runner', () => {

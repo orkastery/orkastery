@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Decisão da fábrica, F7 (RM-089):** entram o motor e as portas que conferem verify, commits registrados, CHECK independente e HEAD exato antes de emitir o resultado forte v2. GitHub recebe nomes por destino e App fixado; GitLab recebe as regras Free e pagas, merge ligado ao SHA e aviso para Maintainer adicional. O SHIP registra o merge GitLab do mesmo HEAD feito pela conta configurada sem criar outro merge local e recusa outro SHA como divergente. A F5 volta ao comportamento publicado, sem transporte ao runner e sem empacotamento da árvore de produção.
+
 ## [0.6.11] - 2026-11-26
 
 A 0.6.11 corrige o security scan e o commit do MCP com configuração Git local (#302 e #299), torna o núcleo portátil no macOS com prova no CI (#303 e #304) e entrega a F6 da RM-089.

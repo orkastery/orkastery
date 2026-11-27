@@ -6,7 +6,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, PoliticaDeReciboCi, SelecaoNativa } from './types';
+import { ConfigDeEmbedding, ConfigDoAgile, Manifesto, MarcacaoDeRelogio, Modo, PoliticaDeReciboCi, SelecaoNativa,
+  type ConfiguracaoDaFabricaCi } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido, runtimeDoManifesto } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -641,6 +642,31 @@ function lerContextos(v: ValorYaml | undefined, erros: string[]): string[] | und
   return saida.length === v.length ? saida : undefined;
 }
 
+/** D55: bloco público fechado, sem origem, token ou qualquer outro segredo. */
+function lerFabricaCi(v: ValorYaml | undefined, erros: string[]): ConfiguracaoDaFabricaCi | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push('ci.fabrica precisa ser um mapa');
+    return undefined;
+  }
+  const permitidas = ['github_app_id', 'gitlab_user_id'];
+  for (const chave of Object.keys(v)) if (!permitidas.includes(chave)) erros.push(`ci.fabrica.${chave} desconhecida`);
+  const inteiro = (chave: 'github_app_id' | 'gitlab_user_id'): number | undefined => {
+    const valor = v[chave];
+    if (valor === undefined || valor === null) return undefined;
+    if (typeof valor !== 'number' || !Number.isSafeInteger(valor) || valor <= 0) {
+      erros.push(`ci.fabrica.${chave} precisa ser um inteiro positivo`);
+      return undefined;
+    }
+    return valor;
+  };
+  const github = inteiro('github_app_id'), gitlab = inteiro('gitlab_user_id');
+  if (github === undefined && gitlab === undefined) erros.push('ci.fabrica precisa declarar github_app_id ou gitlab_user_id');
+  if (Object.keys(v).some((chave) => !permitidas.includes(chave)) || (github === undefined && gitlab === undefined)) return undefined;
+  return { ...(github === undefined ? {} : { github_app_id: github }),
+    ...(gitlab === undefined ? {} : { gitlab_user_id: gitlab }) };
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -839,6 +865,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   const forja = lerBlocoForja(dados.forja, erros, avisos);
   const produtores = lerProdutores(ci.produtor, erros);
   const contextos = lerContextos(ci.contexts, erros);
+  lerFabricaCi(ci.fabrica, erros);
   let politicaDeRecibo: PoliticaDeReciboCi | undefined;
   if (ci.politica_recibo !== undefined && ci.politica_recibo !== null) {
     const valor = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : '';
@@ -1133,9 +1160,39 @@ export interface ComandosDoManifesto {
   timeoutMs: number | undefined;
   timeoutMsPorComando: Manifesto['verify']['timeout_ms_por_comando'] | undefined;
   checkMode: ModoDoCheck;
+  politicaRecibo: PoliticaDeReciboCi | undefined;
   ciCommand: string | undefined;
   /** RM-089 F6: documento bruto lido somente da ref de destino protegida; o checkout fonte nunca o fornece. */
   excecaoRecibo: Record<string, ValorYaml> | undefined;
+  fabricaCi: ConfiguracaoDaFabricaCi | undefined;
+  fabricaCiInvalida: boolean;
+}
+
+export interface ConfiguracaoDaFabricaNoDestino {
+  politicaRecibo: PoliticaDeReciboCi | undefined;
+  fabricaCi: ConfiguracaoDaFabricaCi | undefined;
+  fabricaCiInvalida: boolean;
+}
+
+function configuracaoDaFabricaNoBlocoCi(ci: Record<string, ValorYaml>): ConfiguracaoDaFabricaNoDestino {
+  const errosDaFabrica: string[] = [];
+  const fabricaCi = lerFabricaCi(ci.fabrica, errosDaFabrica);
+  const politica = typeof ci.politica_recibo === 'string' ? ci.politica_recibo.trim() : ci.politica_recibo;
+  const politicaRecibo = politica === 'observar' || politica === 'avisar' || politica === 'exigir' ? politica : undefined;
+  return { politicaRecibo, fabricaCi, fabricaCiInvalida: errosDaFabrica.length > 0 };
+}
+
+/**
+ * O opt-in da fábrica lido da branch de destino. Outros blocos inválidos do manifesto não mudam o fluxo do ship;
+ * somente YAML ilegível impede identificar com segurança o bloco `ci`.
+ */
+export function configuracaoDaFabricaNoTextoDoManifesto(bruto: string): ConfiguracaoDaFabricaNoDestino | null {
+  try {
+    const dados = mapa(lerYaml(bruto));
+    return configuracaoDaFabricaNoBlocoCi(mapa(dados.ci));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -1156,16 +1213,23 @@ export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto |
   const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
   const excecaoRecibo = ci.excecao_recibo !== null && typeof ci.excecao_recibo === 'object' && !Array.isArray(ci.excecao_recibo)
     ? mapa(ci.excecao_recibo) : undefined;
+  const fabrica = configuracaoDaFabricaNoBlocoCi(ci);
   return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test),
     securityScan: opcional(verify.security_scan), preparo: opcional(verify.preparo),
     timeoutMs: prazos.timeout_ms, timeoutMsPorComando: prazos.timeout_ms_por_comando,
-    checkMode: resolverModo(check?.mode).modo,
-    ciCommand: opcional(ci.command), excecaoRecibo };
+    checkMode: resolverModo(check?.mode).modo, politicaRecibo: fabrica.politicaRecibo,
+    ciCommand: opcional(ci.command), excecaoRecibo, fabricaCi: fabrica.fabricaCi,
+    fabricaCiInvalida: fabrica.fabricaCiInvalida };
 }
 
 /** Documento da policy F6 vindo do manifesto da target; a validação fechada mora em excecao-recibo.ts. */
 export function excecaoDeReciboDoTextoDoManifesto(bruto: string): Record<string, ValorYaml> | null {
   return comandosDoTextoDoManifesto(bruto)?.excecaoRecibo ?? null;
+}
+
+/** Configuração da fábrica lida do texto da branch de destino, nunca do checkout fonte. */
+export function fabricaCiDoTextoDoManifesto(bruto: string): ConfiguracaoDaFabricaCi | null {
+  return comandosDoTextoDoManifesto(bruto)?.fabricaCi ?? null;
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */

@@ -60,6 +60,9 @@ export const SHIP_PT_BR = {
   contratoPublicoCorrecao: 'refaca a mudanca numa thread #Classic, #Maestro ou #Auto',
   ciReprovou: (detalhe: string, sha: string, contexto: string) => `${detalhe} (commit ${sha}, contexto ${contexto})`,
   ciReprovouCorrecao: (contexto: string) => `publique a branch, aguarde o check ${contexto} verde no GitHub e repita o SHIP`,
+  fabricaRecusou: (codigo: string, sha: string) => `a fábrica não liberou o SHIP do commit ${sha} (${codigo})`,
+  fabricaRecusouCorrecao: (thread: string, codigo: string) =>
+    `confira o resultado da fábrica para ${thread}, resolva ${codigo} e repita o SHIP`,
   scanNaoVarrido: (categorias: string, sha: string) =>
     `o security scan nao varreu estas categorias do laco no commit ${sha}: ${categorias} (ferramenta indisponivel, com falha ou sem relatorio)`,
   passoAutorizariaSemScan: (quem: string, categorias: string, sha: string) =>
@@ -106,6 +109,9 @@ export const SHIP_PT_BR = {
     `ork ship registrar-pr ${thread}. O merge local na base não chegou ao remoto`,
   pushSemProva: (sha: string | null, ponta: string) => `ls-remote devolveu ${sha ?? '(nada)'} e o destino local esta em ${ponta}: o push nao ficou provado`,
   pushSemProvaCorrecao: 'rode o ship de novo e confira o remoto',
+  mergeGitlabSemProva: (sha: string | null, merge: string) =>
+    `ls-remote devolveu ${sha ?? '(nada)'} e essa ponta não provou conter o merge GitLab ${merge}`,
+  mergeGitlabSemProvaCorrecao: 'confira a ponta do remoto e a leitura do merge GitLab',
   // ci.ts: o detalhe da consulta ao CI (vai ao ledger dentro da evidencia do ship)
   ciNaoExigidoDetalhe: 'gate de CI não exigido pelo manifesto',
   ciRemotoNaoGithub: (remoto: string) => `remoto ${remoto} não é um repositório GitHub reconhecível, nem GitLab`,
@@ -397,6 +403,8 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   contratoPublicoCorrecao: 'redo the change in a #Classic, #Maestro or #Auto thread',
   ciReprovou: (detalhe, sha, contexto) => `${detalhe} (commit ${sha}, context ${contexto})`,
   ciReprovouCorrecao: (contexto) => `publish the branch, wait for the ${contexto} check to go green on GitHub and run SHIP again`,
+  fabricaRecusou: (codigo, sha) => `the factory did not release SHIP for commit ${sha} (${codigo})`,
+  fabricaRecusouCorrecao: (thread, codigo) => `check the factory result for ${thread}, resolve ${codigo}, and run SHIP again`,
   scanNaoVarrido: (categorias, sha) =>
     `the security scan did not scan these loop categories at commit ${sha}: ${categorias} (tool unavailable, failed or no report)`,
   passoAutorizariaSemScan: (quem, categorias, sha) =>
@@ -441,6 +449,9 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     `ork ship registrar-pr ${thread}. The local merge on the base did not reach the remote`,
   pushSemProva: (sha, ponta) => `ls-remote returned ${sha ?? '(nothing)'} and the local target is at ${ponta}: the push was not proven`,
   pushSemProvaCorrecao: 'run ship again and check the remote',
+  mergeGitlabSemProva: (sha, merge) =>
+    `ls-remote returned ${sha ?? '(nothing)'} and that tip did not prove it contains GitLab merge ${merge}`,
+  mergeGitlabSemProvaCorrecao: 'check the remote tip and the GitLab merge reading',
   ciNaoExigidoDetalhe: 'CI gate not required by the manifest',
   ciRemotoNaoGithub: (remoto) => `remote ${remoto} is not a recognizable GitHub repository, nor a GitLab one`,
   ciHostSemLogin: (host) => `gh is not logged in to ${host}: CI on that host was not queried`,

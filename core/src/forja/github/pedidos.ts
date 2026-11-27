@@ -43,6 +43,17 @@ export function compararGithub(e: { repo: string; de: string; ate: string; execu
   return r ? String(r.status) : null;
 }
 
+/** RM-089 F7: eventos admitidos só localizam o PR; merge_group não tem decisão nesta fatia. */
+export function localizadorDoEventoDaFabricaGithub(valor: unknown):
+  { numero: number; acao: string } | { recusado: 'merge_group' } | null {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return null;
+  const v = valor as { evento?: unknown; acao?: unknown; numero?: unknown };
+  if (v.evento === 'merge_group') return { recusado: 'merge_group' };
+  if (v.evento !== 'pull_request' || (v.acao !== 'opened' && v.acao !== 'synchronize'
+      && v.acao !== 'reopened' && v.acao !== 'edited') || !Number.isSafeInteger(v.numero)) return null;
+  return { numero: v.numero as number, acao: v.acao };
+}
+
 /** Os campos do `gh pr list` de uma branch: os do `prDaForja`, com o estado de merge do PR aberto. */
 const CAMPOS_DA_BRANCH = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt,mergeable';
 
