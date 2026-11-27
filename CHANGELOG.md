@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Security scan estável com relatório grande (RM-102):** ingere relatórios do ESLint sem espalhar achados, mantém a impressão digital para uniões equivalentes sem colidir uniões distintas e torna o teste de `SIGTERM` determinístico.
+
 ## [0.6.11] - 2026-11-26
 
 A 0.6.11 corrige o security scan e o commit do MCP com configuração Git local (#302 e #299), torna o núcleo portátil no macOS com prova no CI (#303 e #304) e entrega a F6 da RM-089.
