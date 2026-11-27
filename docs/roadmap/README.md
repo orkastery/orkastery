@@ -67,7 +67,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-11-23 |
+| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-11-27 |
 | [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-11-26 |
@@ -93,7 +93,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-060](RM-060-site-como-produto.md) | Site como produto: os dois sites públicos com o mesmo rigor do núcleo | Em desenvolvimento | Mesclado | Não iniciados | Não implantado | 2026-10-12 |
 | [RM-061](RM-061-cli-em-ingles-e-pt-br.md) | CLI em inglês e pt-BR | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-10-29 |
 | [RM-062](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
-| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-26 |
+| [RM-063](RM-063-fabrica-que-nao-para.md) | Fábrica que não para | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-27 |
 | [RM-064](RM-064-conta-esgotada-nao-para-a-fase.md) | Conta esgotada não para a fase | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-065](RM-065-gitlab-com-paridade-ao-github.md) | GitLab com paridade ao GitHub | Disponível | Mesclado | Aprovados | Produção | 2026-10-27 |
 | [RM-066](RM-066-google-antigravity-homologado.md) | Google Antigravity homologado ao lado de Codex e Claude Code | Backlog | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
@@ -107,13 +107,13 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-074](RM-074-agile-check-tres-vezes-mais-rapido.md) | Agile Check mais rápido que o Classic pelo paralelismo, sem perder cobertura | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-075](RM-075-fim-de-fase-lido-pelo-resultado.md) | Fim de fase lido pelo resultado: sessão que termina sem pergunta não vira espera humana | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-26 |
 | [RM-076](RM-076-fila-pesada-com-prioridade.md) | Fila pesada com prioridade e reserva de vaga | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
-| [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-26 |
+| [RM-077](RM-077-revisao-independente-pelo-construtor-do-head.md) | Revisão independente medida pelo construtor do HEAD | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
 | [RM-078](RM-078-recibo-valido-enquanto-nada-muda.md) | Recibo de verify e de revisão válido enquanto HEAD, claims e plano não mudam | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-23 |
 | [RM-079](RM-079-claims-que-a-correcao-passa.md) | Claims de revisão que a correção passa e retirada tipada com substituta | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-26 |
 | [RM-080](RM-080-saida-completa-e-causa-tipada-no-verify.md) | Verify diz a causa e guarda a saída inteira | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-26 |
 | [RM-081](RM-081-check-por-qualquer-runner.md) | CHECK que entende qualquer runner de teste e só roda de novo o necessário | Em desenvolvimento | Mesclado | Em execução | Produção | 2026-11-23 |
 | [RM-082](RM-082-credenciais-redigidas-em-toda-superficie.md) | Credenciais redigidas em toda superfície de comando, motivo e detalhe | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-07 |
-| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
+| [RM-083](RM-083-estado-do-roadmap-acompanha-a-entrega.md) | Estado do roadmap acompanha a entrega | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
 | [RM-084](RM-084-sessao-continua-com-muitos-objetos-soltos-do-git.md) | Sessão continua com muitos objetos soltos do Git | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-26 |
 | [RM-085](RM-085-verify-com-escopo-causal-mensagem-de-assercao-e-check-fast.md) | Verify com escopo causal, mensagem de asserção e CHECK independente no #Fast | Descontinuado | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-086](RM-086-kimi-code-homologado.md) | Kimi Code homologado ao lado de Codex e Claude Code | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
@@ -122,7 +122,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-089](RM-089-orkastery-network-coletiva-da-empresa.md) | Orkastery Network coletiva da empresa, com uso obrigatório | Em validação | Mesclado | Aprovados | Produção | 2026-11-27 |
 | [RM-090](RM-090-telemetria-opentelemetry-para-sdlc-analytics.md) | Telemetria compatível com OpenTelemetry e Grafana para SDLC Analytics | Concluído | Mesclado | Aprovados | Produção | 2026-11-23 |
 | [RM-091](RM-091-ork-mesh-no-site-para-empresas-e-times.md) | Ork Mesh no site, para empresas e times | Em desenvolvimento | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
-| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Autorização autenticada com escopo, validade, canal e prova | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-26 |
+| [RM-092](RM-092-ratificacao-autenticada-de-contrato-publico-no-auto.md) | Autorização autenticada com escopo, validade, canal e prova | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
 | [RM-093](RM-093-acao-do-dono-executada-pela-fabrica.md) | Ação do dono executada pela fábrica | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-094](RM-094-caixa-de-intencoes.md) | Caixa de intenções | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
 | [RM-095](RM-095-resultado-de-producao-vira-proposta.md) | Resultado de produção vira proposta | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-23 |
@@ -131,5 +131,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-101](RM-101-commit-do-bundle-de-ci-pelo-mcp.md) | Commit do bundle de CI pelo MCP | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-27 |
 | [RM-102](RM-102-security-scan-estavel-com-relatorio-grande.md) | Security scan estável com relatório grande | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-27 |
+| [RM-103](RM-103-leases-compativeis-com-o-commit.md) | Leases compatíveis com o commit da própria thread | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
+| [RM-104](RM-104-colecoes-grandes-sem-explosao.md) | Coleções grandes sem explosão de pilha ou memória | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
 
 <!-- ork-docs:indice:fim -->
