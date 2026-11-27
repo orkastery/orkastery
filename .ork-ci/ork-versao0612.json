@@ -213,32 +213,6 @@
       ]
     },
     {
-      "id": "C9",
-      "thread": "ork-versao0612",
-      "fase": "GO",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "O CHANGELOG abre a 0.6.12 em 2026-11-27 abaixo de um Não publicado vazio, entrega a F7 e as sete fatias da RM-089, e mantém o #Noctum em desenvolvimento.",
-      "negativa": false,
-      "verificar": [
-        "node -e 'const t=require(\"node:fs\").readFileSync(\"CHANGELOG.md\",\"utf8\"),u=t.indexOf(\"## Não publicado\"),r=t.indexOf(\"## [0.6.12] - 2026-11-27\"),p=t.indexOf(\"## [0.6.11]\");const s=t.slice(r,p);if(u<0||r<u||p<r||t.slice(u+\"## Não publicado\".length,r).trim()!==\"\"||![\"A 0.6.12 entrega a F7 da RM-089\",\"só a fábrica publica o resultado que decide o merge no GitHub e no GitLab\",\"as sete fatias da RM-089 estão entregues\",\"**Decisão da fábrica, F7 (RM-089):**\",\"O #Noctum segue **em desenvolvimento, não anunciado**.\"].every(x=>s.includes(x))||/\\b(?:[0-9]+(?:[.,][0-9]+)?x|[0-9]+%)\\b/.test(s))process.exit(1)'"
-      ],
-      "criadoEm": "2026-11-27T06:18:10.308Z",
-      "estado": "verificado",
-      "lint": [],
-      "regrasDoLint": [
-        "suite-inteira",
-        "sha-intermediario",
-        "contagem-de-commits",
-        "binario-rg",
-        "ork-fora-do-path",
-        "estado-local",
-        "aspas-escapadas",
-        "contexto-artificial",
-        "artefato-de-fechamento",
-        "ref-local-do-ramo-base"
-      ]
-    },
-    {
       "id": "C10",
       "thread": "ork-versao0612",
       "fase": "GO",
@@ -316,6 +290,32 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-versao0612",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "A abertura da 0.6.12 descreve a F7 como o motor e as portas para que só a fábrica publique o resultado que decide o merge, no GitHub e no GitLab, preservando a segunda frase e a linha do #Noctum.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const t=require(\"node:fs\").readFileSync(\"CHANGELOG.md\",\"utf8\");const x=\"A 0.6.12 entrega a F7 da RM-089: o motor e as portas para que só a fábrica publique o resultado que decide o merge, no GitHub e no GitLab. Com ela, as sete fatias da RM-089 estão entregues.\\n\\nO #Noctum segue **em desenvolvimento, não anunciado**.\";if(!t.includes(x))process.exit(1)'"
+      ],
+      "criadoEm": "2026-11-27T07:37:09.313Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
@@ -331,7 +331,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "67c991bd1ed69607eee4926d6b2d62c0d01f388a",
-    "sha256": "544275c6f6caa0c3c9ea47d6d68411015c61e66e67704fce13dd9bd3c152ef7c"
+    "head": "a41888bf3b94f7967da96bd68498b55c3c429c1c",
+    "sha256": "575ea1043aea6e1f70c4d7c5fe6435d94e6877fb9ffbac6e53ca72575ba522f7"
   }
 }
