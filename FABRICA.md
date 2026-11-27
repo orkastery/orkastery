@@ -5,9 +5,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-orkauditestr | #Auto | GOAL | claude-bg claude-fable-5-2/max | — | — | 27/11 01:55 | parada desde 13/11 13:00: sessão 53359ba0 encerrada (done) |
-| vps | ork-rm071f1esper | #Auto | CHECK | claude-bg opus/max | RM-071 | — | 27/11 01:55 | viva |
-| vps | ork-rm089f7recib | #Auto | CHECK | claude-bg opus/max | — | — | 27/11 01:55 | viva |
-| vps | ork-rm102securit | #Fast | GO | codex gpt-5.6-sol/xhigh | RM-102 | — | 27/11 01:55 | viva |
+| vps | ork-orkauditestr | #Auto | GOAL | claude-bg claude-fable-5-2/max | — | — | 27/11 02:00 | parada desde 13/11 13:00: sessão 53359ba0 encerrada (done) |
+| vps | ork-rm071f1esper | #Auto | CHECK | claude-bg opus/max | RM-071 | — | 27/11 02:00 | viva |
+| vps | ork-rm089f7recib | #Auto | CHECK | claude-bg opus/max | — | — | 27/11 02:00 | viva |
+| vps | ork-rm102securit | #Fast | GO | codex gpt-5.6-sol/xhigh | RM-102 | — | 27/11 02:00 | parada desde 01:59: sessão 01a21b5c encerrada (completed) |
 
 Horários de Brasília.
