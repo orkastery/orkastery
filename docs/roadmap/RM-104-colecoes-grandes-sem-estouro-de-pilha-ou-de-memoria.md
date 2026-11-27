@@ -1,7 +1,7 @@
 ---
 id: RM-104
 tipo: roadmap
-titulo: Coleções grandes sem explosão de pilha ou memória
+titulo: Coleções grandes sem estouro de pilha ou de memória
 categoria: iniciativa
 pai: null
 features: []
@@ -24,7 +24,7 @@ sdlc:
   modo: null
 ---
 
-# RM-104: Coleções grandes sem explosão de pilha ou memória
+# RM-104: Coleções grandes sem estouro de pilha ou de memória
 
 > **Em uma frase:** caminhos de produção processam coleções cujo tamanho vem da entrada sem espalhamento dependente dela nem comparação quadrática por impressão digital.
 

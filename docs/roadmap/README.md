@@ -132,6 +132,6 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-101](RM-101-commit-do-bundle-de-ci-pelo-mcp.md) | Commit do bundle de CI pelo MCP | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-27 |
 | [RM-102](RM-102-security-scan-estavel-com-relatorio-grande.md) | Security scan estável com relatório grande | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-11-27 |
 | [RM-103](RM-103-leases-compativeis-com-o-commit.md) | Leases compatíveis com o commit da própria thread | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
-| [RM-104](RM-104-colecoes-grandes-sem-explosao.md) | Coleções grandes sem explosão de pilha ou memória | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
+| [RM-104](RM-104-colecoes-grandes-sem-estouro-de-pilha-ou-de-memoria.md) | Coleções grandes sem estouro de pilha ou de memória | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-11-27 |
 
 <!-- ork-docs:indice:fim -->
