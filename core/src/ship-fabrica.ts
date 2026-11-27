@@ -68,7 +68,7 @@ function consultarGithub(api: ChamadorDaApi, forja: ForjaResolvida, c: ConsultaD
   nivel: 'observar' | 'avisar' | 'exigir', appId: number): ResultadoDaFabricaNoShip {
   const nome = nomeDecisorioGithub(c.destino);
   const caminho = `repos/${forja.repo}/commits/${c.head}/check-runs?check_name=${encodeURIComponent(nome)}&filter=latest&per_page=100`;
-  const r = api({ metodo: 'GET', caminho, prazoMs: c.prazoMs });
+  const r = api({ metodo: 'GET', caminho, prazoMs: c.prazoDaPrimeiraLeituraMs ?? c.prazoMs });
   if (!r.ok || r.valor.cabecalhos['x-next-page']) return { ok: false, codigo: 'ci.fabrica.prova-ausente' };
   const corpo = r.valor.corpo as { total_count?: unknown; check_runs?: unknown } | null;
   if (!corpo || typeof corpo !== 'object' || !Array.isArray(corpo.check_runs)

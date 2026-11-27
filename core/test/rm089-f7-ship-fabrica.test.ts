@@ -17,7 +17,7 @@ import { exec } from '../src/util';
 import { adicionarClaim } from '../src/claims';
 import { lerLedger } from '../src/ledger';
 import type { ExecutorVerify } from '../src/verify';
-import { commitar, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
@@ -112,6 +112,25 @@ test('ship falha fechado quando o check decisório não vem do App configurado',
 
   assert.equal(resultado.ok, false);
   assert.equal(resultado.motivo, 'ci.failed');
+  projeto.limpar();
+});
+
+test('dry-run GitHub lê o check decisório com prazo útil', () => {
+  const projeto = projetoTemporario('rm089-f7-ship-github-dry-run', true);
+  versionarDestino(projeto, ['politica_recibo: exigir', 'fabrica:', '  github_app_id: 731']);
+  const { thread } = novaThread(projeto.carregado, { nome: 'ship github dry-run', modo: 'auto', criarWorktree: true });
+  commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega pela fabrica');
+  const prazos: number[] = [];
+  const api: ChamadorDaApi = (pedido) => {
+    prazos.push(pedido.prazoMs ?? 0);
+    return { ok: true, valor: { status: 200, cabecalhos: {}, limite: { restante: null, total: null, reiniciaEm: null },
+      corpo: { total_count: 0, check_runs: [] } } };
+  };
+  const resultado = ship(projeto.carregado, thread.id, { para: 'main', dryRun: true, prazoFabricaMs: 3000,
+    portaDaFabrica: criarPortaDaFabricaNoShip(projeto.carregado, { resolver: () => forjaGithub, criarApi: () => api }) });
+
+  assert.equal(resultado.ok, false);
+  assert.deepEqual(prazos, [3000]);
   projeto.limpar();
 });
 
@@ -211,6 +230,25 @@ function mesclarNoDestinoRemoto(f: ReturnType<typeof casoGitlab>, manterLocal: b
   return { antes, mergeSha };
 }
 
+function mesclarForaDoProjeto(f: ReturnType<typeof casoGitlab>, avancar: boolean): { mergeSha: string; ponta: string } {
+  assert.equal(exec('git', ['push', f.projeto.remoto as string, `${f.branch}:refs/heads/${f.branch}`], f.projeto.dir).ok, true);
+  const clone = dirTemporario('rm089-f7-ship-remoto');
+  try {
+    assert.equal(exec('git', ['clone', '-q', f.projeto.remoto as string, clone], os.tmpdir()).ok, true);
+    assert.equal(exec('git', ['config', 'user.email', 'fabrica@exemplo.invalid'], clone).ok, true);
+    assert.equal(exec('git', ['config', 'user.name', 'Fabrica'], clone).ok, true);
+    assert.equal(exec('git', ['merge', '--no-ff', '-m', 'merge observado', `origin/${f.branch}`], clone).ok, true);
+    const mergeSha = exec('git', ['rev-parse', 'HEAD'], clone).stdout.trim();
+    const ponta = avancar
+      ? commitar(clone, 'depois-do-merge.md', '# destino avançou\n', 'avança destino depois do merge')
+      : mergeSha;
+    assert.equal(exec('git', ['push', 'origin', 'main'], clone).ok, true);
+    return { mergeSha, ponta };
+  } finally {
+    fs.rmSync(clone, { recursive: true, force: true });
+  }
+}
+
 for (const localAtualizada of [false, true]) {
   test(`ship registra merge GitLab da fábrica sem criar outro merge local: main ${localAtualizada ? 'atualizada' : 'inalterada'}`, () => {
     let mergeObservado = '';
@@ -256,6 +294,29 @@ test('ship registra quando a ponta do destino avançou e contém o merge GitLab'
     pontaDaBase: entrega.pontaDaBase, pushVerificado: entrega.pushVerificado },
   { mergeSha, shaRemoto: ponta, pontaDaBase: ponta, pushVerificado: true });
   assert.match(String(entrega?.fonteDaProva), new RegExp(`git merge-base --is-ancestor ${mergeSha} ${ponta}`));
+  f.projeto.limpar();
+});
+
+test('ship busca a ponta avançada só no remoto antes de registrar o merge GitLab', () => {
+  let mergeObservado = '';
+  const f = casoGitlab('destino-avancou-so-remoto',
+    (branch, head) => [mr(branch, head, 'merged', 77, 5, mergeObservado)]);
+  const { mergeSha, ponta } = mesclarForaDoProjeto(f, true);
+  mergeObservado = mergeSha;
+  assert.equal(exec('git', ['cat-file', '-e', `${mergeSha}^{commit}`], f.projeto.dir).ok, false);
+  assert.equal(exec('git', ['cat-file', '-e', `${ponta}^{commit}`], f.projeto.dir).ok, false);
+
+  const resultado = ship(f.projeto.carregado, f.thread.id, { para: 'main', portaDaFabrica: f.porta,
+    prazoFabricaMs: f.prazoFabricaMs });
+
+  assert.equal(resultado.ok, true, resultado.detalhe);
+  assert.equal(resultado.mergeSha, mergeSha);
+  assert.equal(resultado.shaRemoto, ponta);
+  assert.equal(resultado.pontaDaBase, ponta);
+  const entrega = lerLedger(dirThread(f.projeto.dir, f.thread.id)).find((e) => e.tipo === 'ship_done');
+  assert.deepEqual(entrega && { mergeSha: entrega.mergeSha, shaRemoto: entrega.shaRemoto,
+    pontaDaBase: entrega.pontaDaBase, pushVerificado: entrega.pushVerificado },
+  { mergeSha, shaRemoto: ponta, pontaDaBase: ponta, pushVerificado: true });
   f.projeto.limpar();
 });
 

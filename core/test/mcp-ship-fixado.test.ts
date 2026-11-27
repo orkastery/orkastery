@@ -316,6 +316,73 @@ function comPath<T>(bin: string, fn: () => T): T {
   try { return fn(); } finally { process.env.PATH = antes; fs.rmSync(bin, { recursive: true, force: true }); }
 }
 
+function publicarOrigemDaFixture(f: Fixture): string {
+  const worktree = lerThreadDoTeste(f);
+  const branch = exec('/usr/bin/git', ['rev-parse', '--abbrev-ref', 'HEAD'], worktree).stdout.trim();
+  assert.equal(exec('/usr/bin/git', ['push', f.p.remoto as string, `${branch}:refs/heads/${branch}`], worktree).ok, true);
+  return branch;
+}
+
+function mesclarGitlabForaDoProjeto(f: Fixture, avancar: boolean): { mergeSha: string; ponta: string } {
+  const branch = publicarOrigemDaFixture(f), clone = dirTemporario('mcp-ship-fixado-merge-remoto');
+  try {
+    assert.equal(exec('/usr/bin/git', ['clone', '-q', f.p.remoto as string, clone], f.raiz).ok, true);
+    assert.equal(exec('/usr/bin/git', ['config', 'user.email', 'fabrica@exemplo.invalid'], clone).ok, true);
+    assert.equal(exec('/usr/bin/git', ['config', 'user.name', 'Fabrica'], clone).ok, true);
+    assert.equal(exec('/usr/bin/git', ['merge', '--no-ff', '-m', 'merge da fabrica', `origin/${branch}`], clone).ok, true);
+    const mergeSha = exec('/usr/bin/git', ['rev-parse', 'HEAD'], clone).stdout.trim();
+    const ponta = avancar
+      ? commitar(clone, 'depois-do-merge.md', 'destino avancou', 'destino avancou depois do merge')
+      : mergeSha;
+    assert.equal(exec('/usr/bin/git', ['push', 'origin', 'main'], clone).ok, true);
+    return { mergeSha, ponta };
+  } finally {
+    fs.rmSync(clone, { recursive: true, force: true });
+  }
+}
+
+for (const caso of ['ponta-igual', 'ponta-avancada-so-remoto', 'merge-fora-da-ponta'] as const) {
+  test(`GitLab em exigir pelo transporte fixado prova a ponta: ${caso}`, () => fixture(async (f) => {
+    const bare = f.p.remoto as string, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
+    fixarSsh(f, url);
+    const perfil = criarPerfilShipMcp(f.raiz, 'forja-ssh'), rede = configDeRedeDoPerfil(perfil);
+    let mergeSha: string, ponta: string;
+    if (caso === 'merge-fora-da-ponta') {
+      publicarOrigemDaFixture(f);
+      mergeSha = f.pedido.expectedSource;
+      ponta = exec('/usr/bin/git', ['rev-parse', 'main'], bare).stdout.trim();
+    } else {
+      ({ mergeSha, ponta } = mesclarGitlabForaDoProjeto(f, caso === 'ponta-avancada-so-remoto'));
+      assert.equal(exec('/usr/bin/git', ['cat-file', '-e', `${mergeSha}^{commit}`], f.raiz).ok, false);
+      if (ponta !== mergeSha) assert.equal(exec('/usr/bin/git', ['cat-file', '-e', `${ponta}^{commit}`], f.raiz).ok, false);
+    }
+    const fabrica = { configurada: true, nivel: 'exigir', forja: 'gitlab', destino: 'main',
+      head: f.pedido.expectedSource, resultado: { valido: true, destino: 'main', head: f.pedido.expectedSource },
+      gitlab: { estado: 'mesclado', shaMesclado: f.pedido.expectedSource, mergeSha, numero: 5, mescladoPorId: 77 },
+      ci: { state: 'disabled' } } as const;
+    const { bin } = sshFalso();
+    const resultado = comPath(bin, () => ship(f.p.carregado, f.id, { para: 'main', remoto: 'origin',
+      configDoRemoto: rede, urlFixada: url, fabrica }));
+    const eventos = lerLedger(dirThread(f.raiz, f.id));
+    const gates = eventos.filter((e) => e.tipo === 'gate_passed' && e.gate === 'ship');
+    const entregas = eventos.filter((e) => e.tipo === 'ship_done');
+    if (caso === 'merge-fora-da-ponta') {
+      assert.equal(resultado.ok, false);
+      assert.equal(resultado.motivo, 'runtime.unavailable');
+      assert.equal(gates.length, 0);
+      assert.equal(entregas.length, 0);
+    } else {
+      assert.equal(resultado.ok, true, resultado.detalhe);
+      assert.equal(resultado.mergeSha, mergeSha);
+      assert.equal(resultado.shaRemoto, ponta);
+      assert.equal(resultado.pontaDaBase, ponta);
+      assert.equal(resultado.pushVerificado, true);
+      assert.equal(gates.length, 1);
+      assert.equal(entregas.length, 1);
+    }
+  }));
+}
+
 test('o -c fixado: hook da config do projeto e da pasta hooks nao roda no push, nos dois modos', () => fixture(async (f) => {
   const bare = f.p.remoto!, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
   fixarSsh(f, url);
