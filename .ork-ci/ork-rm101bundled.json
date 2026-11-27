@@ -341,6 +341,162 @@
         "artefato-de-fechamento",
         "ref-local-do-ramo-base"
       ]
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-git.ts",
+      "alegacao": "O `ork_git_commit` aceita o bundle derivado somente em commit exclusivo, exige modo `100644` e o oid dos bytes conferidos no índice, commita sem pathspec, confirma o oid no commit e limpa o índice quando recusa depois do add; os mutantes que restauram pathspec ou ignoram o oid falham.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T11:04:25.330Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/ci-bundle-derivacao.ts",
+      "alegacao": "O contrato de derivação leva o `claimsSha256` da rodada verde, e a suíte rejeita derivação cujo hash de claims diverge do recibo do verify.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T11:04:25.416Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "O preparo só grava `derivacao` e `ci_bundle_prepared` para rodada integral verde com recibo de claims válido, levando o mesmo `claimsSha256`; rodada reprovada ou parcial não deriva nem grava o evento.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T11:04:25.512Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/test/rm101-bundle-mcp.test.ts",
+      "alegacao": "A suíte RM-101 cobre troca concorrente de bytes, atributo `ident`, limpeza do índice, commit misto, caminhos Markdown sem claim, outra thread, bundle alterado com claim e vínculo ao hash das claims.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/rm101-bundle-mcp.test.js"
+      ],
+      "criadoEm": "2026-11-27T11:04:25.583Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md",
+      "alegacao": "A página RM-101 registra o comportamento dos caminhos, o piloto pendente, o ciclo coerente, a fronteira de confiança do ledger e a atualização futura do contrato público.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-101-commit-do-bundle-de-ci-pelo-mcp.md && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-11-27T11:04:25.652Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm101bundled",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "A descrição pública da ferramenta ork_git_commit continua a mesma da main nesta fase Fast, sem citar a exceção do bundle derivado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"Commita somente paths com claims e HEAD esperado na worktree da thread. Recusa hooks/filtros ativos; preserva configuracao. Commit local nao e SHIP.\" core/src/mcp-server.ts"
+      ],
+      "criadoEm": "2026-11-27T11:24:11.952Z",
+      "estado": "verificado",
+      "lint": [],
+      "regrasDoLint": [
+        "suite-inteira",
+        "sha-intermediario",
+        "contagem-de-commits",
+        "binario-rg",
+        "ork-fora-do-path",
+        "estado-local",
+        "aspas-escapadas",
+        "contexto-artificial",
+        "artefato-de-fechamento",
+        "ref-local-do-ramo-base"
+      ]
     }
   ],
   "deferredClaims": [],
@@ -356,7 +512,7 @@
   ],
   "recibo": {
     "contrato": "ork.recibo-prova/v1",
-    "head": "f952959793455c94f645870905e9cc065c11e240",
-    "sha256": "fb63196346ab9a46735be74d54893b8a297c1f51ab3e56fdf6cceed51bd57bff"
+    "head": "57ad28577f9a38dc5d19ae8474121661afc0435b",
+    "sha256": "05cfb385f2db0f7175b24a37256e4f1a49265056356e02222ce5ac794508e6d4"
   }
 }
