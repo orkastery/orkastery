@@ -6,6 +6,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Corrigido
+
+- **Security scan estável com relatório grande (RM-102):** ingere relatórios do ESLint sem espalhar achados, mantém a impressão digital para uniões equivalentes sem colidir uniões distintas e torna o teste de `SIGTERM` determinístico. Dispensas antigas de `no-unsafe-argument` com a união fora da ordem canônica precisam ser refeitas uma vez, porque a impressão digital passa a usar a forma canônica.
+
 ## [0.6.12] - 2026-11-27
 
 A 0.6.12 entrega a F7 da RM-089: o motor e as portas para que só a fábrica publique o resultado que decide o merge, no GitHub e no GitLab. Com ela, as sete fatias da RM-089 estão entregues.

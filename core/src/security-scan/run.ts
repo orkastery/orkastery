@@ -60,7 +60,7 @@ export interface RunScanOptions {
 }
 
 /** Version of the normalized cache content; bump when a normalizer or the RawFinding shape changes. */
-export const SCAN_CACHE_VERSION = 1;
+export const SCAN_CACHE_VERSION = 2;
 
 /** `reason` on `ran` is the tolerated partial coverage (`partial-timeout: 2`), see `expect.tolerate`. */
 type Outcome = { kind: 'ran'; findings: RawFinding[]; reason?: string } | { kind: 'failed' | 'unavailable'; reason: string };
@@ -78,6 +78,11 @@ export function git(cwd: string, args: string[]): string | null {
 
 export function emptyCounts(): ToolRun['counts'] {
   return Object.fromEntries(STATUSES.map(s => [s, Object.fromEntries(SEVERITIES.map(v => [v, 0]))])) as ToolRun['counts'];
+}
+
+/** Acrescenta uma coleção inteira sem transformar seu tamanho em argumentos de uma chamada. */
+export function appendAll<T>(target: T[], source: readonly T[]): void {
+  for (const item of source) target.push(item);
 }
 
 /** Base sha: `--base`, else merge-base with `<remote>/<base_branch>`, else with the local branch; null when unresolved. */
@@ -225,7 +230,7 @@ function scanTree(t: ToolSpec, executor: Executor, tree: string, unit: Unit, ctx
         const nctx = { root: executor === 'docker' ? '/src' : tree, stackDir: unit.dir };
         try {
           const content = fs.readFileSync(f, 'utf8');
-          findings.push(...NORMALIZERS[t.name](content, nctx));
+          appendAll(findings, NORMALIZERS[t.name](content, nctx));
           const p = partialOf(t.name, content);
           if (p) partial.push(p);
         } catch (e) {
@@ -327,7 +332,7 @@ export function scanTool(t: ToolSpec, units: Unit[], config: ScanConfig, ctx: Co
     let b: Outcome;
     try { b = scanBase(t, executor, unit, ctx, h.lists[0] ?? []); } catch (e) { b = { kind: 'failed', reason: firstLine((e as Error).message) }; }
     if (b.kind === 'ran') {
-      outcomes.push(h.outcome); head.push(...h.outcome.findings); base.push(...b.findings);
+      outcomes.push(h.outcome); appendAll(head, h.outcome.findings); appendAll(base, b.findings);
       // Partial coverage of the HEAD scan is reported; on the base it only makes HEAD findings `new` (stricter).
       if (h.outcome.reason) partial.push(h.outcome.reason);
     }
@@ -391,7 +396,7 @@ export function runScan(opts: RunScanOptions): ScanReport {
       if (r.run.state === 'ran') {
         const c = classify(r.head, r.base, dismissals, config.exclude);
         for (const f of c.findings) r.run.counts[f.status][f.severity]++;
-        report.findings.push(...c.findings);
+        appendAll(report.findings, c.findings);
         c.excluded.forEach(e => excluded.add(e));
       }
       report.tools.push(r.run);

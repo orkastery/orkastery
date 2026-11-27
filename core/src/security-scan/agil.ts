@@ -22,7 +22,7 @@ import { loadConfig, loadDismissals } from './config';
 import { RoundGuard } from './guard';
 import { resolverRegrasSemgrep } from './incremental';
 import {
-  cacheRoot, checkout, emptyCounts, failedAll, git, resolveBase, scanTool, stackPairs, unitsOf,
+  appendAll, cacheRoot, checkout, emptyCounts, failedAll, git, resolveBase, scanTool, stackPairs, unitsOf,
   type RunScanOptions, type ToolResult, type TrabalhoDaFerramenta,
 } from './run';
 import { defaultProbe, type Probe } from './executor';
@@ -305,7 +305,7 @@ export function runScanAgil(opts: RunScanOptions, rodar: typeof rodarEmParalelo 
       if (r.run.state === 'ran') {
         const c = classify(r.head, r.base, dismissals, config.exclude);
         for (const f of c.findings) r.run.counts[f.status][f.severity]++;
-        report.findings.push(...c.findings);
+        appendAll(report.findings, c.findings);
         c.excluded.forEach(e => excluded.add(e));
       }
       report.tools.push(r.run);
