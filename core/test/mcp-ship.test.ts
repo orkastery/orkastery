@@ -42,6 +42,20 @@ test('SHIP MCP: API integral verifica em sandbox, mergeia e prova push no bare f
   const replay=await shipMcp(perfil,f.pedido);assert.equal(replay.ok,false);
 }));
 
+test('SHIP MCP: worker real em exigir consulta a porta da fabrica e recusa sem prova', { skip: semCodexSandbox() },async()=>fixture(async f=>{
+  const arquivo=path.join(f.raiz,'orkastery.yaml'),texto=fs.readFileSync(arquivo,'utf8').replace('  context: ork-verify\n',
+    '  context: ork-verify\n  politica_recibo: exigir\n  fabrica:\n    github_app_id: 731\n');
+  commitar(f.raiz,'orkastery.yaml',texto,'configura fabrica no destino');
+  f.git(['push','origin','main']);
+  const pedido={...f.pedido,expectedDestination:f.git(['rev-parse','main']).trim()};
+  const destino=pedido.expectedDestination,r=await shipMcp(criarPerfilShipMcp(f.raiz,'bare-local'),pedido);
+  assert.equal(r.ok,false);
+  assert.equal(r.resultado?.motivo,'ci.failed',r.erro??r.resultado?.detalhe);
+  assert.match(r.resultado?.detalhe??'',/ci\.fabrica\.prova-ausente/);
+  assert.equal(f.git(['rev-parse','main']).trim(),destino);
+  assert.equal(lerLedger(dirThread(f.raiz,f.id)).some(e=>e.tipo==='ship_done'),false);
+}));
+
 const CHAVE_MCP_SCAN='chave-simulada-mcp-ship-scan-000';
 const OUTRA_CHAVE_MCP_SCAN='outra-chave-simulada-mcp-ship-scan';
 async function cenarioMcpScan(cenario: 'controle' | 'b-antiga-depois-a' | 'b-antiga-com-pedido-novo-aberto' |
