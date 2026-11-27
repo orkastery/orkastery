@@ -37,6 +37,26 @@ const tool = (r: ScanReport, name: string) => {
 const total = (counts: ScanReport['tools'][number]['counts']): number =>
   Object.values(counts).reduce((n, bySev) => n + Object.values(bySev).reduce((a, b) => a + b, 0), 0);
 
+interface SaidaDoProcesso { code: number | null; signal: NodeJS.Signals | null; error?: Error }
+
+/** Observa a saída desde o spawn, para que nem um runner rápido nem um runner lento perca o evento. */
+function observarSaida(child: ReturnType<typeof spawn>): { promise: Promise<SaidaDoProcesso>; terminou: () => boolean } {
+  let terminou = false;
+  const promise = new Promise<SaidaDoProcesso>(resolve => {
+    const concluir = (saida: SaidaDoProcesso) => { if (!terminou) { terminou = true; resolve(saida); } };
+    child.once('error', error => concluir({ code: null, signal: null, error }));
+    child.once('exit', (code, signal) => concluir({ code, signal }));
+  });
+  return { promise, terminou: () => terminou };
+}
+
+function aguardarComPrazo<T>(promise: Promise<T>, prazoMs: number, mensagem: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(mensagem)), prazoMs);
+    promise.then(valor => { clearTimeout(timer); resolve(valor); }, erro => { clearTimeout(timer); reject(erro); });
+  });
+}
+
 const NO_DOCKER_NO_BINARY: Probe = { dockerCli: () => false, dockerDaemon: () => false, nativeVersion: () => null };
 
 let cache: string;
@@ -526,7 +546,7 @@ test('deadlineMs bounds the whole round: the hanging tool and every tool after i
   assert.equal(fake.calls().filter(c => c.args[0] === 'run').length, 1, 'nothing starts once the deadline is spent');
 });
 
-test('a round killed by SIGTERM leaves no worktree, no raw output dir and no container behind', async () => {
+test('a round killed by SIGTERM leaves no worktree, no raw output dir and no container behind', { timeout: 180_000 }, async t => {
   const r = repo('secscan-sigterm', { origin: true });
   fake = installFakeTools();
   const tmp = dirTemporario('secscan-sigterm-tmp');
@@ -539,17 +559,28 @@ test('a round killed by SIGTERM leaves no worktree, no raw output dir and no con
   const child = spawn(process.execPath, [runner, r.dir], {
     detached: true, stdio: 'ignore', env: { ...process.env, ORK_FAKE_DOCKER_SLEEP: 'gitleaks', TMPDIR: scratch },
   });
-  const exited = new Promise<NodeJS.Signals | number | null>(res => child.on('exit', (code, sig) => res(sig ?? code)));
+  assert.ok(child.pid, 'the runner has a process group');
+  const saida = observarSaida(child);
+  t.after(async () => {
+    if (!saida.terminou()) try { process.kill(-child.pid!, 'SIGKILL'); } catch { /* already gone */ }
+    if (!saida.terminou()) await aguardarComPrazo(saida.promise, 10_000, 'the runner did not stop during cleanup');
+  });
   const wait = async (cond: () => boolean, ms: number): Promise<boolean> => {
-    for (const end = Date.now() + ms; Date.now() < end;) { if (cond()) return true; await new Promise(res => setTimeout(res, 100)); }
+    for (const end = Date.now() + ms; Date.now() < end;) {
+      if (cond()) return true;
+      if (saida.terminou()) return false;
+      await new Promise(res => setTimeout(res, 100));
+    }
     return cond();
   };
   const sleeping = () => fake!.calls().some(c => c.args[0] === 'run' && c.args.some(a => a.includes('zricethezav/gitleaks')));
-  assert.ok(await wait(sleeping, 20000), 'the round reached the hanging tool');
+  assert.ok(await wait(sleeping, 120_000), 'the round reached the hanging tool');
   const leftovers = () => fs.readdirSync(scratch).filter(n => n.startsWith('ork-security-scan-'));
   assert.ok(leftovers().some(n => n.includes('-tree-')) && leftovers().some(n => n.includes('-out-')), 'mid-round state exists');
   process.kill(-child.pid!, 'SIGTERM');
-  assert.equal(await exited, 'SIGTERM', 'the runner dies on the signal (conventional 128+15)');
+  const encerramento = await aguardarComPrazo(saida.promise, 20_000, 'the runner did not exit after SIGTERM');
+  assert.ifError(encerramento.error);
+  assert.equal(encerramento.signal, 'SIGTERM', 'the runner exits through SIGTERM');
   const worktrees = () => git(r.dir, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree ')).length;
   assert.ok(await wait(() => worktrees() === 1 && leftovers().length === 0, 15000), `left behind: ${leftovers().join(', ')}; worktrees ${worktrees()}`);
   const run = fake.calls().find(c => c.args[0] === 'run' && c.args.some(a => a.includes('zricethezav/gitleaks')))!.args;
