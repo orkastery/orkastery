@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.11",
-  "publicadoEm": "2026-11-27T04:18:16.082Z",
+  "publicadoEm": "2026-11-27T04:18:53.583Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -70,6 +70,28 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
+      }
+    },
+    {
+      "id": "ork-rm102securit",
+      "nome": "rm102scanest",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-102",
+      "branch": "ork/ork-rm102securit-go",
+      "atualizadaEm": "2026-11-27T04:18:47.543Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-27T04:18:50.312Z",
+        "motivo": "nenhuma sessão despachada na fase GO"
       }
     }
   ]
