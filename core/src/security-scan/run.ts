@@ -332,7 +332,7 @@ export function scanTool(t: ToolSpec, units: Unit[], config: ScanConfig, ctx: Co
     let b: Outcome;
     try { b = scanBase(t, executor, unit, ctx, h.lists[0] ?? []); } catch (e) { b = { kind: 'failed', reason: firstLine((e as Error).message) }; }
     if (b.kind === 'ran') {
-      outcomes.push(h.outcome); head.push(...h.outcome.findings); base.push(...b.findings);
+      outcomes.push(h.outcome); appendAll(head, h.outcome.findings); appendAll(base, b.findings);
       // Partial coverage of the HEAD scan is reported; on the base it only makes HEAD findings `new` (stricter).
       if (h.outcome.reason) partial.push(h.outcome.reason);
     }
