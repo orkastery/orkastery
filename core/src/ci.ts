@@ -601,6 +601,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       contrato: bundle.derivacao.contrato,
       head: bundle.derivacao.head,
       verifyRun: bundle.derivacao.verifyRun,
+      claimsSha256: bundle.derivacao.claimsSha256,
       sha256: createHash('sha256').update(texto, 'utf8').digest('hex'),
     });
   }
@@ -610,11 +611,13 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
 /** O vinculo nasce somente da rodada mais recente, integral e verde. */
 function derivacaoDoUltimoVerify(raiz: string, threadId: string): { derivacao?: DerivacaoDoBundleCi } {
   const ultimo = lerLedger(dirThread(raiz, threadId)).filter((e) => e.tipo === TIPOS_DE_EVENTO.verificacao).at(-1);
+  const recibo = ultimo?.recibo as Record<string, unknown> | undefined;
   if (ultimo?.veredito !== 'verdade sustentada' || ultimo.parcial === true ||
       typeof ultimo.commit !== 'string' || !/^[a-f0-9]{40}$/.test(ultimo.commit) ||
-      typeof ultimo.eventId !== 'string' || !ultimo.eventId) return {};
+      typeof ultimo.eventId !== 'string' || !ultimo.eventId ||
+      typeof recibo?.claimsSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(recibo.claimsSha256)) return {};
   return { derivacao: { contrato: CONTRATO_DERIVACAO_BUNDLE_CI, thread: threadId,
-    head: ultimo.commit, verifyRun: ultimo.eventId } };
+    head: ultimo.commit, verifyRun: ultimo.eventId, claimsSha256: recibo.claimsSha256 } };
 }
 
 /** O último verify decide: uma reprovação ou rodada parcial posterior não reaproveita um verde antigo. */

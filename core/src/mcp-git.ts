@@ -24,7 +24,9 @@ export interface ArtefatoDerivadoCommitMcp {
   thread: string;
   head: string;
   verifyRun: string;
+  claimsSha256: string;
   sha256: string;
+  oid: string;
 }
 export interface ResultadoCommitMcp {
   ok: boolean;
@@ -104,24 +106,40 @@ function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHe
   const ultimoVerify=eventos.filter(e=>e.tipo==='verify_run').at(-1);
   if(!ultimoVerify || ultimoVerify.veredito!=='verdade sustentada' || ultimoVerify.parcial===true)
     falha('bundle.verify.invalid');
+  const reciboDoUltimo=ultimoVerify.recibo as Record<string,unknown>|undefined;
+  if(!reciboDoUltimo || typeof reciboDoUltimo.claimsSha256!=='string' ||
+      !/^[a-f0-9]{64}$/.test(reciboDoUltimo.claimsSha256))falha('bundle.verify.invalid');
   const derivacao=bundle!.derivacao as Record<string,unknown>|undefined;
   if(!derivacao || derivacao.contrato!==CONTRATO_DERIVACAO_BUNDLE_CI)falha('bundle.receipt.missing');
   if(bundle!.thread!==threadId || derivacao.thread!==threadId)falha('bundle.thread.invalid');
   if(derivacao.head!==expectedHead || ultimoVerify.commit!==expectedHead)falha('bundle.head.stale');
   if(typeof derivacao.verifyRun!=='string' || derivacao.verifyRun!==ultimoVerify.eventId)
     falha('bundle.verify.invalid');
+  if(derivacao.claimsSha256!==reciboDoUltimo.claimsSha256)falha('bundle.verify.invalid');
   const rodada=eventos.find(e=>e.tipo==='verify_run' && e.eventId===derivacao.verifyRun);
   if(!rodada || rodada.veredito!=='verdade sustentada' || rodada.parcial===true || rodada.commit!==expectedHead)
     falha('bundle.verify.invalid');
+  const reciboDaRodada=rodada.recibo as Record<string,unknown>|undefined;
+  if(reciboDaRodada?.claimsSha256!==derivacao.claimsSha256)falha('bundle.verify.invalid');
   const preparo=eventos.filter(e=>e.tipo==='ci_bundle_prepared').at(-1);
   if(!preparo || preparo.arquivo!==esperado || preparo.contrato!==CONTRATO_DERIVACAO_BUNDLE_CI)
     falha('bundle.receipt.missing');
   if(preparo.head!==expectedHead)falha('bundle.head.stale');
   if(preparo.verifyRun!==derivacao.verifyRun)falha('bundle.verify.invalid');
+  if(preparo.claimsSha256!==derivacao.claimsSha256)falha('bundle.verify.invalid');
   const sha256=createHash('sha256').update(bytes).digest('hex');
   if(preparo.sha256!==sha256)falha('bundle.changed');
+  const oid=createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
   return {arquivo:esperado,contrato:CONTRATO_DERIVACAO_BUNDLE_CI,thread:threadId,head:expectedHead,
-    verifyRun:derivacao.verifyRun,sha256};
+    verifyRun:derivacao.verifyRun,claimsSha256:derivacao.claimsSha256 as string,sha256,oid};
+}
+
+/** O indice precisa apontar para os mesmos bytes regulares que receberam a dispensa de claim. */
+function conferirDerivadosNoIndice(wt:string,derivados:ArtefatoDerivadoCommitMcp[]):void {
+  for(const derivado of derivados) {
+    const entrada=git(wt,['ls-files','-s','-z','--',derivado.arquivo]);
+    if(entrada!==`100644 ${derivado.oid} 0\t${derivado.arquivo}\0`)falha('bundle.changed');
+  }
 }
 /**
  * Fatia 2 do ensaio da 0.5.0 (P8): como o git saiu, sem o stderr, que pode citar caminho e conteudo.
@@ -395,6 +413,7 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
         if(derivado)derivados.push(derivado);
         else if(!claims.some(c=>c.estado!=='retirada' && c.arquivo===f && c.verificar.length>0)) falha('claim.missing');
       }
+      if(derivados.length && p.paths.length!==1)falha('bundle.exclusive');
       artefatosDerivados=derivados;
     };
     conferir();
@@ -410,20 +429,31 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
     }
     conferir(); if(git(wt,['diff','--cached','--name-only','-z']).length) falha('index.not-empty');
     comEstadoParaGit(raiz,t.id,wt,()=>{
-      conferir();
-      // Fatia 2 do ensaio da 0.5.0 (P8): caminho rastreado entra por `git add -u`, que nao consulta regra de
-      // ignore; o `git add` dele, sob regra local (`fontes/` casando `marketplaces/fontes/`), indexava e saia 1.
-      // Caminho novo segue pelo `git add`, que continua recusando o ignorado, e vai antes: recusado, os
-      // rastreados nem chegam ao indice.
-      const rastreados=new Set(git(wt,['ls-files','-z','--',...p.paths]).split('\0').filter(Boolean));
-      const antigos=p.paths.filter(f=>rastreados.has(f)),novos=p.paths.filter(f=>!rastreados.has(f));
-      if(novos.length) git(wt,['add','--',...novos]);
-      if(antigos.length) git(wt,['add','-u','--',...antigos]);
-      const staged=git(wt,['diff','--cached','--name-only','-z']).split('\0').filter(Boolean).sort();
-      if(!staged.length || staged.some(f=>!p.paths.includes(f))) falha('index.selection');
-      conferir();
-      git(wt,['commit','-m',p.mensagem,'--',...p.paths]);
-      commit=git(wt,['rev-parse','HEAD']).trim();
+      let indiceTocado=false;
+      try {
+        conferir();
+        // Fatia 2 do ensaio da 0.5.0 (P8): caminho rastreado entra por `git add -u`, que nao consulta regra de
+        // ignore; o `git add` dele, sob regra local (`fontes/` casando `marketplaces/fontes/`), indexava e saia 1.
+        // Caminho novo segue pelo `git add`, que continua recusando o ignorado, e vai antes: recusado, os
+        // rastreados nem chegam ao indice.
+        const rastreados=new Set(git(wt,['ls-files','-z','--',...p.paths]).split('\0').filter(Boolean));
+        const antigos=p.paths.filter(f=>rastreados.has(f)),novos=p.paths.filter(f=>!rastreados.has(f));
+        if(novos.length) {indiceTocado=true;git(wt,['add','--',...novos]);}
+        if(antigos.length) {indiceTocado=true;git(wt,['add','-u','--',...antigos]);}
+        const staged=git(wt,['diff','--cached','--name-only','-z']).split('\0').filter(Boolean).sort();
+        if(!staged.length || staged.some(f=>!p.paths.includes(f))) falha('index.selection');
+        conferir();
+        conferirDerivadosNoIndice(wt,artefatosDerivados);
+        git(wt,['commit','-m',p.mensagem]);
+        indiceTocado=false;
+        commit=git(wt,['rev-parse','HEAD']).trim();
+      } catch(e) {
+        if(indiceTocado)try {
+          if(git(wt,['rev-parse','HEAD']).trim()===p.expectedHead)
+            git(wt,['reset','-q',p.expectedHead,'--',...p.paths]);
+        } catch { /* A recusa original continua primaria; a auditoria posterior denuncia o indice. */ }
+        throw e;
+      }
     });
     if(perfil(wt,comum,gitdir,t.id,p.paths,HOOKS_DO_COMMIT)!==originalPerfil) falha('execution-profile.changed');
     estadoAuditado=auditarEstado(raiz,t.id,wt).nivel==='ok';
@@ -431,6 +461,9 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
     if(!commit || git(wt,['rev-parse','HEAD^']).trim()!==p.expectedHead) falha('commit.parent-invalid');
     const alterados=git(wt,['diff-tree','--no-commit-id','--name-only','-r','-z',commit]).split('\0').filter(Boolean);
     if(!alterados.length || alterados.some(f=>!p.paths.includes(f))) falha('commit.paths-invalid');
+    for(const derivado of artefatosDerivados)
+      if(git(wt,['rev-parse','--verify',`${commit}:${derivado.arquivo}`]).trim()!==derivado.oid)
+        falha('bundle.commit.mismatch');
     registrar(dirThread(raiz,t.id),t.id,'mcp_git_committed',{commit,paths:alterados,origem:'mcp.git',estadoAuditado,
       ...(artefatosDerivados.length?{artefatosDerivados}:{}),...vinculo});
     return {ok:true,commit,erro:null,estadoAuditado,...(artefatosDerivados.length?{artefatosDerivados}:{})};

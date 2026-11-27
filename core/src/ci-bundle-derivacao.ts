@@ -6,4 +6,5 @@ export interface DerivacaoDoBundleCi {
   thread: string;
   head: string;
   verifyRun: string;
+  claimsSha256: string;
 }
