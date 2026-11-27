@@ -344,8 +344,7 @@ function mesclarGitlabForaDoProjeto(f: Fixture, avancar: boolean): { mergeSha: s
 for (const caso of ['ponta-igual', 'ponta-avancada-so-remoto', 'merge-fora-da-ponta'] as const) {
   test(`GitLab em exigir pelo transporte fixado prova a ponta: ${caso}`, () => fixture(async (f) => {
     const bare = f.p.remoto as string, url = `ssh://git@gitlab.empresa.com:2222${bare}`;
-    fixarSsh(f, url);
-    const perfil = criarPerfilShipMcp(f.raiz, 'forja-ssh'), rede = configDeRedeDoPerfil(perfil);
+    const fixacao = fixarSsh(f, url).fixacao, rede = configDeRede(fixacao, dirDaFixacao(f.raiz));
     let mergeSha: string, ponta: string;
     if (caso === 'merge-fora-da-ponta') {
       publicarOrigemDaFixture(f);
