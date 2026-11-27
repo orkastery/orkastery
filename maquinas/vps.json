@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.6.12",
-  "publicadoEm": "2026-11-27T10:15:04.341Z",
+  "publicadoEm": "2026-11-27T10:28:07.832Z",
   "threads": [
     {
       "id": "ork-orkauditestr",
@@ -58,7 +58,29 @@
       "status": "aberta",
       "roadmap": "RM-101",
       "branch": "ork/ork-rm101bundled-go",
-      "atualizadaEm": "2026-11-27T10:05:49.332Z",
+      "atualizadaEm": "2026-11-27T10:22:52.209Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "xhigh",
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-11-27T10:25:07.211Z",
+        "motivo": "sessão 01a21c71 encerrada (completed)"
+      }
+    },
+    {
+      "id": "ork-rm102securit",
+      "nome": "rm102scanest",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-102",
+      "branch": "ork/ork-rm102securit-go",
+      "atualizadaEm": "2026-11-27T10:28:07.402Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -70,28 +92,6 @@
         "viva": true,
         "desdeEm": null,
         "motivo": null
-      }
-    },
-    {
-      "id": "ork-rm102securit",
-      "nome": "rm102scanest",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-102",
-      "branch": "ork/ork-rm102securit-go",
-      "atualizadaEm": "2026-11-27T10:04:52.852Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh",
-      "sessao": {
-        "viva": false,
-        "desdeEm": "2026-11-27T09:03:22.261Z",
-        "motivo": "sessão 01a21c20 encerrada (completed)"
       }
     }
   ]
