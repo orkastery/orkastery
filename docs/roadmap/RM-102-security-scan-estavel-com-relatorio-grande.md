@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Condução do roadmap
-atualizado_em: 2026-11-26T09:50:38-03:00
+atualizado_em: 2026-11-27T01:49:08-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,10 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm102securit
+  modo: fast
+  fase: GO
+  status: aberta
 ---
 
 # RM-102 — Security scan estável com relatório grande
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -70,13 +72,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-11-26 | Condução do roadmap |
-| Documentação | Rascunho | — | 2026-11-26 | Condução do roadmap |
-| Código | Não iniciado | — | 2026-11-26 | Condução do roadmap |
-| Testes | Não iniciados | — | 2026-11-26 | Condução do roadmap |
-| Deploy | Não implantado | — | 2026-11-26 | Condução do roadmap |
-| Exposição | Flag desligada | — | 2026-11-26 | Condução do roadmap |
-| Habilitação | Pendente | — | 2026-11-26 | Condução do roadmap |
+| Ciclo do item | Em desenvolvimento | — | 2026-11-27 | Condução do roadmap |
+| Documentação | Em revisão | — | 2026-11-27 | Condução do roadmap |
+| Código | Branch criada | — | 2026-11-27 | Condução do roadmap |
+| Testes | Em execução | — | 2026-11-27 | Condução do roadmap |
+| Deploy | Não implantado | — | 2026-11-27 | Condução do roadmap |
+| Exposição | Flag desligada | — | 2026-11-27 | Condução do roadmap |
+| Habilitação | Pendente | — | 2026-11-27 | Condução do roadmap |
 
 <!-- ork-docs:estado:fim -->
 
