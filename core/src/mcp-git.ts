@@ -15,10 +15,28 @@ import { lerLedger, registrar } from './ledger';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { Lease } from './types';
+import { CONTRATO_DERIVACAO_BUNDLE_CI } from './ci-bundle-derivacao';
 
 export interface PedidoCommitMcp { threadId: string; expectedHead: string; paths: string[]; mensagem: string }
-export interface ResultadoCommitMcp { ok: boolean; commit: string | null; erro: string | null; estadoAuditado: boolean }
+export interface ArtefatoDerivadoCommitMcp {
+  arquivo: string;
+  contrato: typeof CONTRATO_DERIVACAO_BUNDLE_CI;
+  thread: string;
+  head: string;
+  verifyRun: string;
+  sha256: string;
+}
+export interface ResultadoCommitMcp {
+  ok: boolean;
+  commit: string | null;
+  erro: string | null;
+  estadoAuditado: boolean;
+  /** Identifica derivacao conferida; nao afirma que o artefato verificou a si mesmo. */
+  artefatosDerivados?: ArtefatoDerivadoCommitMcp[];
+}
 const GIT = '/usr/bin/git', LIMITE = 262144, TTL = 120000;
+const LIMITE_BUNDLE = 16 * 1024 * 1024;
+const DIR_DO_BUNDLE = '.ork-ci';
 function falha(codigo: string): never { throw Error('mcp.git.' + codigo); }
 function validar(p: PedidoCommitMcp): void {
   if (!p || typeof p !== 'object' || Object.keys(p).sort().join(',') !== 'expectedHead,mensagem,paths,threadId' ||
@@ -66,6 +84,44 @@ function ambiente(env:NodeJS.ProcessEnv=process.env): NodeJS.ProcessEnv {
   // Variáveis GIT/SSH/GPG vindas do cliente não são transportadas ao worker.
   return { HOME: env.HOME, USER: env.USER, LOGNAME: env.LOGNAME,
     XDG_CONFIG_HOME:env.XDG_CONFIG_HOME, PATH:'/usr/bin:/bin', LANG:'C.UTF-8', TMPDIR:'/tmp' };
+}
+
+/** A dispensa de claim vale somente para os bytes que o nucleo acabou de derivar da ultima rodada verde. */
+function conferirBundleDerivado(raiz:string,threadId:string,wt:string,expectedHead:string,arquivo:string):ArtefatoDerivadoCommitMcp|null {
+  const esperado=path.posix.join(DIR_DO_BUNDLE,`${threadId}.json`);
+  if(arquivo.startsWith(DIR_DO_BUNDLE+'/') && arquivo.endsWith('.json') && arquivo!==esperado)
+    falha('bundle.thread.invalid');
+  if(arquivo!==esperado)return null;
+  const absoluto=path.join(wt,arquivo);
+  if(!fs.existsSync(absoluto))falha('bundle.missing');
+  fisico(wt,absoluto,true);
+  const stat=fs.statSync(absoluto);
+  if(stat.size>LIMITE_BUNDLE)falha('bundle.changed');
+  const bytes=fs.readFileSync(absoluto);
+  let bundle:Record<string,unknown>;
+  try {bundle=JSON.parse(bytes.toString('utf8')) as Record<string,unknown>;} catch {falha('bundle.changed');}
+  const eventos=lerLedger(dirThread(raiz,threadId));
+  const ultimoVerify=eventos.filter(e=>e.tipo==='verify_run').at(-1);
+  if(!ultimoVerify || ultimoVerify.veredito!=='verdade sustentada' || ultimoVerify.parcial===true)
+    falha('bundle.verify.invalid');
+  const derivacao=bundle!.derivacao as Record<string,unknown>|undefined;
+  if(!derivacao || derivacao.contrato!==CONTRATO_DERIVACAO_BUNDLE_CI)falha('bundle.receipt.missing');
+  if(bundle!.thread!==threadId || derivacao.thread!==threadId)falha('bundle.thread.invalid');
+  if(derivacao.head!==expectedHead || ultimoVerify.commit!==expectedHead)falha('bundle.head.stale');
+  if(typeof derivacao.verifyRun!=='string' || derivacao.verifyRun!==ultimoVerify.eventId)
+    falha('bundle.verify.invalid');
+  const rodada=eventos.find(e=>e.tipo==='verify_run' && e.eventId===derivacao.verifyRun);
+  if(!rodada || rodada.veredito!=='verdade sustentada' || rodada.parcial===true || rodada.commit!==expectedHead)
+    falha('bundle.verify.invalid');
+  const preparo=eventos.filter(e=>e.tipo==='ci_bundle_prepared').at(-1);
+  if(!preparo || preparo.arquivo!==esperado || preparo.contrato!==CONTRATO_DERIVACAO_BUNDLE_CI)
+    falha('bundle.receipt.missing');
+  if(preparo.head!==expectedHead)falha('bundle.head.stale');
+  if(preparo.verifyRun!==derivacao.verifyRun)falha('bundle.verify.invalid');
+  const sha256=createHash('sha256').update(bytes).digest('hex');
+  if(preparo.sha256!==sha256)falha('bundle.changed');
+  return {arquivo:esperado,contrato:CONTRATO_DERIVACAO_BUNDLE_CI,thread:threadId,head:expectedHead,
+    verifyRun:derivacao.verifyRun,sha256};
 }
 /**
  * Fatia 2 do ensaio da 0.5.0 (P8): como o git saiu, sem o stderr, que pode citar caminho e conteudo.
@@ -293,6 +349,7 @@ export function estadoGitMcp(raiz:string,threadId:string) {
 /** Somente o worker dedicado chama este corpo; não altera env do servidor. */
 function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): ResultadoCommitMcp {
   const proprias: Lease[]=[]; let commit: string|null=null, estadoAuditado=false;
+  let artefatosDerivados:ArtefatoDerivadoCommitMcp[]=[];
   try {
     validar(p); if(!path.isAbsolute(raiz) || fs.realpathSync(raiz)!==raiz || exigirManifesto(raiz).raiz!==raiz) falha('project.invalid');
     fisico(raiz,dirThread(raiz,p.threadId));validarArquivosEstadoMcp(raiz,p.threadId);
@@ -331,10 +388,14 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
       for(const nome of ['MERGE_HEAD','CHERRY_PICK_HEAD','REVERT_HEAD','rebase-merge','rebase-apply'])
         if(fs.existsSync(path.join(gitdir,nome))) falha('operation.in-progress');
       const claims=lerClaims(raiz,t.id);
+      const derivados:ArtefatoDerivadoCommitMcp[]=[];
       for(const f of p.paths) {
         fisico(wt,path.join(wt,f),true);
-        if(!claims.some(c=>c.estado!=='retirada' && c.arquivo===f && c.verificar.length>0)) falha('claim.missing');
+        const derivado=conferirBundleDerivado(raiz,t.id,wt,p.expectedHead,f);
+        if(derivado)derivados.push(derivado);
+        else if(!claims.some(c=>c.estado!=='retirada' && c.arquivo===f && c.verificar.length>0)) falha('claim.missing');
       }
+      artefatosDerivados=derivados;
     };
     conferir();
     if(git(wt,['diff','--cached','--name-only','-z']).length) falha('index.not-empty');
@@ -370,8 +431,9 @@ function executar(raiz: string,p: PedidoCommitMcp,dispatchId?: string): Resultad
     if(!commit || git(wt,['rev-parse','HEAD^']).trim()!==p.expectedHead) falha('commit.parent-invalid');
     const alterados=git(wt,['diff-tree','--no-commit-id','--name-only','-r','-z',commit]).split('\0').filter(Boolean);
     if(!alterados.length || alterados.some(f=>!p.paths.includes(f))) falha('commit.paths-invalid');
-    registrar(dirThread(raiz,t.id),t.id,'mcp_git_committed',{commit,paths:alterados,origem:'mcp.git',estadoAuditado,...vinculo});
-    return {ok:true,commit,erro:null,estadoAuditado};
+    registrar(dirThread(raiz,t.id),t.id,'mcp_git_committed',{commit,paths:alterados,origem:'mcp.git',estadoAuditado,
+      ...(artefatosDerivados.length?{artefatosDerivados}:{}),...vinculo});
+    return {ok:true,commit,erro:null,estadoAuditado,...(artefatosDerivados.length?{artefatosDerivados}:{})};
   } catch(e) {
     const mensagem=(e as Error).message;
     return {ok:false,commit,erro:mensagem.startsWith('mcp.git.')?mensagem:'mcp.git.operation.failed: estado e indice preservados',estadoAuditado};
