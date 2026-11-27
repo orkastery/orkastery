@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-11-26T12:30:00-03:00
+atualizado_em: 2026-11-27T03:20:00-03:00
 estado:
-  ciclo: Em desenvolvimento
+  ciclo: Em validação
   documentacao: Em revisão
   codigo: Mesclado
-  testes: Em execução
+  testes: Aprovados
   deploy: Produção
   exposicao: Parcial
   habilitacao: Em andamento
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Produção | Parcial |
+| Em validação | Mesclado | Aprovados | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -130,17 +130,17 @@ Um hotfix urgente pode usar uma exceção auditável autorizada pela política. 
 | F4 | Política e `exigir` no `ork ci run`, com GitHub e GitLab | PRs de branches `ork/*` e externas produzem o mesmo resultado em cada nível; em `exigir`, recibo ausente, inválido ou de outro HEAD reprova o check obrigatório nas duas forjas |
 | F5 | Recibo básico em qualquer branch | O CI reexecuta claims e verify da thread e aceita somente o recibo ligado ao HEAD do PR |
 | F6 | `ork adotar`, aviso no terminal e exceção auditável | Uma branch externa entra em thread sem perder commits; a sessão fora de thread recebe as duas ações; a exceção autorizada aparece no ledger e no relatório, e a não autorizada não libera o merge |
-| F7 | Decisão forte da fábrica | O motor e as portas verificarão registros do núcleo, fatos relidos da forja, CHECK independente e HEAD exato; o resultado v2 rejeitará chave, emissor ou SHA divergente sem transportar prova ao runner nem operar o serviço |
+| F7 | Decisão forte da fábrica | O motor e as portas conferem registros do núcleo, fatos relidos da forja, CHECK independente e HEAD exato; o resultado v2 rejeita chave, emissor ou SHA divergente sem transportar prova ao runner nem operar o serviço |
 
-**Estado em 26/11/2026:** F1 a F4 foram publicadas na 0.6.9 e F5 na 0.6.10. F6 foi mesclada na `main` pelo PR #298. A F7 está em GO, ainda não foi mesclada nem publicada, e fornece somente o motor e as portas da decisão.
+**Estado em 27/11/2026:** F1 a F4 foram publicadas na 0.6.9, F5 na 0.6.10 e F6 na 0.6.11. A F7 foi mesclada na `main` pelo PR #307 e sai na 0.6.12. As sete fatias estão entregues; a F7 fornece somente o motor e as portas da decisão.
 
-Pela D32, a integração da F7 fica depois da conclusão das threads ligadas às issues #302, #299, #303 e #304, nessa ordem.
+Pela D32, a integração da F7 ocorreu depois da conclusão das threads ligadas às issues #302, #299, #303 e #304, nessa ordem.
 
 ## Plano e decisões
 
-- **Prioridade / método / pontuação / justificativa / data:** Discovery e documentação despachadas em 10/11/2026 a pedido do dono; prioridade de construção a definir pelo dono.
-- **Horizonte / alvo / previsão / confiança / marcos:** meta e piloto: **A definir pelo dono**. Marcos propostos são F1 a F7; não há previsão de implantação nesta Discovery.
-- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-053, RM-026, RM-047, RM-065, RM-048 e RM-090; revisão de segurança e de governança antes do piloto; owner: Julio; próxima revisão no planejamento da primeira fatia.
+- **Prioridade / método / pontuação / justificativa / data:** construção concluída em sete fatias; a última foi mesclada em 27/11/2026 pelo PR #307.
+- **Horizonte / alvo / previsão / confiança / marcos:** F1 a F6 estão publicadas; a F7 sai na 0.6.12. Meta e piloto continuam **A definir pelo dono**.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** RM-053, RM-026, RM-047, RM-065, RM-048 e RM-090 permanecem relacionadas; não há bloqueio de código aberto para as sete fatias; owner: Julio; próxima revisão após a publicação da 0.6.12.
 - **Premissas / riscos / mitigação:** detalhados abaixo; capacidades não cobertas pelas fontes oficiais permanecem não confirmadas.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 e D2 foram decididas pelo dono no terminal em 10/11/2026; a antiga D4 foi respondida pelo esclarecimento da mesma data.
 
@@ -194,13 +194,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-11-26 | Julio |
-| Documentação | Em revisão | — | 2026-11-26 | Julio |
-| Código | Mesclado | commit `3673d07` · PR #285 | 2026-11-26 | Julio |
-| Testes | Em execução | — | 2026-11-26 | Julio |
-| Deploy | Produção | — | 2026-11-26 | Julio |
-| Exposição | Parcial | — | 2026-11-26 | Julio |
-| Habilitação | Em andamento | — | 2026-11-26 | Julio |
+| Ciclo do item | Em validação | — | 2026-11-27 | Julio |
+| Documentação | Em revisão | — | 2026-11-27 | Julio |
+| Código | Mesclado | commit `3673d07` · PR #285 | 2026-11-27 | Julio |
+| Testes | Aprovados | — | 2026-11-27 | Julio |
+| Deploy | Produção | — | 2026-11-27 | Julio |
+| Exposição | Parcial | — | 2026-11-27 | Julio |
+| Habilitação | Em andamento | — | 2026-11-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -208,7 +208,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: equipe Orkastery; A: Julio; C: segurança, administradores das forjas e builders inscritos; I: times da empresa.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a sessão GO separou as duas evoluções em modo `#Fast`; o dono decidiu D1 e D2 e esclareceu o conjunto sincronizado; revisão humana ocorrerá na condução e no planejamento da construção.
-- **Próxima ação, responsável e prazo:** concluir o GO com verify integral; depois, a condução sincroniza a base e executa CHECK independente antes da integração; responsável: thread da F7.
+- **Próxima ação, responsável e prazo:** publicar a 0.6.12 pelo rito de release; até lá, a F7 está mesclada e ainda não publicada.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -218,3 +218,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-11-23 | Estado corrigido: F1 a F4 publicadas na 0.6.9, F5 na 0.6.10, F6 em merge e F7 a construir com transporte da prova de exceção | CHANGELOG 0.6.9 e 0.6.10; decisão do dono de 23/11/2026 para F7 | Julio |
 | 2026-11-23 | F6 mesclada na `main`; F7 em planejamento | PR #298 | Julio |
 | 2026-11-26 | F7 em GO com motor e portas da decisão, sem declarar serviço operado, merge ou publicação; integração posterior às issues #302, #299, #303 e #304 | Ratificação do dono e plano aprovado da thread `ork-rm089f7recib` | Dono na ratificação; condução #Auto na execução |
+| 2026-11-27 | F7 mesclada na `main` e incluída na 0.6.12; as sete fatias estão entregues | PR #307, merge `5f7280a2`; seção 0.6.12 do CHANGELOG | thread `ork-rm089f7recib` na entrega; thread `ork-versao0612` na versão |
